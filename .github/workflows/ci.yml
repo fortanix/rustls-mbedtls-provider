@@ -13,9 +13,16 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v3
+
+    - name: check mbedpki-provider
+      working-directory: rustls-mbedpki-provider
+      env:
+        RUSTFLAGS: -D warnings
+      run: cargo check
+
     - name: Run mbedpki-provider tests
       working-directory: rustls-mbedpki-provider
-      run: cargo test 
+      run: cargo test
