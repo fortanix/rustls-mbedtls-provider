@@ -270,7 +270,11 @@ pub fn finish_server_config(
 }
 
 pub fn make_server_config(kt: KeyType) -> ServerConfig {
-    finish_server_config(kt, ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS).with_safe_defaults())
+    finish_server_config(
+        kt,
+        ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
+            .with_safe_defaults(),
+    )
 }
 
 pub fn make_server_config_with_versions(
@@ -388,7 +392,11 @@ pub fn finish_client_config_with_creds(
 }
 
 pub fn make_client_config(kt: KeyType) -> ClientConfig {
-    finish_client_config(kt, ClientConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS).with_safe_defaults())
+    finish_client_config(
+        kt,
+        ClientConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
+            .with_safe_defaults(),
+    )
 }
 
 pub fn make_client_config_with_kx_groups(
@@ -416,7 +424,11 @@ pub fn make_client_config_with_versions(
 }
 
 pub fn make_client_config_with_auth(kt: KeyType) -> ClientConfig {
-    finish_client_config_with_creds(kt, ClientConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS).with_safe_defaults())
+    finish_client_config_with_creds(
+        kt,
+        ClientConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
+            .with_safe_defaults(),
+    )
 }
 
 pub fn make_client_config_with_versions_with_auth(

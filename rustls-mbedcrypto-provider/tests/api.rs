@@ -491,11 +491,12 @@ fn server_allow_any_anonymous_or_authenticated_client() {
             .build()
             .unwrap();
 
-        let server_config = ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
-            .with_safe_defaults()
-            .with_client_cert_verifier(client_auth)
-            .with_single_cert(kt.get_chain(), kt.get_key())
-            .unwrap();
+        let server_config =
+            ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
+                .with_safe_defaults()
+                .with_client_cert_verifier(client_auth)
+                .with_single_cert(kt.get_chain(), kt.get_key())
+                .unwrap();
         let server_config = Arc::new(server_config);
 
         for version in rustls::ALL_VERSIONS {
@@ -4553,14 +4554,15 @@ fn test_secret_extraction_enabled() {
         println!("Testing suite {:?}", suite.suite().as_str());
 
         // Only offer the cipher suite (and protocol version) that we're testing
-        let mut server_config = ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
-            .with_cipher_suites(&[suite])
-            .with_safe_default_kx_groups()
-            .with_protocol_versions(&[version])
-            .unwrap()
-            .with_no_client_auth()
-            .with_single_cert(kt.get_chain(), kt.get_key())
-            .unwrap();
+        let mut server_config =
+            ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
+                .with_cipher_suites(&[suite])
+                .with_safe_default_kx_groups()
+                .with_protocol_versions(&[version])
+                .unwrap()
+                .with_no_client_auth()
+                .with_single_cert(kt.get_chain(), kt.get_key())
+                .unwrap();
         // Opt into secret extraction from both sides
         server_config.enable_secret_extraction = true;
         let server_config = Arc::new(server_config);
@@ -4617,14 +4619,15 @@ fn test_secret_extraction_disabled_or_too_early() {
     let kt = KeyType::Rsa;
 
     for (server_enable, client_enable) in [(true, false), (false, true)] {
-        let mut server_config = ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
-            .with_cipher_suites(&[suite])
-            .with_safe_default_kx_groups()
-            .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_no_client_auth()
-            .with_single_cert(kt.get_chain(), kt.get_key())
-            .unwrap();
+        let mut server_config =
+            ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
+                .with_cipher_suites(&[suite])
+                .with_safe_default_kx_groups()
+                .with_safe_default_protocol_versions()
+                .unwrap()
+                .with_no_client_auth()
+                .with_single_cert(kt.get_chain(), kt.get_key())
+                .unwrap();
         server_config.enable_secret_extraction = server_enable;
         let server_config = Arc::new(server_config);
 

@@ -8,7 +8,11 @@ fn main() {
     env_logger::init();
 
     let mut root_store = rustls::RootCertStore::empty();
-    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    root_store.extend(
+        webpki_roots::TLS_SERVER_ROOTS
+            .iter()
+            .cloned(),
+    );
 
     let config = rustls::ClientConfig::builder_with_provider(MBEDTLS)
         .with_safe_defaults()
@@ -30,7 +34,10 @@ fn main() {
         .as_bytes(),
     )
     .unwrap();
-    let ciphersuite = tls.conn.negotiated_cipher_suite().unwrap();
+    let ciphersuite = tls
+        .conn
+        .negotiated_cipher_suite()
+        .unwrap();
     writeln!(
         &mut std::io::stderr(),
         "Current ciphersuite: {:?}",
