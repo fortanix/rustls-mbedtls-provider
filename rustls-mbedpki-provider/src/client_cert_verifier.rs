@@ -1,8 +1,14 @@
 use std::time::SystemTime;
 
-use rustls::{server::{ClientCertVerifier, ClientCertVerified}, DistinguishedName};
+use rustls::{
+    server::{ClientCertVerified, ClientCertVerifier},
+    DistinguishedName,
+};
 
-use crate::{rustls_cert_to_mbedtls_cert, mbedtls_err_into_rustls_err, common::verify_certificates_active, mbedtls_err_into_rustls_err_with_error_msg};
+use crate::{
+    common::verify_certificates_active, mbedtls_err_into_rustls_err,
+    mbedtls_err_into_rustls_err_with_error_msg, rustls_cert_to_mbedtls_cert,
+};
 
 /// A `rustls` `ClientCertVerifier` implemented using the PKI functionality of
 /// `mbedtls`
@@ -79,16 +85,15 @@ impl ClientCertVerifier for MbedTlsClientCertVerifier {
 // cert subject: CN=ponytown RSA CA, cert issuer: CN=ponytown RSA CA
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, time::SystemTime};
 
     use chrono::DateTime;
     use rustls::{
         Certificate, ClientConfig, ClientConnection, RootCertStore, ServerConfig,
         ServerConnection, server::ClientCertVerifier,
     };
+    use std::{sync::Arc, time::SystemTime};
 
     use crate::tests_common::{get_chain, get_key, do_handshake_until_error};
-
     use super::MbedTlsClientCertVerifier;
 
     fn server_config_with_verifier(

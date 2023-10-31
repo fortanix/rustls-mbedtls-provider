@@ -1,9 +1,13 @@
 use std::sync::Arc;
 
-pub mod client_cert_verifier;
-pub mod server_cert_verifier;
 mod common;
 mod tests_common;
+
+pub mod client_cert_verifier;
+pub mod server_cert_verifier;
+
+pub use client_cert_verifier::MbedTlsClientCertVerifier;
+pub use server_cert_verifier::MbedTlsServerCertVerifier;
 
 pub fn rustls_cert_to_mbedtls_cert(cert: &rustls::Certificate) -> mbedtls::Result<mbedtls::alloc::Box<mbedtls::x509::Certificate>> {
     let cert = mbedtls::x509::Certificate::from_der(&cert.0)?;

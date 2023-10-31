@@ -2,7 +2,6 @@ use chrono::NaiveDateTime;
 
 use crate::mbedtls_err_into_rustls_err;
 
-
 pub fn verify_certificates_active<'a>(
     chain: impl IntoIterator<Item = &'a mbedtls::x509::Certificate>,
     now: NaiveDateTime
