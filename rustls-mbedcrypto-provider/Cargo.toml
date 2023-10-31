@@ -20,7 +20,7 @@ rustls = { git = "https://github.com/rustls/rustls", rev = "b776a5778ad333653670
 mbedtls = { version = "0.12.0-alpha.1", default-features = false, features = [
     "std",
 ] }
-log = "0.4.20"
+log = { version = "0.4.20", optional = true }
 
 [dev-dependencies]
 rustls = { git = "https://github.com/rustls/rustls", rev = "b776a5778ad333653670c34ff9125d8ae59b6047", version = "0.22.0-alpha.4", default-features = false, features = [
@@ -34,10 +34,11 @@ pki-types = { package = "rustls-pki-types", version = "0.2.0" }
 webpki-roots = "0.26.0-alpha.1"
 rustls-pemfile = "=2.0.0-alpha.1"
 env_logger = "0.10"
+log = { version = "0.4.20" }
 
 [features]
 default = ["logging", "tls12"]
-logging = ["rustls/logging"]
+logging = ["rustls/logging", "log"]
 tls12 = ["rustls/tls12"]
 rdrand = ["mbedtls/rdrand"]
 read_buf = ["rustversion", "rustls/read_buf"]

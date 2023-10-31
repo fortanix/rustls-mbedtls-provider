@@ -1,10 +1,10 @@
 use std::sync::Mutex;
 
-use crate::crypto::hash::{self, HashAlgorithm};
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
+use rustls::crypto::hash::{self, HashAlgorithm};
 
 pub(crate) static SHA256: Hash = Hash(&MBED_SHA_256);
 pub(crate) static SHA384: Hash = Hash(&MBED_SHA_384);

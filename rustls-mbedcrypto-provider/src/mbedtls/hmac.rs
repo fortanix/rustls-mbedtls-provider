@@ -1,11 +1,11 @@
-use crate::crypto;
+#[cfg(feature = "logging")]
 use crate::log::error;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
+use rustls::crypto;
 use std::sync::Mutex;
-
 pub(crate) static HMAC_SHA256: Hmac = Hmac(&super::hash::MBED_SHA_256);
 pub(crate) static HMAC_SHA384: Hmac = Hmac(&super::hash::MBED_SHA_384);
 
@@ -63,14 +63,14 @@ impl MbedHmacContext {
                     let mut out = vec![0u8; self.hmac_algo.output_len];
                     match ctx.finish(&mut out) {
                         Ok(_) => out,
-                        Err(e) => {
-                            error!("MbedHmacContext::finalize {:?}", e);
+                        Err(_err) => {
+                            error!("MbedHmacContext::finalize {:?}", _err);
                             vec![]
                         }
                     }
                 }
-                Err(e) => {
-                    error!("MbedHmacContext::finalize {:?}", e);
+                Err(_err) => {
+                    error!("MbedHmacContext::finalize {:?}", _err);
                     vec![]
                 }
             },
@@ -88,12 +88,12 @@ impl MbedHmacContext {
         match self.state.lock().as_mut() {
             Ok(ctx) => match ctx.update(data) {
                 Ok(_) => {}
-                Err(e) => {
-                    error!("MbedHmacContext::update {:?}, input: {:?}", e, data);
+                Err(_err) => {
+                    error!("MbedHmacContext::update {:?}, input: {:?}", _err, data);
                 }
             },
-            Err(e) => {
-                error!("MbedHmacContext::update {:?}", e);
+            Err(_err) => {
+                error!("MbedHmacContext::update {:?}", _err);
             }
         }
     }

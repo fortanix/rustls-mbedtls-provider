@@ -1,21 +1,23 @@
 use super::aead;
-use crate::cipher_suite::CipherSuiteCommon;
-use crate::crypto::cipher::{
-    make_tls13_aad, AeadKey, BorrowedPlainMessage, Iv, MessageDecrypter, MessageEncrypter, Nonce,
-    OpaqueMessage, PlainMessage, Tls13AeadAlgorithm, UnsupportedOperationError,
-};
-use crate::crypto::tls13::HkdfUsingHmac;
-use crate::internal::msgs::codec::Codec;
-use crate::log::error;
-use crate::{
-    CipherSuite, ConnectionTrafficSecrets, ContentType, Error, ProtocolVersion,
-    SupportedCipherSuite, Tls13CipherSuite,
-};
 use alloc::boxed::Box;
 use alloc::vec;
 use alloc::vec::Vec;
 use mbedtls::cipher::raw::CipherType;
 use mbedtls::cipher::{Authenticated, Cipher, Decryption, Encryption, Fresh};
+use rustls::cipher_suite::CipherSuiteCommon;
+use rustls::crypto::cipher::{
+    make_tls13_aad, AeadKey, BorrowedPlainMessage, Iv, MessageDecrypter, MessageEncrypter, Nonce,
+    OpaqueMessage, PlainMessage, Tls13AeadAlgorithm, UnsupportedOperationError,
+};
+use rustls::crypto::tls13::HkdfUsingHmac;
+use rustls::internal::msgs::codec::Codec;
+use rustls::{
+    CipherSuite, ConnectionTrafficSecrets, ContentType, Error, ProtocolVersion,
+    SupportedCipherSuite, Tls13CipherSuite,
+};
+
+#[cfg(feature = "logging")]
+use crate::log::error;
 
 /// The TLS1.3 ciphersuite TLS_CHACHA20_POLY1305_SHA256
 pub static TLS13_CHACHA20_POLY1305_SHA256: SupportedCipherSuite =
@@ -119,30 +121,30 @@ impl MessageEncrypter for Tls13MessageEncrypter {
             self.aead_algorithm.cipher_mode,
             (self.enc_key.len() * 8) as _,
         )
-        .map_err(|err| {
+        .map_err(|_err| {
             error!(
                 "Failed to create TLS13 encrypt cipher, mbedtls error: {}",
-                err
+                _err
             );
             Error::DecryptError
         })?;
 
         let cipher = cipher
             .set_key_iv(&self.enc_key, &nonce)
-            .map_err(|err| {
+            .map_err(|_err| {
                 error!(
                     "Failed to set key and iv for TLS13 encrypt cipher, mbedtls error: {}",
-                    err
+                    _err
                 );
                 Error::DecryptError
             })?;
 
         cipher
             .encrypt_auth_inplace(&aad, &mut payload, &mut tag)
-            .map_err(|err| {
+            .map_err(|_err| {
                 error!(
                     "Failed to encrypt with TLS13 encrypt cipher, mbedtls error: {}",
-                    err
+                    _err
                 );
                 Error::DecryptError
             })?;
@@ -172,20 +174,20 @@ impl MessageDecrypter for Tls13MessageDecrypter {
             self.aead_algorithm.cipher_mode,
             key_bit_len as _,
         )
-        .map_err(|err| {
+        .map_err(|_err| {
             error!(
                 "Failed to create TLS13 decrypt cipher, mbedtls error: {}",
-                err
+                _err
             );
             Error::DecryptError
         })?;
 
         let cipher = cipher
             .set_key_iv(&self.dec_key, &nonce)
-            .map_err(|err| {
+            .map_err(|_err| {
                 error!(
                     "Failed to set key and iv for TLS13 decrypt cipher, mbedtls error: {}",
-                    err
+                    _err
                 );
                 Error::DecryptError
             })?;
@@ -199,10 +201,10 @@ impl MessageDecrypter for Tls13MessageDecrypter {
 
         let (plain_len, _) = cipher
             .decrypt_auth_inplace(&aad, ciphertext, tag)
-            .map_err(|err| {
+            .map_err(|_err| {
                 error!(
                     "Failed to encrypt with TLS13 decrypt cipher, mbedtls error: {}",
-                    err
+                    _err
                 );
                 Error::DecryptError
             })?;

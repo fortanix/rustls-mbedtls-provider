@@ -13,22 +13,20 @@ use pki_types::{CertificateDer, UnixTime};
 use rustls::client::{
     verify_server_cert_signed_by_trust_anchor, ResolvesClientCert, Resumption, WebPkiServerVerifier,
 };
-use rustls::internal::msgs::base::Payload;
-use rustls::internal::msgs::codec::Codec;
-use rustls::internal::msgs::enums::AlertLevel;
-use rustls::internal::msgs::handshake::{ClientExtension, HandshakePayload};
-use rustls::internal::msgs::message::{Message, MessagePayload, PlainMessage};
-use rustls::server::{ClientHello, ParsedCertificate, ResolvesServerCert, WebPkiClientVerifier};
-use rustls::SupportedCipherSuite;
-use rustls::{
-    sign, AlertDescription, CertificateError, ConnectionCommon, ContentType, Error, KeyLog,
-    PeerIncompatible, PeerMisbehaved, SideData,
+use rustls::internal::msgs::{
+    base::Payload,
+    codec::Codec,
+    enums::AlertLevel,
+    handshake::{ClientExtension, HandshakePayload},
+    message::{Message, MessagePayload, PlainMessage},
 };
-use rustls::{CipherSuite, ProtocolVersion, SignatureScheme};
-use rustls::{ClientConfig, ClientConnection};
-use rustls::{ConnectionTrafficSecrets, DistinguishedName};
-use rustls::{ServerConfig, ServerConnection};
-use rustls::{Stream, StreamOwned};
+use rustls::server::{ClientHello, ParsedCertificate, ResolvesServerCert, WebPkiClientVerifier};
+use rustls::{
+    sign, AlertDescription, CertificateError, CipherSuite, ClientConfig, ClientConnection,
+    ConnectionCommon, ContentType, DistinguishedName, Error, KeyLog, PeerIncompatible,
+    PeerMisbehaved, ProtocolVersion, ServerConfig, ServerConnection, SideData, SignatureScheme,
+    Stream, StreamOwned, SupportedCipherSuite,
+};
 use rustls_mbedcrypto_provider::ALL_CIPHER_SUITES;
 
 mod common;
@@ -4533,6 +4531,7 @@ fn test_no_warning_logging_during_successful_sessions() {
 #[cfg(feature = "tls12")]
 #[test]
 fn test_secret_extraction_enabled() {
+    use rustls::ConnectionTrafficSecrets;
     // Normally, secret extraction would be used to configure kTLS (TLS offload
     // to the kernel). We want this test to run on any platform, though, so
     // instead we just compare secrets for equality.

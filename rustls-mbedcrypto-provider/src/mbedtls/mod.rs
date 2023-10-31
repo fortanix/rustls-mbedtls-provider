@@ -35,24 +35,24 @@ pub mod rng {
 /// A `CryptoProvider` backed by the [*mbedtls*] crate.
 ///
 /// [*ring*]: https://github.com/fortanix/rust-mbedtls
-pub static MBEDTLS: &'static dyn crate::crypto::CryptoProvider = &Mbedtls;
+pub static MBEDTLS: &'static dyn rustls::crypto::CryptoProvider = &Mbedtls;
 
 #[derive(Debug)]
 struct Mbedtls;
 
-impl crate::crypto::CryptoProvider for Mbedtls {
-    fn fill_random(&self, bytes: &mut [u8]) -> Result<(), crate::crypto::GetRandomFailed> {
+impl rustls::crypto::CryptoProvider for Mbedtls {
+    fn fill_random(&self, bytes: &mut [u8]) -> Result<(), rustls::crypto::GetRandomFailed> {
         rng::rng_new()
-            .ok_or(crate::crypto::GetRandomFailed)?
+            .ok_or(rustls::crypto::GetRandomFailed)?
             .random(bytes)
-            .map_err(|_| crate::crypto::GetRandomFailed)
+            .map_err(|_| rustls::crypto::GetRandomFailed)
     }
 
-    fn default_cipher_suites(&self) -> &'static [crate::SupportedCipherSuite] {
+    fn default_cipher_suites(&self) -> &'static [SupportedCipherSuite] {
         ALL_CIPHER_SUITES
     }
 
-    fn default_kx_groups(&self) -> &'static [&'static dyn crate::crypto::SupportedKxGroup] {
+    fn default_kx_groups(&self) -> &'static [&'static dyn rustls::crypto::SupportedKxGroup] {
         ALL_KX_GROUPS
     }
 }
@@ -61,10 +61,10 @@ impl crate::crypto::CryptoProvider for Mbedtls {
 ///
 /// This will be [`ALL_CIPHER_SUITES`] sans any supported cipher suites that
 /// shouldn't be enabled by most applications.
-pub static DEFAULT_CIPHER_SUITES: &[crate::SupportedCipherSuite] = ALL_CIPHER_SUITES;
+pub static DEFAULT_CIPHER_SUITES: &[SupportedCipherSuite] = ALL_CIPHER_SUITES;
 
 /// A list of all the cipher suites supported by the rustls *mbedtls* provider.
-pub static ALL_CIPHER_SUITES: &[crate::SupportedCipherSuite] = &[
+pub static ALL_CIPHER_SUITES: &[SupportedCipherSuite] = &[
     // TLS1.3 suites
     tls13::TLS13_AES_256_GCM_SHA384,
     tls13::TLS13_AES_128_GCM_SHA256,
@@ -95,3 +95,4 @@ pub mod kx_group {
 }
 
 pub use kx::ALL_KX_GROUPS;
+use rustls::SupportedCipherSuite;
