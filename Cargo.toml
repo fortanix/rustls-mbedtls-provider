@@ -1,0 +1,8 @@
+[workspace]
+members = [
+  "rustls-mbedcrypto-provider",
+]
+default-members = [
+  "rustls-mbedcrypto-provider",
+]
+resolver = "2"
