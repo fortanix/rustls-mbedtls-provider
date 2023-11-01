@@ -1,8 +1,13 @@
 use rustls::{client::{ServerCertVerifier, ServerCertVerified}, ServerName};
 
-use crate::{rustls_cert_to_mbedtls_cert, mbedtls_err_into_rustls_err, common::verify_certificates_active, mbedtls_err_into_rustls_err_with_error_msg};
+use crate::{
+    mbedtls_err_into_rustls_err, mbedtls_err_into_rustls_err_with_error_msg,
+    rustls_cert_to_mbedtls_cert, verify_certificates_active,
+    verify_tls_signature,
+};
 
-
+/// A `rustls` `ServerCertVerifier` implemented using the PKI functionality of
+/// `mbedtls`
 pub struct MbedTlsServerCertVerifier {
     trusted_cas: mbedtls::alloc::List<mbedtls::x509::Certificate>,
 }
@@ -23,6 +28,10 @@ impl MbedTlsServerCertVerifier {
         }
         Ok(Self { trusted_cas })
     }
+
+    pub fn trusted_cas(&self) -> &mbedtls::alloc::List<mbedtls::x509::Certificate> {
+        &self.trusted_cas
+    }
 }
 
 fn server_name_to_str(server_name: &rustls::ServerName) -> String {
@@ -33,6 +42,7 @@ fn server_name_to_str(server_name: &rustls::ServerName) -> String {
         ServerName::IpAddress(addr) => {
             addr.to_string()
         },
+        // We have this case because rustls::ServerName is marked as non-exhaustive.
         _ => {
             panic!("unknown server name: {server_name:?}")
         }
@@ -82,6 +92,25 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
         // Signed certificate timestamps are experimental, https://datatracker.ietf.org/doc/html/rfc6962
         false
     }
+
+    fn verify_tls12_signature(
+            &self,
+            message: &[u8],
+            cert: &rustls::Certificate,
+            dss: &rustls::DigitallySignedStruct,
+        ) -> Result<rustls::client::HandshakeSignatureValid, rustls::Error> {
+        verify_tls_signature(message, cert, dss, false)
+    }
+
+    fn verify_tls13_signature(
+            &self,
+            message: &[u8],
+            cert: &rustls::Certificate,
+            dss: &rustls::DigitallySignedStruct,
+        ) -> Result<rustls::client::HandshakeSignatureValid, rustls::Error> {
+        verify_tls_signature(message, cert, dss, true)
+    }
+
 }
 
 // ../test-data/rsa/end.fullchain has these three certificates:
@@ -92,13 +121,18 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
 mod tests {
     use std::{sync::Arc, time::SystemTime};
 
-    use rustls::{ClientConfig, ClientConnection, ServerConnection, Certificate, RootCertStore, ServerConfig, client::ServerCertVerifier};
+    use rustls::{
+        client::ServerCertVerifier,
+        version::{TLS12, TLS13},
+        Certificate, ClientConfig, ClientConnection, RootCertStore, ServerConfig, ServerConnection,
+        SignatureScheme, SupportedProtocolVersion,
+    };
 
-    use crate::tests_common::{get_chain, get_key, do_handshake_until_error};
+    use crate::tests_common::{get_chain, get_key, do_handshake_until_error, VerifierWithSupportedVerifySchemes};
 
     use super::MbedTlsServerCertVerifier;
 
-    fn client_config_with_verifier(server_cert_verifier: MbedTlsServerCertVerifier) -> ClientConfig {
+    fn client_config_with_verifier<V: ServerCertVerifier + 'static>(server_cert_verifier: V) -> ClientConfig {
         ClientConfig::builder()
             .with_safe_default_cipher_suites()
             .with_safe_default_kx_groups()
@@ -114,7 +148,9 @@ mod tests {
         root_store.add(&root_ca).unwrap();
 
         let client_config = client_config_with_verifier(MbedTlsServerCertVerifier::new(&[root_ca]).unwrap());
-        let server_config = ServerConfig::builder().with_safe_defaults().with_no_client_auth()
+        let server_config = ServerConfig::builder()
+            .with_safe_defaults()
+            .with_no_client_auth()
             .with_single_cert(invalid_cert_chain, get_key(include_bytes!("../test-data/rsa/end.key")))
             .unwrap();
 
@@ -126,23 +162,52 @@ mod tests {
         res.unwrap_err()
     }
 
-    #[test]
-    fn connection_server_cert_verifier() {
+    fn test_connection_server_cert_verifier(
+        supported_verify_schemes: Vec<rustls::SignatureScheme>,
+        protocol_versions: &[&'static SupportedProtocolVersion]
+    ) {
         let root_ca = Certificate(include_bytes!("../test-data/rsa/ca.der").to_vec());
         let mut root_store = RootCertStore::empty();
         root_store.add(&root_ca).unwrap();
         let cert_chain = get_chain(include_bytes!("../test-data/rsa/end.fullchain"));
 
-        let client_config = client_config_with_verifier(MbedTlsServerCertVerifier::new(&[root_ca]).unwrap());
-        let server_config = ServerConfig::builder().with_safe_defaults().with_no_client_auth()
+        let verifier = VerifierWithSupportedVerifySchemes {
+            verifier: MbedTlsServerCertVerifier::new(&[root_ca]).unwrap(),
+            supported_verify_schemes,
+        };
+        let client_config = client_config_with_verifier(verifier);
+        let server_config = ServerConfig::builder()
+            .with_safe_default_cipher_suites()
+            .with_safe_default_kx_groups()
+            .with_protocol_versions(protocol_versions).unwrap()
+            .with_no_client_auth()
             .with_single_cert(cert_chain, get_key(include_bytes!("../test-data/rsa/end.key")))
             .unwrap();
 
         let mut client_conn = ClientConnection::new(Arc::new(client_config), "testserver.com".try_into().unwrap()).unwrap();
         let mut server_conn = ServerConnection::new(Arc::new(server_config)).unwrap();
 
-        let res = do_handshake_until_error(&mut client_conn, &mut server_conn);
-        assert!(res.is_ok())
+        // asserts handshake succeeds
+        do_handshake_until_error(&mut client_conn, &mut server_conn).unwrap();
+    }
+
+    #[test]
+    fn connection_server_cert_verifier() {
+        let schemes = [
+            (SignatureScheme::RSA_PSS_SHA512,   &TLS12),
+            (SignatureScheme::RSA_PSS_SHA384,   &TLS12),
+            (SignatureScheme::RSA_PSS_SHA256,   &TLS12),
+            (SignatureScheme::RSA_PKCS1_SHA512, &TLS12),
+            (SignatureScheme::RSA_PKCS1_SHA384, &TLS12),
+            (SignatureScheme::RSA_PKCS1_SHA256, &TLS12),
+
+            (SignatureScheme::RSA_PSS_SHA512,   &TLS13),
+            (SignatureScheme::RSA_PSS_SHA384,   &TLS13),
+            (SignatureScheme::RSA_PSS_SHA256,   &TLS13),
+        ];
+        for (scheme, protocol) in schemes {
+            test_connection_server_cert_verifier(vec![scheme], &[&protocol]);
+        }
     }
 
     #[test]
@@ -226,6 +291,7 @@ mod tests {
     #[test]
     fn server_cert_verifier_invalid_chain() {
         let cert_chain = get_chain(include_bytes!("../test-data/rsa/end.fullchain"));
+
         let mut broken_chain1 = cert_chain.clone();
         broken_chain1.remove(1);
 
@@ -235,7 +301,6 @@ mod tests {
         let mut broken_chain3 = cert_chain.clone();
         broken_chain3.remove(2);
         broken_chain3.remove(1);
-
 
         for broken_chain in [broken_chain1, broken_chain2, broken_chain3] {
             test_server_cert_verifier_invalid_chain(&broken_chain);

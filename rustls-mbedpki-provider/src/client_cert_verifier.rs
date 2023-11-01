@@ -6,8 +6,8 @@ use rustls::{
 };
 
 use crate::{
-    common::verify_certificates_active, mbedtls_err_into_rustls_err,
-    mbedtls_err_into_rustls_err_with_error_msg, rustls_cert_to_mbedtls_cert,
+    mbedtls_err_into_rustls_err, mbedtls_err_into_rustls_err_with_error_msg,
+    rustls_cert_to_mbedtls_cert, verify_certificates_active, verify_tls_signature,
 };
 
 /// A `rustls` `ClientCertVerifier` implemented using the PKI functionality of
@@ -76,6 +76,24 @@ impl ClientCertVerifier for MbedTlsClientCertVerifier {
 
         Ok(ClientCertVerified::assertion())
     }
+
+    fn verify_tls12_signature(
+            &self,
+            message: &[u8],
+            cert: &rustls::Certificate,
+            dss: &rustls::DigitallySignedStruct,
+        ) -> Result<rustls::client::HandshakeSignatureValid, rustls::Error> {
+        verify_tls_signature(message, cert, dss, false)
+    }
+
+    fn verify_tls13_signature(
+            &self,
+            message: &[u8],
+            cert: &rustls::Certificate,
+            dss: &rustls::DigitallySignedStruct,
+        ) -> Result<rustls::client::HandshakeSignatureValid, rustls::Error> {
+        verify_tls_signature(message, cert, dss, true)
+    }
 }
 
 
@@ -123,7 +141,6 @@ mod tests {
                 get_key(include_bytes!("../test-data/rsa/client.key"))
             ).unwrap();
 
-
         let client_cert_verifier = MbedTlsClientCertVerifier::new([&root_ca]).unwrap();
 
         let server_config = server_config_with_verifier(client_cert_verifier);
@@ -133,7 +150,6 @@ mod tests {
 
         assert!(do_handshake_until_error(&mut client_conn, &mut server_conn).is_ok());
     }
-
 
     fn test_connection_client_cert_verifier_with_invalid_certs(invalid_cert_chain: Vec<Certificate>) {
         let client_config = ClientConfig::builder().with_safe_defaults();
