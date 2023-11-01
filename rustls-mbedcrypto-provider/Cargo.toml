@@ -9,11 +9,7 @@ homepage = "https://github.com/fortanix/rustls-mbedtls-provider"
 repository = "https://github.com/fortanix/rustls-mbedtls-provider"
 readme = "../README.md"
 categories = ["network-programming", "cryptography"]
-build = "build.rs"
 resolver = "2"
-
-[build-dependencies]
-rustversion = { version = "1.0.6", optional = true }
 
 [dependencies]
 rustls = { git = "https://github.com/rustls/rustls", rev = "b776a5778ad333653670c34ff9125d8ae59b6047", version = "0.22.0-alpha.4", default-features = false }
@@ -41,10 +37,6 @@ default = ["logging", "tls12"]
 logging = ["rustls/logging", "log"]
 tls12 = ["rustls/tls12"]
 rdrand = ["mbedtls/rdrand"]
-# When building with Rust Nightly, adds support for the unstable
-# `std::io::ReadBuf` and related APIs in `rustls`. This reduces costs from
-# initializing buffers. Will do nothing on non-Nightly releases.
-read_buf = ["rustversion", "rustls/read_buf"]
 
 [[example]]
 name = "client"
