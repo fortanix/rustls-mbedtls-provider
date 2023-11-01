@@ -13,12 +13,12 @@ use rustls::crypto::cipher::{
 use rustls::crypto::tls12::PrfUsingHmac;
 use rustls::crypto::KeyExchangeAlgorithm;
 
+use super::aead::{self, Algorithm, AES128_GCM, AES256_GCM};
+use alloc::string::String;
 use rustls::{
     CipherSuite, ConnectionTrafficSecrets, Error, SignatureScheme, SupportedCipherSuite,
     Tls12CipherSuite,
 };
-use alloc::string::String;
-use super::aead::{self, Algorithm, AES128_GCM, AES256_GCM};
 
 pub(crate) const GCM_FIXED_IV_LEN: usize = 4;
 pub(crate) const GCM_EXPLICIT_NONCE_LEN: usize = 8;

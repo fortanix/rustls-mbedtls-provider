@@ -3,10 +3,10 @@ use crate::error::mbedtls_err_to_rustls_error;
 #[cfg(feature = "logging")]
 use crate::log::error;
 use alloc::boxed::Box;
+use alloc::fmt;
 use alloc::format;
 use alloc::vec;
 use alloc::vec::Vec;
-use alloc::fmt;
 use crypto::SupportedKxGroup;
 use mbedtls::{
     bignum::Mpi,
@@ -117,10 +117,7 @@ struct KeyExchange {
 
 impl crypto::ActiveKeyExchange for KeyExchange {
     /// Completes the key exchange, given the peer's public key.
-    fn complete(
-        self: Box<Self>,
-        peer_public_key: &[u8],
-    ) -> Result<crypto::SharedSecret, Error> {
+    fn complete(self: Box<Self>, peer_public_key: &[u8]) -> Result<crypto::SharedSecret, Error> {
         // Get private key from self data
         let group_id = self.agreement_algorithm.group_id;
         let ec_group = EcGroup::new(group_id).map_err(mbedtls_err_to_rustls_error)?;

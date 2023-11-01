@@ -1,5 +1,7 @@
 use super::aead;
+use crate::error::mbedtls_err_to_rustls_error;
 use alloc::boxed::Box;
+use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use mbedtls::cipher::raw::CipherType;
@@ -15,8 +17,6 @@ use rustls::{
     CipherSuite, ConnectionTrafficSecrets, ContentType, Error, ProtocolVersion,
     SupportedCipherSuite, Tls13CipherSuite,
 };
-use alloc::string::String;
-use crate::error::mbedtls_err_to_rustls_error;
 
 /// The TLS1.3 ciphersuite TLS_CHACHA20_POLY1305_SHA256
 pub static TLS13_CHACHA20_POLY1305_SHA256: SupportedCipherSuite =

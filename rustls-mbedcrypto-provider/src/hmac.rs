@@ -7,7 +7,6 @@ use alloc::vec::Vec;
 use rustls::crypto;
 use std::sync::Mutex;
 
-
 /// HMAC using SHA-256.
 pub(crate) static HMAC_SHA256: Hmac = Hmac(&super::hash::MBED_SHA_256);
 
