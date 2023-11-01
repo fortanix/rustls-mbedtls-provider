@@ -17,7 +17,7 @@ use rustls::{
     CipherSuite, ConnectionTrafficSecrets, Error, SignatureScheme, SupportedCipherSuite,
     Tls12CipherSuite,
 };
-
+use alloc::string::String;
 use super::aead::{self, Algorithm, AES128_GCM, AES256_GCM};
 
 pub(crate) const GCM_FIXED_IV_LEN: usize = 4;

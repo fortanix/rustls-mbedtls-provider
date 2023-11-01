@@ -64,7 +64,7 @@ impl hash::Context for HashContext {
     }
 
     fn fork(&self) -> Box<dyn hash::Context> {
-        Box::new(HashContext(self.0.clone()))
+        Box::new(Self(self.0.clone()))
     }
 
     fn finish(self: Box<Self>) -> hash::Output {
@@ -93,7 +93,7 @@ impl Clone for MbedHashContext {
 
 impl MbedHashContext {
     pub(crate) fn new(hash_algo: &'static Algorithm) -> Self {
-        MbedHashContext {
+        Self {
             hash_algo,
             state: Arc::new(Mutex::new(
                 mbedtls::hash::Md::new(hash_algo.hash_type).expect("input is validated"),

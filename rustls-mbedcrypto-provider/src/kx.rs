@@ -6,6 +6,7 @@ use alloc::boxed::Box;
 use alloc::format;
 use alloc::vec;
 use alloc::vec::Vec;
+use alloc::fmt;
 use crypto::SupportedKxGroup;
 use mbedtls::{
     bignum::Mpi,
@@ -27,7 +28,7 @@ struct KxGroup {
     agreement_algorithm: &'static agreement::Algorithm,
 }
 
-impl std::fmt::Debug for KxGroup {
+impl fmt::Debug for KxGroup {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_fmt(format_args!("{:?}", self.name))
     }
@@ -117,7 +118,7 @@ struct KeyExchange {
 impl crypto::ActiveKeyExchange for KeyExchange {
     /// Completes the key exchange, given the peer's public key.
     fn complete(
-        self: Box<KeyExchange>,
+        self: Box<Self>,
         peer_public_key: &[u8],
     ) -> Result<crypto::SharedSecret, Error> {
         // Get private key from self data
@@ -133,7 +134,7 @@ impl crypto::ActiveKeyExchange for KeyExchange {
                 group_id
             )));
         }
-        let public_point = EcPoint::from_binary_no_compress(&ec_group, &peer_public_key)
+        let public_point = EcPoint::from_binary_no_compress(&ec_group, peer_public_key)
             .map_err(mbedtls_err_to_rustls_error)?;
         let peer_pk = PkMbed::public_from_ec_components(ec_group.clone(), public_point)
             .map_err(mbedtls_err_to_rustls_error)?;

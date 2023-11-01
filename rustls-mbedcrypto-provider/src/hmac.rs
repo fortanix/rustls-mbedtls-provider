@@ -7,6 +7,7 @@ use alloc::vec::Vec;
 use rustls::crypto;
 use std::sync::Mutex;
 
+
 /// HMAC using SHA-256.
 pub(crate) static HMAC_SHA256: Hmac = Hmac(&super::hash::MBED_SHA_256);
 
@@ -51,7 +52,7 @@ struct MbedHmacContext {
 
 impl MbedHmacContext {
     pub(crate) fn new(hmac_algo: &'static super::hash::Algorithm, key: &[u8]) -> Self {
-        MbedHmacContext {
+        Self {
             hmac_algo,
             state: Arc::new(Mutex::new(
                 mbedtls::hash::Hmac::new(hmac_algo.hash_type, key).expect("input validated"),
@@ -87,7 +88,7 @@ impl MbedHmacContext {
     }
 
     pub(crate) fn update(&mut self, data: &[u8]) {
-        if data.len() == 0 {
+        if data.is_empty() {
             return;
         }
         match self.state.lock().as_mut() {

@@ -15,7 +15,7 @@ use rustls::{
     CipherSuite, ConnectionTrafficSecrets, ContentType, Error, ProtocolVersion,
     SupportedCipherSuite, Tls13CipherSuite,
 };
-
+use alloc::string::String;
 use crate::error::mbedtls_err_to_rustls_error;
 
 /// The TLS1.3 ciphersuite TLS_CHACHA20_POLY1305_SHA256
