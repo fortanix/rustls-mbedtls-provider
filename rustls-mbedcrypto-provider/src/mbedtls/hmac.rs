@@ -56,6 +56,7 @@ impl MbedHmacContext {
         }
     }
 
+    /// Since the trait does not provider a way to return error, empty vector is returned when getting error from `mbedtls`.
     pub(crate) fn finalize(self) -> Vec<u8> {
         match Arc::into_inner(self.state) {
             Some(mutex) => match mutex.into_inner() {
@@ -64,18 +65,18 @@ impl MbedHmacContext {
                     match ctx.finish(&mut out) {
                         Ok(_) => out,
                         Err(_err) => {
-                            error!("MbedHmacContext::finalize {:?}", _err);
+                            error!("Failed to finalize hmac, mbedtls error: {:?}", _err);
                             vec![]
                         }
                     }
                 }
                 Err(_err) => {
-                    error!("MbedHmacContext::finalize {:?}", _err);
+                    error!("Failed to get lock, error: {:?}", _err);
                     vec![]
                 }
             },
             None => {
-                error!("MbedHmacContext::finalize Arc::into_inner got None");
+                error!("Failed to do Arc::into_inner");
                 vec![]
             }
         }
@@ -89,11 +90,11 @@ impl MbedHmacContext {
             Ok(ctx) => match ctx.update(data) {
                 Ok(_) => {}
                 Err(_err) => {
-                    error!("MbedHmacContext::update {:?}, input: {:?}", _err, data);
+                    error!("Failed to update hmac, mbedtls error: {:?}", _err);
                 }
             },
             Err(_err) => {
-                error!("MbedHmacContext::update {:?}", _err);
+                error!("Failed to get lock, error: {:?}", _err);
             }
         }
     }

@@ -1,4 +1,5 @@
 use super::agreement;
+use crate::error::mbedtls_err_to_rustls_error;
 #[cfg(feature = "logging")]
 use crate::log::error;
 use alloc::boxed::Box;
@@ -118,46 +119,21 @@ impl crypto::ActiveKeyExchange for KeyExchange {
     ) -> Result<crypto::SharedSecret, Error> {
         // Get private key from self data
         let group_id = self.agreement_algorithm.group_id;
-        let ec_group = EcGroup::new(group_id).map_err(|_err| {
-            Error::General(format!(
-                "Failed to create {:?} EcGroup, mbedtls error: {}",
-                group_id, _err
-            ))
-        })?;
-        let private_key = Mpi::from_binary(&self.priv_key).map_err(|_err| {
-            Error::General(format!(
-                "Failed to create {:?} Mpi from private key binary, mbedtls error: {}",
-                group_id, _err
-            ))
-        })?;
+        let ec_group = EcGroup::new(group_id).map_err(mbedtls_err_to_rustls_error)?;
+        let private_key = Mpi::from_binary(&self.priv_key).map_err(mbedtls_err_to_rustls_error)?;
 
-        let mut sk =
-            PkMbed::private_from_ec_components(ec_group.clone(), private_key).map_err(|_err| {
-                Error::General(format!(
-                    "Failed to create {:?} Pk from private Mpi, mbedtls error: {}",
-                    group_id, _err
-                ))
-            })?;
+        let mut sk = PkMbed::private_from_ec_components(ec_group.clone(), private_key)
+            .map_err(mbedtls_err_to_rustls_error)?;
         if peer_public_key.len() != self.agreement_algorithm.public_key_len {
             return Err(Error::General(format!(
                 "Failed to validate {:?} comping peer public key, invalid length",
                 group_id
             )));
         }
-        let public_point = EcPoint::from_binary_no_compress(&ec_group, &peer_public_key).map_err(|_err| {
-        // let public_point = EcPoint::from_binary(&ec_group, &peer_public_key).map_err(|_err| {
-            Error::General(format!(
-                "Failed to create {:?} EcPoint from comping peer public key, mbedtls error: {:?}, {}",
-                group_id,_err, peer_public_key.len()
-            ))
-        })?;
-        let peer_pk =
-            PkMbed::public_from_ec_components(ec_group.clone(), public_point).map_err(|_err| {
-                Error::General(format!(
-                    "Failed to create Pk from EcPoint, mbedtls error: {:?}",
-                    _err
-                ))
-            })?;
+        let public_point = EcPoint::from_binary_no_compress(&ec_group, &peer_public_key)
+            .map_err(mbedtls_err_to_rustls_error)?;
+        let peer_pk = PkMbed::public_from_ec_components(ec_group.clone(), public_point)
+            .map_err(mbedtls_err_to_rustls_error)?;
 
         let mut shared_secret = vec![
             0u8;
@@ -170,12 +146,7 @@ impl crypto::ActiveKeyExchange for KeyExchange {
                 &mut shared_secret,
                 &mut super::rng::rng_new().ok_or(rustls::crypto::GetRandomFailed)?,
             )
-            .map_err(|_err| {
-                Error::General(format!(
-                    "Failed to make agreement, mbedtls error: {:?}",
-                    _err
-                ))
-            })?;
+            .map_err(mbedtls_err_to_rustls_error)?;
         Ok(crypto::SharedSecret::from(&shared_secret[..len]))
     }
 

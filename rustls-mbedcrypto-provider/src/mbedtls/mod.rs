@@ -1,5 +1,6 @@
 pub(crate) mod aead;
 pub(crate) mod agreement;
+pub(crate) mod error;
 pub(crate) mod hash;
 pub(crate) mod hmac;
 pub(crate) mod kx;

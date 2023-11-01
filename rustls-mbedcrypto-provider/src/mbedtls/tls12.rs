@@ -1,3 +1,4 @@
+use crate::error::mbedtls_err_to_rustls_error;
 #[cfg(feature = "logging")]
 use crate::log::error;
 use alloc::boxed::Box;
@@ -240,40 +241,22 @@ impl MessageDecrypter for GcmMessageDecrypter {
             CipherMode::GCM,
             key_bit_len as _,
         )
-        .map_err(|_err| {
-            error!(
-                "Failed to create AES{}_GCM decrypt cipher, mbedtls error: {}",
-                key_bit_len, _err
-            );
-            Error::DecryptError
-        })?;
+        .map_err(mbedtls_err_to_rustls_error)?;
 
         let cipher = cipher
             .set_key_iv(&self.dec_key, &nonce)
-            .map_err(|_err| {
-                error!(
-                    "Failed to set key and iv for AES{}_GCM decrypt cipher, mbedtls error: {}",
-                    key_bit_len, _err
-                );
-                Error::DecryptError
-            })?;
+            .map_err(mbedtls_err_to_rustls_error)?;
 
         let tag_offset = payload
             .len()
             .checked_sub(aead::TAG_LEN)
-            .ok_or(Error::DecryptError)?;
+            .ok_or(Error::General(String::from("Tag length overflow")))?;
 
         let tag = &payload[tag_offset..];
         let mut ciphertext = payload[GCM_EXPLICIT_NONCE_LEN..tag_offset].to_vec();
         let (plain_len, _) = cipher
             .decrypt_auth_inplace(&aad, &mut ciphertext, tag)
-            .map_err(|_err| {
-                error!(
-                    "Failed to decrypt with AES{}_GCM decrypt cipher, mbedtls error: {}",
-                    key_bit_len, _err
-                );
-                Error::DecryptError
-            })?;
+            .map_err(mbedtls_err_to_rustls_error)?;
         if plain_len > MAX_FRAGMENT_LEN {
             return Err(Error::PeerSentOversizedRecord);
         }
@@ -302,32 +285,14 @@ impl MessageEncrypter for GcmMessageEncrypter {
             CipherMode::GCM,
             key_bit_len as _,
         )
-        .map_err(|_err| {
-            error!(
-                "Failed to create AES{}_GCM encrypt cipher, mbedtls error: {}",
-                key_bit_len, _err
-            );
-            Error::DecryptError
-        })?;
+        .map_err(mbedtls_err_to_rustls_error)?;
         let cipher = cipher
             .set_key_iv(&self.enc_key, &nonce)
-            .map_err(|_err| {
-                error!(
-                    "Failed to set key and iv for AES{}_GCM encrypt cipher, mbedtls error: {}",
-                    key_bit_len, _err
-                );
-                Error::DecryptError
-            })?;
+            .map_err(mbedtls_err_to_rustls_error)?;
 
         cipher
             .encrypt_auth_inplace(&aad, &mut payload[GCM_EXPLICIT_NONCE_LEN..], &mut tag)
-            .map_err(|_err| {
-                error!(
-                    "Failed to encrypt with AES{}_GCM encrypt cipher, mbedtls error: {}",
-                    key_bit_len, _err
-                );
-                Error::DecryptError
-            })?;
+            .map_err(mbedtls_err_to_rustls_error)?;
         payload.extend(tag);
 
         Ok(OpaqueMessage::new(msg.typ, msg.version, payload))
@@ -375,23 +340,11 @@ impl MessageDecrypter for ChaCha20Poly1305MessageDecrypter {
             CipherMode::CHACHAPOLY,
             (self.dec_key.len() * 8) as _,
         )
-        .map_err(|_err| {
-            error!(
-                "Failed to create ChaCha20Poly1305 decrypt cipher, mbedtls error: {}",
-                _err
-            );
-            Error::DecryptError
-        })?;
+        .map_err(mbedtls_err_to_rustls_error)?;
 
         let cipher = cipher
             .set_key_iv(&self.dec_key, &nonce)
-            .map_err(|_err| {
-                error!(
-                    "Failed to set key and iv for ChaCha20Poly1305 decrypt cipher, mbedtls error: {}",
-                    _err
-                );
-                Error::DecryptError
-            })?;
+            .map_err(mbedtls_err_to_rustls_error)?;
 
         let tag_offset = payload
             .len()
@@ -402,13 +355,7 @@ impl MessageDecrypter for ChaCha20Poly1305MessageDecrypter {
 
         let (plain_len, _) = cipher
             .decrypt_auth_inplace(&aad, ciphertext, tag)
-            .map_err(|_err| {
-                error!(
-                    "Failed to decrypt with ChaCha20Poly1305 decrypt cipher, mbedtls error: {}",
-                    _err
-                );
-                Error::DecryptError
-            })?;
+            .map_err(mbedtls_err_to_rustls_error)?;
 
         if plain_len > MAX_FRAGMENT_LEN {
             return Err(Error::PeerSentOversizedRecord);
@@ -433,33 +380,15 @@ impl MessageEncrypter for ChaCha20Poly1305MessageEncrypter {
             CipherMode::CHACHAPOLY,
             (self.enc_key.len() * 8) as _,
         )
-        .map_err(|_err| {
-            error!(
-                "Failed to create ChaCha20Poly1305 encrypt cipher, mbedtls error: {}",
-                _err
-            );
-            Error::DecryptError
-        })?;
+        .map_err(mbedtls_err_to_rustls_error)?;
 
         let cipher = cipher
             .set_key_iv(&self.enc_key, &nonce)
-            .map_err(|_err| {
-                error!(
-                "Failed to set key and iv for ChaCha20Poly1305 encrypt cipher, mbedtls error: {}",
-                _err
-            );
-                Error::DecryptError
-            })?;
+            .map_err(mbedtls_err_to_rustls_error)?;
 
         cipher
             .encrypt_auth_inplace(&aad, &mut payload, &mut tag)
-            .map_err(|_err| {
-                error!(
-                    "Failed to encrypt with ChaCha20Poly1305 encrypt cipher, mbedtls error: {}",
-                    _err
-                );
-                Error::DecryptError
-            })?;
+            .map_err(mbedtls_err_to_rustls_error)?;
         payload.extend(tag);
 
         Ok(OpaqueMessage::new(msg.typ, msg.version, payload))

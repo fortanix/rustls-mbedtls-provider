@@ -1,10 +1,11 @@
-use std::sync::Mutex;
-
+#[cfg(feature = "logging")]
+use crate::log::error;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use rustls::crypto::hash::{self, HashAlgorithm};
+use std::sync::Mutex;
 
 pub(crate) static SHA256: Hash = Hash(&MBED_SHA_256);
 pub(crate) static SHA384: Hash = Hash(&MBED_SHA_384);
@@ -88,11 +89,12 @@ impl MbedHashContext {
         MbedHashContext {
             hash_algo,
             state: Arc::new(Mutex::new(
-                mbedtls::hash::Md::new(hash_algo.hash_type).expect("input validated"),
+                mbedtls::hash::Md::new(hash_algo.hash_type).expect("input is validated"),
             )),
         }
     }
 
+    /// Since the trait does not provider a way to return error, empty vector is returned when getting error from `mbedtls`.
     pub(crate) fn finalize(self) -> Vec<u8> {
         match Arc::into_inner(self.state) {
             Some(mutex) => match mutex.into_inner() {
@@ -100,21 +102,35 @@ impl MbedHashContext {
                     let mut out = vec![0u8; self.hash_algo.output_len];
                     match ctx.finish(&mut out) {
                         Ok(_) => out,
-                        Err(_) => vec![],
+                        Err(_err) => {
+                            error!("Failed to finalize hash, mbedtls error: {:?}", _err);
+                            vec![]
+                        }
                     }
                 }
-                Err(_) => vec![],
+                Err(_err) => {
+                    error!("Failed to get lock, error: {:?}", _err);
+                    vec![]
+                }
             },
-            None => vec![],
+            None => {
+                error!("Failed to do Arc::into_inner, error: {:?}", _err);
+                vec![]
+            }
         }
     }
 
     pub(crate) fn update(&mut self, data: &[u8]) {
         match self.state.lock().as_mut() {
-            Ok(ctx) => {
-                let _ = ctx.update(data);
+            Ok(ctx) => match ctx.update(data) {
+                Ok(_) => {}
+                Err(_err) => {
+                    error!("Failed to update hash, mbedtls error: {:?}", _err);
+                }
+            },
+            Err(_err) => {
+                error!("Failed to get lock, error: {:?}", _err);
             }
-            Err(_) => {}
         }
     }
 }
@@ -123,7 +139,8 @@ pub(crate) fn hash(hash_algo: &'static Algorithm, data: &[u8]) -> Vec<u8> {
     let mut out = vec![0u8; hash_algo.output_len];
     match mbedtls::hash::Md::hash(hash_algo.hash_type, data, &mut out) {
         Ok(_) => out,
-        Err(_) => {
+        Err(_err) => {
+            error!("Failed to do hash, mbedtls error: {:?}", _err);
             vec![]
         }
     }

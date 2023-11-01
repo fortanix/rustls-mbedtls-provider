@@ -16,6 +16,7 @@ use rustls::{
     SupportedCipherSuite, Tls13CipherSuite,
 };
 
+use crate::error::mbedtls_err_to_rustls_error;
 #[cfg(feature = "logging")]
 use crate::log::error;
 
@@ -121,33 +122,15 @@ impl MessageEncrypter for Tls13MessageEncrypter {
             self.aead_algorithm.cipher_mode,
             (self.enc_key.len() * 8) as _,
         )
-        .map_err(|_err| {
-            error!(
-                "Failed to create TLS13 encrypt cipher, mbedtls error: {}",
-                _err
-            );
-            Error::DecryptError
-        })?;
+        .map_err(mbedtls_err_to_rustls_error)?;
 
         let cipher = cipher
             .set_key_iv(&self.enc_key, &nonce)
-            .map_err(|_err| {
-                error!(
-                    "Failed to set key and iv for TLS13 encrypt cipher, mbedtls error: {}",
-                    _err
-                );
-                Error::DecryptError
-            })?;
+            .map_err(mbedtls_err_to_rustls_error)?;
 
         cipher
             .encrypt_auth_inplace(&aad, &mut payload, &mut tag)
-            .map_err(|_err| {
-                error!(
-                    "Failed to encrypt with TLS13 encrypt cipher, mbedtls error: {}",
-                    _err
-                );
-                Error::DecryptError
-            })?;
+            .map_err(mbedtls_err_to_rustls_error)?;
         payload.extend(tag);
 
         Ok(OpaqueMessage::new(
@@ -174,40 +157,22 @@ impl MessageDecrypter for Tls13MessageDecrypter {
             self.aead_algorithm.cipher_mode,
             key_bit_len as _,
         )
-        .map_err(|_err| {
-            error!(
-                "Failed to create TLS13 decrypt cipher, mbedtls error: {}",
-                _err
-            );
-            Error::DecryptError
-        })?;
+        .map_err(mbedtls_err_to_rustls_error)?;
 
         let cipher = cipher
             .set_key_iv(&self.dec_key, &nonce)
-            .map_err(|_err| {
-                error!(
-                    "Failed to set key and iv for TLS13 decrypt cipher, mbedtls error: {}",
-                    _err
-                );
-                Error::DecryptError
-            })?;
+            .map_err(mbedtls_err_to_rustls_error)?;
 
         let tag_offset = payload
             .len()
             .checked_sub(aead::TAG_LEN)
-            .ok_or(Error::DecryptError)?;
+            .ok_or(Error::General(String::from("Tag length overflow")))?;
 
         let (ciphertext, tag) = payload.split_at_mut(tag_offset);
 
         let (plain_len, _) = cipher
             .decrypt_auth_inplace(&aad, ciphertext, tag)
-            .map_err(|_err| {
-                error!(
-                    "Failed to encrypt with TLS13 decrypt cipher, mbedtls error: {}",
-                    _err
-                );
-                Error::DecryptError
-            })?;
+            .map_err(mbedtls_err_to_rustls_error)?;
         payload.truncate(plain_len);
         msg.into_tls13_unpadded_message()
     }
