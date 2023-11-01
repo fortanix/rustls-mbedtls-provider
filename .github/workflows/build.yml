@@ -144,17 +144,18 @@ jobs:
           file: final.info
           fail_ci_if_error: false
 
-  semver:
-    name: Check semver compatibility
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+  # TODO: enable this after crate is published
+  # semver:
+  #   name: Check semver compatibility
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v4
+  #       with:
+  #         persist-credentials: false
 
-      - name: Check semver
-        uses: obi1kenobi/cargo-semver-checks-action@v2
+  #     - name: Check semver
+  #       uses: obi1kenobi/cargo-semver-checks-action@v2
 
   format:
     name: Format
