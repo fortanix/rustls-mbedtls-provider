@@ -41,6 +41,9 @@ default = ["logging", "tls12"]
 logging = ["rustls/logging", "log"]
 tls12 = ["rustls/tls12"]
 rdrand = ["mbedtls/rdrand"]
+# When building with Rust Nightly, adds support for the unstable
+# `std::io::ReadBuf` and related APIs in `rustls`. This reduces costs from
+# initializing buffers. Will do nothing on non-Nightly releases.
 read_buf = ["rustversion", "rustls/read_buf"]
 
 [[example]]

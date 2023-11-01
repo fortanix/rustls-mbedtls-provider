@@ -155,6 +155,8 @@ impl Tls12AeadAlgorithm for Algorithm {
         iv: &[u8],
         explicit: &[u8],
     ) -> Result<ConnectionTrafficSecrets, UnsupportedOperationError> {
+        // This should always be true because KeyBlockShape and the Iv nonce len are in agreement.
+        debug_assert_eq!(NONCE_LEN, iv.len());
         match self.cipher_type {
             CipherType::Aes128Gcm => Ok(ConnectionTrafficSecrets::Aes128Gcm {
                 key,

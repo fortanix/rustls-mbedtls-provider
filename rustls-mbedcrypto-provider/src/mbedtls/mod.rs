@@ -10,6 +10,7 @@ pub mod tls12;
 pub mod tls13;
 
 use mbedtls::rng::Random;
+use rustls::SupportedCipherSuite;
 
 /// RNG supported by *mbedtls*
 pub mod rng {
@@ -35,9 +36,12 @@ pub mod rng {
 
 /// A `CryptoProvider` backed by the [*mbedtls*] crate.
 ///
-/// [*ring*]: https://github.com/fortanix/rust-mbedtls
+/// [*mbedtls*]: https://github.com/fortanix/rust-mbedtls
 pub static MBEDTLS: &'static dyn rustls::crypto::CryptoProvider = &Mbedtls;
 
+/// Crypto provider based on the [*mbedtls*] crate.
+///
+/// [*mbedtls*]: https://github.com/fortanix/rust-mbedtls
 #[derive(Debug)]
 struct Mbedtls;
 
@@ -96,4 +100,3 @@ pub mod kx_group {
 }
 
 pub use kx::ALL_KX_GROUPS;
-use rustls::SupportedCipherSuite;

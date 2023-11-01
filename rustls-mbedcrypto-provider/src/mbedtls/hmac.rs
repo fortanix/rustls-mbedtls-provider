@@ -6,7 +6,11 @@ use alloc::vec;
 use alloc::vec::Vec;
 use rustls::crypto;
 use std::sync::Mutex;
+
+/// HMAC using SHA-256.
 pub(crate) static HMAC_SHA256: Hmac = Hmac(&super::hash::MBED_SHA_256);
+
+/// HMAC using SHA-384.
 pub(crate) static HMAC_SHA384: Hmac = Hmac(&super::hash::MBED_SHA_384);
 
 pub(crate) struct Hmac(&'static super::hash::Algorithm);

@@ -102,6 +102,8 @@ pub static SECP521R1: &dyn SupportedKxGroup = &KxGroup {
 /// A list of all the key exchange groups supported by mbedtls.
 pub static ALL_KX_GROUPS: &[&dyn SupportedKxGroup] = &[X25519, SECP256R1, SECP384R1, SECP521R1];
 
+/// An in-progress key exchange.  This has the algorithm,
+/// our private key, and our public key.
 struct KeyExchange {
     name: NamedGroup,
     /// The corresponding [`agreement::Algorithm`]
@@ -113,6 +115,7 @@ struct KeyExchange {
 }
 
 impl crypto::ActiveKeyExchange for KeyExchange {
+    /// Completes the key exchange, given the peer's public key.
     fn complete(
         self: Box<KeyExchange>,
         peer_public_key: &[u8],
@@ -150,10 +153,12 @@ impl crypto::ActiveKeyExchange for KeyExchange {
         Ok(crypto::SharedSecret::from(&shared_secret[..len]))
     }
 
+    /// Return the group being used.
     fn pub_key(&self) -> &[u8] {
         &self.pub_key
     }
 
+    /// Return the public key being used.
     fn group(&self) -> NamedGroup {
         self.name
     }

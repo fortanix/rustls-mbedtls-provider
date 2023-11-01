@@ -55,6 +55,7 @@ pub static TLS13_AES_128_GCM_SHA256: SupportedCipherSuite =
         aead_alg: &AeadAlgorithm(&aead::AES128_GCM),
     });
 
+// common encrypter/decrypter/key_len items for above Tls13AeadAlgorithm impls
 struct AeadAlgorithm(&'static aead::Algorithm);
 
 impl Tls13AeadAlgorithm for AeadAlgorithm {
