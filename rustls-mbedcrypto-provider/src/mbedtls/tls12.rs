@@ -254,7 +254,13 @@ impl MessageDecrypter for GcmMessageDecrypter {
         let mut ciphertext = payload[GCM_EXPLICIT_NONCE_LEN..tag_offset].to_vec();
         let (plain_len, _) = cipher
             .decrypt_auth_inplace(&aad, &mut ciphertext, tag)
-            .map_err(mbedtls_err_to_rustls_error)?;
+            .map_err(|err| match err {
+                mbedtls::Error::CcmAuthFailed
+                | mbedtls::Error::ChachapolyAuthFailed
+                | mbedtls::Error::CipherAuthFailed
+                | mbedtls::Error::GcmAuthFailed => rustls::Error::DecryptError,
+                _ => mbedtls_err_to_rustls_error(err),
+            })?;
         if plain_len > MAX_FRAGMENT_LEN {
             return Err(Error::PeerSentOversizedRecord);
         }
@@ -290,7 +296,13 @@ impl MessageEncrypter for GcmMessageEncrypter {
 
         cipher
             .encrypt_auth_inplace(&aad, &mut payload[GCM_EXPLICIT_NONCE_LEN..], &mut tag)
-            .map_err(mbedtls_err_to_rustls_error)?;
+            .map_err(|err| match err {
+                mbedtls::Error::CcmAuthFailed
+                | mbedtls::Error::ChachapolyAuthFailed
+                | mbedtls::Error::CipherAuthFailed
+                | mbedtls::Error::GcmAuthFailed => rustls::Error::EncryptError,
+                _ => mbedtls_err_to_rustls_error(err),
+            })?;
         payload.extend(tag);
 
         Ok(OpaqueMessage::new(msg.typ, msg.version, payload))
@@ -353,7 +365,13 @@ impl MessageDecrypter for ChaCha20Poly1305MessageDecrypter {
 
         let (plain_len, _) = cipher
             .decrypt_auth_inplace(&aad, ciphertext, tag)
-            .map_err(mbedtls_err_to_rustls_error)?;
+            .map_err(|err| match err {
+                mbedtls::Error::CcmAuthFailed
+                | mbedtls::Error::ChachapolyAuthFailed
+                | mbedtls::Error::CipherAuthFailed
+                | mbedtls::Error::GcmAuthFailed => rustls::Error::DecryptError,
+                _ => mbedtls_err_to_rustls_error(err),
+            })?;
 
         if plain_len > MAX_FRAGMENT_LEN {
             return Err(Error::PeerSentOversizedRecord);
@@ -386,7 +404,13 @@ impl MessageEncrypter for ChaCha20Poly1305MessageEncrypter {
 
         cipher
             .encrypt_auth_inplace(&aad, &mut payload, &mut tag)
-            .map_err(mbedtls_err_to_rustls_error)?;
+            .map_err(|err| match err {
+                mbedtls::Error::CcmAuthFailed
+                | mbedtls::Error::ChachapolyAuthFailed
+                | mbedtls::Error::CipherAuthFailed
+                | mbedtls::Error::GcmAuthFailed => rustls::Error::EncryptError,
+                _ => mbedtls_err_to_rustls_error(err),
+            })?;
         payload.extend(tag);
 
         Ok(OpaqueMessage::new(msg.typ, msg.version, payload))

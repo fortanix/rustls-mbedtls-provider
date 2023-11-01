@@ -129,7 +129,13 @@ impl MessageEncrypter for Tls13MessageEncrypter {
 
         cipher
             .encrypt_auth_inplace(&aad, &mut payload, &mut tag)
-            .map_err(mbedtls_err_to_rustls_error)?;
+            .map_err(|err| match err {
+                mbedtls::Error::CcmAuthFailed
+                | mbedtls::Error::ChachapolyAuthFailed
+                | mbedtls::Error::CipherAuthFailed
+                | mbedtls::Error::GcmAuthFailed => rustls::Error::EncryptError,
+                _ => mbedtls_err_to_rustls_error(err),
+            })?;
         payload.extend(tag);
 
         Ok(OpaqueMessage::new(
@@ -171,7 +177,13 @@ impl MessageDecrypter for Tls13MessageDecrypter {
 
         let (plain_len, _) = cipher
             .decrypt_auth_inplace(&aad, ciphertext, tag)
-            .map_err(mbedtls_err_to_rustls_error)?;
+            .map_err(|err| match err {
+                mbedtls::Error::CcmAuthFailed
+                | mbedtls::Error::ChachapolyAuthFailed
+                | mbedtls::Error::CipherAuthFailed
+                | mbedtls::Error::GcmAuthFailed => rustls::Error::DecryptError,
+                _ => mbedtls_err_to_rustls_error(err),
+            })?;
         payload.truncate(plain_len);
         msg.into_tls13_unpadded_message()
     }
