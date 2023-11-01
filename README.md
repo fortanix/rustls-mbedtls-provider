@@ -38,6 +38,6 @@ involved.
 
 # License
 
-This project is primarily distributed under the terms of the Apache License
-version 2.0 and the GNU General Public License version 2, see
-[LICENSE-APACHE](./LICENSE-APACHE) and [LICENSE-GPL](./LICENSE-GPL) for details.
+This project is primarily distributed under the terms of the Mozilla Public
+License (MPL) 2.0, see [LICENSE](./LICENSE) for details.
+
