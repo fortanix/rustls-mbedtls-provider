@@ -1,0 +1,16 @@
+[package]
+name = "rustls-mbedpki-provider"
+version = "0.1.0"
+edition = "2021"
+description = "Implements rustls PKI traits using mbedtls"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rustls = {version = "0.21", features = ["dangerous_configuration"]}
+mbedtls = {version = "0.12.0-alpha.1", features = ["x509", "chrono", "std"], default_features = false}
+
+x509-parser = "0.15"
+chrono = "0.4"
+
+[dev-dependencies]
+rustls-pemfile = "1.0"

@@ -1,5 +1,11 @@
 # rustls-mbedtls-provider
 
+This repository will contain code to allow [mbedtls](https://github.com/fortanix/rust-mbedtls) to be used
+as the crypto and PKI provider for [rustls](https://github.com/rustls/rustls).
+
+## PKI provider
+Implements [`ClientCertVerifier`](https://docs.rs/rustls/latest/rustls/server/trait.ClientCertVerifier.html) and [`ClientCertVerifier`](https://docs.rs/rustls/latest/rustls/client/trait.ServerCertVerifier.html) traits from `rustls` using mbedtls.
+
 
 # Contributing
 
