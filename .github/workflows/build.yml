@@ -113,7 +113,7 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@nightly
 
-      - name: cargo doc (rustls; all features)
+      - name: cargo doc (rustls-mbedcrypto-provider; all features)
         run: cargo doc --locked --all-features --no-deps --document-private-items --package rustls-mbedcrypto-provider
         env:
           RUSTDOCFLAGS: -Dwarnings
