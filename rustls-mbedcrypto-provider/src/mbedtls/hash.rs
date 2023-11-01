@@ -121,7 +121,7 @@ impl MbedHashContext {
                 }
             },
             None => {
-                error!("Failed to do Arc::into_inner, error: {:?}", _err);
+                error!("Failed to do Arc::into_inner");
                 vec![]
             }
         }

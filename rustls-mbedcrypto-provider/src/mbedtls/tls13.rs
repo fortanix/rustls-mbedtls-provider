@@ -17,8 +17,6 @@ use rustls::{
 };
 
 use crate::error::mbedtls_err_to_rustls_error;
-#[cfg(feature = "logging")]
-use crate::log::error;
 
 /// The TLS1.3 ciphersuite TLS_CHACHA20_POLY1305_SHA256
 pub static TLS13_CHACHA20_POLY1305_SHA256: SupportedCipherSuite =
