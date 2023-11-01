@@ -22,6 +22,11 @@ on:
   schedule:
     - cron: '0 18 * * *'
 
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+
 jobs:
   build:
     name: Build+test
@@ -53,9 +58,11 @@ jobs:
 
       - name: cargo build (debug; default features)
         run: cargo build --locked
+        shell: bash
 
       - name: cargo test (debug; all features)
         run: cargo test --locked --all-features
+        shell: bash
         env:
           RUST_BACKTRACE: 1
 
