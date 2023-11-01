@@ -1,0 +1,3 @@
+chain_width=40
+max_width = 128
+struct_lit_width = 80

@@ -1,21 +1,33 @@
-#![cfg(test)]
+use std::{
+    io,
+    ops::{Deref, DerefMut},
+};
 
-use std::{io, ops::{DerefMut, Deref}};
-
-use rustls::{Certificate, PrivateKey, ConnectionCommon, SideData, ClientConnection, ServerConnection, client::ServerCertVerifier};
+use rustls::{
+    client::ServerCertVerifier, Certificate, ClientConnection, ConnectionCommon, PrivateKey, ServerConnection, SideData,
+};
 
 /// Get a certificate chain from the contents of a pem file
 pub fn get_chain(bytes: &[u8]) -> Vec<Certificate> {
-    rustls_pemfile::certs(&mut io::BufReader::new(bytes)).unwrap().into_iter()
+    rustls_pemfile::certs(&mut io::BufReader::new(bytes))
+        .unwrap()
+        .into_iter()
         .map(Certificate)
         .collect()
 }
 
 /// Get a private key from the contents of a pem file
 pub fn get_key(bytes: &[u8]) -> PrivateKey {
-    PrivateKey(rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(bytes)).unwrap().into_iter().next().unwrap())
+    PrivateKey(
+        rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(bytes))
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap(),
+    )
 }
 
+// Copied from rustls repo
 pub fn transfer(
     left: &mut (impl DerefMut + Deref<Target = ConnectionCommon<impl SideData>>),
     right: &mut (impl DerefMut + Deref<Target = ConnectionCommon<impl SideData>>),
@@ -46,27 +58,23 @@ pub fn transfer(
     total
 }
 
-pub fn do_handshake_until_error(
-    client: &mut ClientConnection,
-    server: &mut ServerConnection,
-) -> Result<(), rustls::Error> {
+// Copied from rustls repo
+pub fn do_handshake_until_error(client: &mut ClientConnection, server: &mut ServerConnection) -> Result<(), rustls::Error> {
     while server.is_handshaking() || client.is_handshaking() {
         transfer(client, server);
-        server
-            .process_new_packets()?;
+        server.process_new_packets()?;
         transfer(server, client);
-        client
-            .process_new_packets()?;
+        client.process_new_packets()?;
     }
     Ok(())
 }
 
 pub struct VerifierWithSupportedVerifySchemes<V> {
     pub verifier: V,
-    pub supported_verify_schemes: Vec<rustls::SignatureScheme>
+    pub supported_verify_schemes: Vec<rustls::SignatureScheme>,
 }
 
-impl <V: ServerCertVerifier> ServerCertVerifier for VerifierWithSupportedVerifySchemes<V> {
+impl<V: ServerCertVerifier> ServerCertVerifier for VerifierWithSupportedVerifySchemes<V> {
     fn verify_server_cert(
         &self,
         end_entity: &Certificate,
@@ -76,7 +84,8 @@ impl <V: ServerCertVerifier> ServerCertVerifier for VerifierWithSupportedVerifyS
         ocsp_response: &[u8],
         now: std::time::SystemTime,
     ) -> Result<rustls::client::ServerCertVerified, rustls::Error> {
-        self.verifier.verify_server_cert(end_entity, intermediates, server_name, scts, ocsp_response, now)
+        self.verifier
+            .verify_server_cert(end_entity, intermediates, server_name, scts, ocsp_response, now)
     }
 
     fn verify_tls12_signature(
@@ -85,7 +94,8 @@ impl <V: ServerCertVerifier> ServerCertVerifier for VerifierWithSupportedVerifyS
         cert: &Certificate,
         dss: &rustls::DigitallySignedStruct,
     ) -> Result<rustls::client::HandshakeSignatureValid, rustls::Error> {
-        self.verifier.verify_tls12_signature(message, cert, dss)
+        self.verifier
+            .verify_tls12_signature(message, cert, dss)
     }
 
     fn verify_tls13_signature(
@@ -94,7 +104,8 @@ impl <V: ServerCertVerifier> ServerCertVerifier for VerifierWithSupportedVerifyS
         cert: &Certificate,
         dss: &rustls::DigitallySignedStruct,
     ) -> Result<rustls::client::HandshakeSignatureValid, rustls::Error> {
-        self.verifier.verify_tls13_signature(message, cert, dss)
+        self.verifier
+            .verify_tls13_signature(message, cert, dss)
     }
 
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {

@@ -3,6 +3,7 @@ use mbedtls::hash::Type;
 use rustls::SignatureScheme;
 use std::sync::Arc;
 
+#[cfg(test)]
 mod tests_common;
 
 pub mod client_cert_verifier;
@@ -11,26 +12,45 @@ pub mod server_cert_verifier;
 pub use client_cert_verifier::MbedTlsClientCertVerifier;
 pub use server_cert_verifier::MbedTlsServerCertVerifier;
 
-pub fn rustls_cert_to_mbedtls_cert(cert: &rustls::Certificate) -> mbedtls::Result<mbedtls::alloc::Box<mbedtls::x509::Certificate>> {
+pub fn rustls_cert_to_mbedtls_cert(
+    cert: &rustls::Certificate,
+) -> mbedtls::Result<mbedtls::alloc::Box<mbedtls::x509::Certificate>> {
     let cert = mbedtls::x509::Certificate::from_der(&cert.0)?;
     Ok(cert)
 }
 
 pub fn mbedtls_err_into_rustls_err(err: mbedtls::Error) -> rustls::Error {
-    match err {
-        mbedtls::Error::X509CertUnknownFormat |
-        mbedtls::Error::X509BadInputData => rustls::Error::InvalidCertificate(rustls::CertificateError::BadEncoding),
-        mbedtls::Error::X509FatalError => rustls::Error::InvalidCertificate(rustls::CertificateError::Other(Arc::new(err))),
-        _ => rustls::Error::General(err.to_string()),
-    }
+    mbedtls_err_into_rustls_err_with_error_msg(err, "")
 }
 
 pub fn mbedtls_err_into_rustls_err_with_error_msg(err: mbedtls::Error, msg: &str) -> rustls::Error {
     match err {
+        mbedtls::Error::X509InvalidSignature |
+        mbedtls::Error::RsaVerifyFailed => rustls::Error::InvalidCertificate(rustls::CertificateError::BadSignature),
+
         mbedtls::Error::X509CertUnknownFormat |
         mbedtls::Error::X509BadInputData => rustls::Error::InvalidCertificate(rustls::CertificateError::BadEncoding),
-        mbedtls::Error::X509FatalError => rustls::Error::InvalidCertificate(rustls::CertificateError::Other(Arc::new(err))),
-        _ => rustls::Error::General(format!("{err}\n{msg}")),
+
+        // mbedtls::Error::X509AllocFailed |
+        mbedtls::Error::X509BufferTooSmall |
+        mbedtls::Error::X509CertVerifyFailed |
+        mbedtls::Error::X509FatalError |
+        mbedtls::Error::X509FeatureUnavailable |
+        // mbedtls::Error::X509FileIoError |
+        mbedtls::Error::X509InvalidAlg |
+        mbedtls::Error::X509InvalidDate |
+        mbedtls::Error::X509InvalidExtensions |
+        mbedtls::Error::X509InvalidFormat |
+        mbedtls::Error::X509InvalidSerial |
+        mbedtls::Error::X509InvalidVersion |
+        mbedtls::Error::X509SigMismatch |
+        mbedtls::Error::X509UnknownOid |
+        mbedtls::Error::X509UnknownSigAlg |
+        mbedtls::Error::X509UnknownVersion => rustls::Error::InvalidCertificate(rustls::CertificateError::Other(Arc::new(err))),
+
+        mbedtls::Error::X509InvalidName => rustls::Error::InvalidCertificate(rustls::CertificateError::NotValidForName),
+
+        _ => rustls::Error::General(format!("{err}{sep}{msg}", sep = if msg.is_empty() {""} else {"\n"})),
     }
 }
 
@@ -64,12 +84,12 @@ fn rustls_signature_scheme_to_mbedtls_pk_options(signature_scheme: SignatureSche
         SignatureScheme::ECDSA_NISTP256_SHA256 => None,
         SignatureScheme::ECDSA_NISTP384_SHA384 => None,
         SignatureScheme::ECDSA_NISTP521_SHA512 => None,
-        SignatureScheme::RSA_PKCS1_SHA256 |
-        SignatureScheme::RSA_PKCS1_SHA384 |
-        SignatureScheme::RSA_PKCS1_SHA512 => Some(Options::Rsa { padding: RsaPadding::Pkcs1V15 }),
-        SignatureScheme::RSA_PSS_SHA256 => Some( Options::Rsa { padding: RsaPadding::Pkcs1V21 { mgf: Type::Sha256 } }),
-        SignatureScheme::RSA_PSS_SHA384 => Some( Options::Rsa { padding: RsaPadding::Pkcs1V21 { mgf: Type::Sha384 } }),
-        SignatureScheme::RSA_PSS_SHA512 => Some( Options::Rsa { padding: RsaPadding::Pkcs1V21 { mgf: Type::Sha512 } }),
+        SignatureScheme::RSA_PKCS1_SHA256 | SignatureScheme::RSA_PKCS1_SHA384 | SignatureScheme::RSA_PKCS1_SHA512 => {
+            Some(Options::Rsa { padding: RsaPadding::Pkcs1V15 })
+        }
+        SignatureScheme::RSA_PSS_SHA256 => Some(Options::Rsa { padding: RsaPadding::Pkcs1V21 { mgf: Type::Sha256 } }),
+        SignatureScheme::RSA_PSS_SHA384 => Some(Options::Rsa { padding: RsaPadding::Pkcs1V21 { mgf: Type::Sha384 } }),
+        SignatureScheme::RSA_PSS_SHA512 => Some(Options::Rsa { padding: RsaPadding::Pkcs1V21 { mgf: Type::Sha512 } }),
         SignatureScheme::ED25519 => None,
         SignatureScheme::ED448 => None,
         SignatureScheme::Unknown(_) => None,
@@ -124,20 +144,26 @@ fn buffer_for_hash_type(hash_type: mbedtls::hash::Type) -> Option<Vec<u8>> {
 /// each certificate
 fn verify_certificates_active<'a>(
     chain: impl IntoIterator<Item = &'a mbedtls::x509::Certificate>,
-    now: NaiveDateTime
+    now: NaiveDateTime,
 ) -> Result<(), rustls::Error> {
     fn time_err_to_err(_time_err: mbedtls::x509::InvalidTimeError) -> rustls::Error {
         rustls::Error::InvalidCertificate(rustls::CertificateError::BadEncoding)
     }
 
     for cert in chain.into_iter() {
-        let not_after = cert.not_after().map_err(mbedtls_err_into_rustls_err)?
-            .try_into().map_err(time_err_to_err)?;
+        let not_after = cert
+            .not_after()
+            .map_err(mbedtls_err_into_rustls_err)?
+            .try_into()
+            .map_err(time_err_to_err)?;
         if now > not_after {
             return Err(rustls::Error::InvalidCertificate(rustls::CertificateError::Expired));
         }
-        let not_before = cert.not_before().map_err(mbedtls_err_into_rustls_err)?
-            .try_into().map_err(time_err_to_err)?;
+        let not_before = cert
+            .not_before()
+            .map_err(mbedtls_err_into_rustls_err)?
+            .try_into()
+            .map_err(time_err_to_err)?;
         if now < not_before {
             return Err(rustls::Error::InvalidCertificate(rustls::CertificateError::NotValidYet));
         }
@@ -163,9 +189,13 @@ fn verify_tls_signature(
         match signature_curve {
             mbedtls::pk::EcGroupId::None => (),
             _ => {
-                let curves_match = pk.curve().is_ok_and(|pk_curve| pk_curve == signature_curve);
+                let curves_match = pk
+                    .curve()
+                    .is_ok_and(|pk_curve| pk_curve == signature_curve);
                 if !curves_match {
-                    return Err(rustls::Error::PeerMisbehaved(rustls::PeerMisbehaved::SignedHandshakeWithUnadvertisedSigScheme));
+                    return Err(rustls::Error::PeerMisbehaved(
+                        rustls::PeerMisbehaved::SignedHandshakeWithUnadvertisedSigScheme,
+                    ));
                 }
             }
         }
@@ -175,13 +205,10 @@ fn verify_tls_signature(
         pk.set_options(opts);
     }
 
-    let mut hash = buffer_for_hash_type(hash_type)
-        .ok_or_else(|| rustls::Error::General("unexpected hash type".into()))?;
-    let hash_size = mbedtls::hash::Md::hash(hash_type, message, &mut hash)
-        .map_err(mbedtls_err_into_rustls_err)?;
+    let mut hash = buffer_for_hash_type(hash_type).ok_or_else(|| rustls::Error::General("unexpected hash type".into()))?;
+    let hash_size = mbedtls::hash::Md::hash(hash_type, message, &mut hash).map_err(mbedtls_err_into_rustls_err)?;
     pk.verify(hash_type, &hash[..hash_size], dss.signature())
         .map_err(mbedtls_err_into_rustls_err)?;
 
     Ok(rustls::client::HandshakeSignatureValid::assertion())
 }
-

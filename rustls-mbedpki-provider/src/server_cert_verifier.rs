@@ -1,9 +1,11 @@
-use rustls::{client::{ServerCertVerifier, ServerCertVerified}, ServerName};
+use rustls::{
+    client::{ServerCertVerified, ServerCertVerifier},
+    ServerName,
+};
 
 use crate::{
-    mbedtls_err_into_rustls_err, mbedtls_err_into_rustls_err_with_error_msg,
-    rustls_cert_to_mbedtls_cert, verify_certificates_active,
-    verify_tls_signature,
+    mbedtls_err_into_rustls_err, mbedtls_err_into_rustls_err_with_error_msg, rustls_cert_to_mbedtls_cert,
+    verify_certificates_active, verify_tls_signature,
 };
 
 /// A `rustls` `ServerCertVerifier` implemented using the PKI functionality of
@@ -14,14 +16,18 @@ pub struct MbedTlsServerCertVerifier {
 
 impl MbedTlsServerCertVerifier {
     pub fn new<'a>(trusted_cas: impl IntoIterator<Item = &'a rustls::Certificate>) -> mbedtls::Result<Self> {
-        let trusted_cas = trusted_cas.into_iter()
+        let trusted_cas = trusted_cas
+            .into_iter()
             .map(rustls_cert_to_mbedtls_cert)
             .collect::<mbedtls::Result<Vec<_>>>()?
-            .into_iter().collect();
+            .into_iter()
+            .collect();
         Self::new_from_mbedtls_trusted_cas(trusted_cas)
     }
 
-    pub fn new_from_mbedtls_trusted_cas(trusted_cas: mbedtls::alloc::List<mbedtls::x509::Certificate>) -> mbedtls::Result<Self> {
+    pub fn new_from_mbedtls_trusted_cas(
+        trusted_cas: mbedtls::alloc::List<mbedtls::x509::Certificate>,
+    ) -> mbedtls::Result<Self> {
         let mut root_subjects = vec![];
         for ca in trusted_cas.iter() {
             root_subjects.push(rustls::DistinguishedName::from(ca.subject_raw()?));
@@ -36,12 +42,8 @@ impl MbedTlsServerCertVerifier {
 
 fn server_name_to_str(server_name: &rustls::ServerName) -> String {
     match server_name {
-        ServerName::DnsName(name) => {
-            name.as_ref().to_string()
-        },
-        ServerName::IpAddress(addr) => {
-            addr.to_string()
-        },
+        ServerName::DnsName(name) => name.as_ref().to_string(),
+        ServerName::IpAddress(addr) => addr.to_string(),
         // We have this case because rustls::ServerName is marked as non-exhaustive.
         _ => {
             panic!("unknown server name: {server_name:?}")
@@ -58,18 +60,19 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
         // Signed certificate timestamps are experimental, https://datatracker.ietf.org/doc/html/rfc6962
         _scts: &mut dyn Iterator<Item = &[u8]>,
         // Mbedtls does not support OSCP (Online Certificate Status Protocol).
-        // This will be handled in https://fortanix.atlassian.net/browse/PM-176
         _ocsp_response: &[u8],
         now: std::time::SystemTime,
     ) -> Result<rustls::client::ServerCertVerified, rustls::Error> {
-
         let now = chrono::DateTime::<chrono::Local>::from(now).naive_local();
 
-        let chain: mbedtls::alloc::List<_> = [end_entity].into_iter().chain(intermediates)
+        let chain: mbedtls::alloc::List<_> = [end_entity]
+            .into_iter()
+            .chain(intermediates)
             .map(rustls_cert_to_mbedtls_cert)
             .collect::<mbedtls::Result<Vec<_>>>()
             .map_err(mbedtls_err_into_rustls_err)?
-            .into_iter().collect();
+            .into_iter()
+            .collect();
 
         verify_certificates_active(chain.iter().map(|c| &**c), now)?;
 
@@ -80,12 +83,11 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
             &self.trusted_cas,
             None,
             Some(&mut error_msg),
-            Some(&server_name_str)
+            Some(&server_name_str),
         )
         .map_err(|e| mbedtls_err_into_rustls_err_with_error_msg(e, &error_msg))?;
 
         Ok(ServerCertVerified::assertion())
-
     }
 
     fn request_scts(&self) -> bool {
@@ -94,23 +96,22 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
     }
 
     fn verify_tls12_signature(
-            &self,
-            message: &[u8],
-            cert: &rustls::Certificate,
-            dss: &rustls::DigitallySignedStruct,
-        ) -> Result<rustls::client::HandshakeSignatureValid, rustls::Error> {
+        &self,
+        message: &[u8],
+        cert: &rustls::Certificate,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::HandshakeSignatureValid, rustls::Error> {
         verify_tls_signature(message, cert, dss, false)
     }
 
     fn verify_tls13_signature(
-            &self,
-            message: &[u8],
-            cert: &rustls::Certificate,
-            dss: &rustls::DigitallySignedStruct,
-        ) -> Result<rustls::client::HandshakeSignatureValid, rustls::Error> {
+        &self,
+        message: &[u8],
+        cert: &rustls::Certificate,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::HandshakeSignatureValid, rustls::Error> {
         verify_tls_signature(message, cert, dss, true)
     }
-
 }
 
 // ../test-data/rsa/end.fullchain has these three certificates:
@@ -124,11 +125,11 @@ mod tests {
     use rustls::{
         client::ServerCertVerifier,
         version::{TLS12, TLS13},
-        Certificate, ClientConfig, ClientConnection, RootCertStore, ServerConfig, ServerConnection,
-        SignatureScheme, SupportedProtocolVersion,
+        Certificate, ClientConfig, ClientConnection, RootCertStore, ServerConfig, ServerConnection, SignatureScheme,
+        SupportedProtocolVersion,
     };
 
-    use crate::tests_common::{get_chain, get_key, do_handshake_until_error, VerifierWithSupportedVerifySchemes};
+    use crate::tests_common::{do_handshake_until_error, get_chain, get_key, VerifierWithSupportedVerifySchemes};
 
     use super::MbedTlsServerCertVerifier;
 
@@ -158,13 +159,13 @@ mod tests {
         let mut server_conn = ServerConnection::new(Arc::new(server_config)).unwrap();
 
         let res = do_handshake_until_error(&mut client_conn, &mut server_conn);
-        // asserts there is an error:
+        assert!(matches!(res, Err(rustls::Error::InvalidCertificate(_))));
         res.unwrap_err()
     }
 
     fn test_connection_server_cert_verifier(
         supported_verify_schemes: Vec<rustls::SignatureScheme>,
-        protocol_versions: &[&'static SupportedProtocolVersion]
+        protocol_versions: &[&'static SupportedProtocolVersion],
     ) {
         let root_ca = Certificate(include_bytes!("../test-data/rsa/ca.der").to_vec());
         let mut root_store = RootCertStore::empty();
@@ -179,7 +180,8 @@ mod tests {
         let server_config = ServerConfig::builder()
             .with_safe_default_cipher_suites()
             .with_safe_default_kx_groups()
-            .with_protocol_versions(protocol_versions).unwrap()
+            .with_protocol_versions(protocol_versions)
+            .unwrap()
             .with_no_client_auth()
             .with_single_cert(cert_chain, get_key(include_bytes!("../test-data/rsa/end.key")))
             .unwrap();
@@ -193,19 +195,18 @@ mod tests {
 
     #[test]
     fn connection_server_cert_verifier() {
-        let schemes = [
-            (SignatureScheme::RSA_PSS_SHA512,   &TLS12),
-            (SignatureScheme::RSA_PSS_SHA384,   &TLS12),
-            (SignatureScheme::RSA_PSS_SHA256,   &TLS12),
+        let test_cases = [
+            (SignatureScheme::RSA_PSS_SHA512, &TLS12),
+            (SignatureScheme::RSA_PSS_SHA384, &TLS12),
+            (SignatureScheme::RSA_PSS_SHA256, &TLS12),
             (SignatureScheme::RSA_PKCS1_SHA512, &TLS12),
             (SignatureScheme::RSA_PKCS1_SHA384, &TLS12),
             (SignatureScheme::RSA_PKCS1_SHA256, &TLS12),
-
-            (SignatureScheme::RSA_PSS_SHA512,   &TLS13),
-            (SignatureScheme::RSA_PSS_SHA384,   &TLS13),
-            (SignatureScheme::RSA_PSS_SHA256,   &TLS13),
+            (SignatureScheme::RSA_PSS_SHA512, &TLS13),
+            (SignatureScheme::RSA_PSS_SHA384, &TLS13),
+            (SignatureScheme::RSA_PSS_SHA256, &TLS13),
         ];
-        for (scheme, protocol) in schemes {
+        for (scheme, protocol) in test_cases {
             test_connection_server_cert_verifier(vec![scheme], &[&protocol]);
         }
     }
@@ -238,14 +239,8 @@ mod tests {
 
         let server_name = "testserver.com".try_into().unwrap();
         let now = SystemTime::from(chrono::DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
-        let verify_res = verifier.verify_server_cert(
-            &cert_chain[0],
-            &cert_chain[1..],
-            &server_name,
-            &mut [].into_iter(),
-            &[],
-            now
-        );
+        let verify_res =
+            verifier.verify_server_cert(&cert_chain[0], &cert_chain[1..], &server_name, &mut [].into_iter(), &[], now);
         assert!(verify_res.is_ok());
     }
 
@@ -258,16 +253,10 @@ mod tests {
 
         let server_name = "testserver.com.eu".try_into().unwrap();
         let now = SystemTime::from(chrono::DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
-        let verify_res = verifier.verify_server_cert(
-            &cert_chain[0],
-            &cert_chain[1..],
-            &server_name,
-            &mut [].into_iter(),
-            &[],
-            now
-        );
+        let verify_res =
+            verifier.verify_server_cert(&cert_chain[0], &cert_chain[1..], &server_name, &mut [].into_iter(), &[], now);
         println!("verify res: {:?}", verify_res);
-        assert!(verify_res.is_err());
+        assert!(matches!(verify_res, Err(rustls::Error::InvalidCertificate(_))));
     }
 
     fn test_server_cert_verifier_invalid_chain(cert_chain: &[Certificate]) {
@@ -277,15 +266,9 @@ mod tests {
 
         let server_name = "testserver.com".try_into().unwrap();
         let now = SystemTime::from(chrono::DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
-        let verify_res = verifier.verify_server_cert(
-            &cert_chain[0],
-            &cert_chain[1..],
-            &server_name,
-            &mut [].into_iter(),
-            &[],
-            now
-        );
-        assert!(verify_res.is_err());
+        let verify_res =
+            verifier.verify_server_cert(&cert_chain[0], &cert_chain[1..], &server_name, &mut [].into_iter(), &[], now);
+        assert!(matches!(verify_res, Err(rustls::Error::InvalidCertificate(_))));
     }
 
     #[test]
