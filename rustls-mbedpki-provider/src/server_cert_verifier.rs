@@ -15,6 +15,10 @@ pub struct MbedTlsServerCertVerifier {
 }
 
 impl MbedTlsServerCertVerifier {
+    /// Constructs a new `MbedTlsServerCertVerifier` object given the provided trusted certificate authority
+    /// certificates.
+    ///
+    /// Returns an error if any of the certificates are invalid.
     pub fn new<'a>(trusted_cas: impl IntoIterator<Item = &'a rustls::Certificate>) -> mbedtls::Result<Self> {
         let trusted_cas = trusted_cas
             .into_iter()
@@ -25,6 +29,8 @@ impl MbedTlsServerCertVerifier {
         Self::new_from_mbedtls_trusted_cas(trusted_cas)
     }
 
+    /// Constructs a new `MbedTlsServerCertVerifier` object given the provided trusted certificate authority
+    /// certificates.
     pub fn new_from_mbedtls_trusted_cas(
         trusted_cas: mbedtls::alloc::List<mbedtls::x509::Certificate>,
     ) -> mbedtls::Result<Self> {
@@ -35,6 +41,7 @@ impl MbedTlsServerCertVerifier {
         Ok(Self { trusted_cas })
     }
 
+    /// The certificate authority certificates used to construct this object
     pub fn trusted_cas(&self) -> &mbedtls::alloc::List<mbedtls::x509::Certificate> {
         &self.trusted_cas
     }

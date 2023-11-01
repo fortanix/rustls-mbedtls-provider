@@ -19,10 +19,13 @@ pub fn rustls_cert_to_mbedtls_cert(
     Ok(cert)
 }
 
+/// Converts an `mbedtls::Error` into a `rustls::Error`
 pub fn mbedtls_err_into_rustls_err(err: mbedtls::Error) -> rustls::Error {
     mbedtls_err_into_rustls_err_with_error_msg(err, "")
 }
 
+/// Converts an `mbedtls::Error` into a `rustls::Error`; may include the provided `msg` in the
+/// returned error (e.g., if returning a `rustls::Error::General` error).
 pub fn mbedtls_err_into_rustls_err_with_error_msg(err: mbedtls::Error, msg: &str) -> rustls::Error {
     match err {
         mbedtls::Error::X509InvalidSignature |

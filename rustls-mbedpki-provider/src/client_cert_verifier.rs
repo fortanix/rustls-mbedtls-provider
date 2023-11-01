@@ -19,6 +19,10 @@ pub struct MbedTlsClientCertVerifier {
 }
 
 impl MbedTlsClientCertVerifier {
+    /// Constructs a new `MbedTlsClientCertVerifier` object given the provided trusted certificate authority
+    /// certificates.
+    ///
+    /// Returns an error if any of the certificates are invalid.
     pub fn new<'a>(trusted_cas: impl IntoIterator<Item = &'a rustls::Certificate>) -> mbedtls::Result<Self> {
         let trusted_cas = trusted_cas
             .into_iter()
@@ -29,6 +33,8 @@ impl MbedTlsClientCertVerifier {
         Self::new_from_mbedtls_trusted_cas(trusted_cas)
     }
 
+    /// Constructs a new `MbedTlsClientCertVerifier` object given the provided trusted certificate authority
+    /// certificates.
     pub fn new_from_mbedtls_trusted_cas(
         trusted_cas: mbedtls::alloc::List<mbedtls::x509::Certificate>,
     ) -> mbedtls::Result<Self> {
@@ -39,10 +45,13 @@ impl MbedTlsClientCertVerifier {
         Ok(Self { trusted_cas, root_subjects })
     }
 
+    /// The certificate authority certificates used to construct this object
     pub fn trusted_cas(&self) -> &mbedtls::alloc::List<mbedtls::x509::Certificate> {
         &self.trusted_cas
     }
 
+    /// the Subjects of the client authentication trust anchors to share with the client when
+    /// requesting client authentication, extractd from CA certificates.
     pub fn root_subjects(&self) -> &[DistinguishedName] {
         self.root_subjects.as_ref()
     }
