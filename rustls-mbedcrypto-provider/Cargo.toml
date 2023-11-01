@@ -17,6 +17,13 @@ mbedtls = { version = "0.12.0-alpha.1", default-features = false, features = [
 ] }
 log = { version = "0.4.20", optional = true }
 
+[target.'cfg(target_env = "msvc")'.dependencies]
+# mbedtls need feature `time` to build when targeting msvc
+mbedtls = { version = "0.12.0-alpha.1", default-features = false, features = [
+    "std",
+    "time",
+] }
+
 [dev-dependencies]
 rustls = { git = "https://github.com/rustls/rustls", rev = "b776a5778ad333653670c34ff9125d8ae59b6047", version = "0.22.0-alpha.4", default-features = false, features = [
     "ring",
