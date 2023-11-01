@@ -66,21 +66,6 @@ jobs:
         env:
           RUST_BACKTRACE: 1
 
-  msrv:
-    name: MSRV
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "1.61"
-
-      - run: cargo check --locked --lib --all-features -p rustls-mbedcrypto-provider
-
   features:
     name: Features
     runs-on: ubuntu-latest
@@ -113,6 +98,64 @@ jobs:
       - name: cargo test (release; no run)
         run: cargo test --locked --release --no-run
 
+# TODO: add fuzz tests
+# TODO: add benchmarks
+
+  docs:
+    name: Check for documentation errors
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: cargo doc (rustls; all features)
+        run: cargo doc --locked --all-features --no-deps --document-private-items --package rustls-mbedcrypto-provider
+        env:
+          RUSTDOCFLAGS: -Dwarnings
+
+  coverage:
+    name: Measure coverage
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools
+
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+
+      - name: Measure coverage
+        run: ./admin/coverage --lcov --output-path final.info
+
+      - name: Report to codecov.io
+        uses: codecov/codecov-action@v3
+        with:
+          file: final.info
+          fail_ci_if_error: false
+
+  semver:
+    name: Check semver compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check semver
+        uses: obi1kenobi/cargo-semver-checks-action@v2
+
   format:
     name: Format
     runs-on: ubuntu-latest
@@ -128,4 +171,32 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: cargo clippy --locked --package rustls-mbedcrypto-provider --all-features --all-targets -- --deny warnings
+      - run: cargo clippy --locked --package rustls-mbedcrypto-provider --no-default-features --all-targets -- --deny warnings
 
+  clippy-nightly:
+    name: Clippy (Nightly)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
+      - run: cargo clippy --locked --package rustls-mbedcrypto-provider --all-features --all-targets
+      - run: cargo clippy --locked --package rustls-mbedcrypto-provider --no-default-features --all-targets
