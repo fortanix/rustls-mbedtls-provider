@@ -1,9 +1,7 @@
 [workspace]
-members = [
-  "rustls-mbedcrypto-provider",
-  "rustls-mbedpki-provider"
-]
-default-members = [
-  "rustls-mbedcrypto-provider",
-]
+members = ["rustls-mbedcrypto-provider", "rustls-mbedpki-provider"]
+default-members = ["rustls-mbedcrypto-provider"]
 resolver = "2"
+
+[patch.crates-io]
+mbedtls = { git = "https://github.com/fortanix/rust-mbedtls", branch = "yx/fix-macos-build" }
