@@ -1,4 +1,4 @@
-name: rustls-mbedcrypto-provider
+name: rustls-mbedpki-provider
 
 permissions:
   contents: read
@@ -47,9 +47,11 @@ jobs:
           toolchain: ${{ matrix.rust }}
 
       - name: cargo build (debug; default features)
+        working-directory: rustls-mbedpki-provider
         run: cargo build --locked
 
-      - name: cargo test (debug; all features)
-        run: cargo test --locked --all-features
+      - name: cargo test (debug; default features)
+        working-directory: rustls-mbedpki-provider
+        run: cargo test --locked
         env:
           RUST_BACKTRACE: 1
