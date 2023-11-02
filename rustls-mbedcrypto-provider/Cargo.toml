@@ -1,0 +1,55 @@
+[package]
+name = "rustls-mbedcrypto-provider"
+version = "0.0.1"
+edition = "2021"
+license = "MPL-2.0"
+description = "Mbedtls based crypto provider for rustls."
+homepage = "https://github.com/fortanix/rustls-mbedtls-provider"
+repository = "https://github.com/fortanix/rustls-mbedtls-provider"
+readme = "../README.md"
+authors = ["Fortanix Inc."]
+categories = ["network-programming", "cryptography"]
+resolver = "2"
+
+[dependencies]
+# TODO: upgrade to use formal 0.22.0 or 0.22.0-* versions when availabe
+rustls = { git = "https://github.com/rustls/rustls", rev = "b776a5778ad333653670c34ff9125d8ae59b6047", version = "0.22.0-alpha.4", default-features = false }
+mbedtls = { version = "0.12.0-alpha.2", default-features = false, features = [
+    "std",
+] }
+log = { version = "0.4.20", optional = true }
+
+[target.'cfg(target_env = "msvc")'.dependencies]
+# mbedtls need feature `time` to build when targeting msvc
+mbedtls = { version = "0.12.0-alpha.2", default-features = false, features = [
+    "std",
+    "time",
+] }
+
+[dev-dependencies]
+rustls = { git = "https://github.com/rustls/rustls", rev = "b776a5778ad333653670c34ff9125d8ae59b6047", version = "0.22.0-alpha.4", default-features = false, features = [
+    "ring",
+] }
+webpki = { package = "rustls-webpki", version = "0.102.0-alpha.1", default-features = false, features = [
+    "alloc",
+    "std",
+] }
+pki-types = { package = "rustls-pki-types", version = "0.2.0" }
+webpki-roots = "0.26.0-alpha.1"
+rustls-pemfile = "=2.0.0-alpha.1"
+env_logger = "0.10"
+log = { version = "0.4.20" }
+
+[features]
+default = ["logging", "tls12"]
+logging = ["rustls/logging", "log"]
+tls12 = ["rustls/tls12"]
+rdrand = ["mbedtls/rdrand"]
+
+[[example]]
+name = "client"
+path = "examples/client.rs"
+
+[[example]]
+name = "bench"
+path = "examples/internal/bench.rs"
