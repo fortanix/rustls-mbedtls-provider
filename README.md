@@ -31,7 +31,8 @@ Supports following ciphersuites:
   - `TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256`
 
 ## PKI provider
-Implements [`ClientCertVerifier`](https://docs.rs/rustls/latest/rustls/server/trait.ClientCertVerifier.html) and [`ClientCertVerifier`](https://docs.rs/rustls/latest/rustls/client/trait.ServerCertVerifier.html) from `rustls` using mbedtls.
+
+Implements [`ClientCertVerifier`](https://docs.rs/rustls/latest/rustls/server/trait.ClientCertVerifier.html) and [`ClientCertVerifier`](https://docs.rs/rustls/latest/rustls/client/trait.ServerCertVerifier.html) traits from `rustls` using mbedtls.
 
 # Contributing
 
@@ -64,9 +65,8 @@ involved.
 
 # License
 
-This project is primarily distributed under the terms of the Apache License
-version 2.0 and the GNU General Public License version 2, see
-[LICENSE-APACHE](./LICENSE-APACHE) and [LICENSE-GPL](./LICENSE-GPL) for details.
+This project is primarily distributed under the terms of the Mozilla Public
+License (MPL) 2.0, see [LICENSE](./LICENSE) for details.
 
 
 [`Hash`]: https://docs.rs/rustls/0.22.0-alpha.3/rustls/crypto/hash/trait.Hash.html
