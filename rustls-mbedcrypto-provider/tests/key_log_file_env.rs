@@ -32,8 +32,7 @@
 mod common;
 
 use crate::common::{
-    do_handshake, make_client_config_with_versions, make_pair_for_arc_configs, make_server_config,
-    transfer, KeyType,
+    do_handshake, make_client_config_with_versions, make_pair_for_arc_configs, make_server_config, transfer, KeyType,
 };
 use std::{
     env,
@@ -74,8 +73,7 @@ fn exercise_key_log_file_for_client() {
             let mut client_config = make_client_config_with_versions(KeyType::Rsa, &[version]);
             client_config.key_log = Arc::new(rustls::KeyLogFile::new());
 
-            let (mut client, mut server) =
-                make_pair_for_arc_configs(&Arc::new(client_config), &server_config);
+            let (mut client, mut server) = make_pair_for_arc_configs(&Arc::new(client_config), &server_config);
 
             assert_eq!(5, client.writer().write(b"hello").unwrap());
 
@@ -98,8 +96,7 @@ fn exercise_key_log_file_for_server() {
 
         for version in rustls::ALL_VERSIONS {
             let client_config = make_client_config_with_versions(KeyType::Rsa, &[version]);
-            let (mut client, mut server) =
-                make_pair_for_arc_configs(&Arc::new(client_config), &server_config);
+            let (mut client, mut server) = make_pair_for_arc_configs(&Arc::new(client_config), &server_config);
 
             assert_eq!(5, client.writer().write(b"hello").unwrap());
 

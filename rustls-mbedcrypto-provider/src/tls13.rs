@@ -15,14 +15,13 @@ use mbedtls::cipher::raw::CipherType;
 use mbedtls::cipher::{Authenticated, Cipher, Decryption, Encryption, Fresh};
 use rustls::cipher_suite::CipherSuiteCommon;
 use rustls::crypto::cipher::{
-    make_tls13_aad, AeadKey, BorrowedPlainMessage, Iv, MessageDecrypter, MessageEncrypter, Nonce,
-    OpaqueMessage, PlainMessage, Tls13AeadAlgorithm, UnsupportedOperationError,
+    make_tls13_aad, AeadKey, BorrowedPlainMessage, Iv, MessageDecrypter, MessageEncrypter, Nonce, OpaqueMessage, PlainMessage,
+    Tls13AeadAlgorithm, UnsupportedOperationError,
 };
 use rustls::crypto::tls13::HkdfUsingHmac;
 use rustls::internal::msgs::codec::Codec;
 use rustls::{
-    CipherSuite, ConnectionTrafficSecrets, ContentType, Error, ProtocolVersion,
-    SupportedCipherSuite, Tls13CipherSuite,
+    CipherSuite, ConnectionTrafficSecrets, ContentType, Error, ProtocolVersion, SupportedCipherSuite, Tls13CipherSuite,
 };
 
 /// The TLS1.3 ciphersuite TLS_CHACHA20_POLY1305_SHA256
@@ -39,62 +38,46 @@ pub(crate) static TLS13_CHACHA20_POLY1305_SHA256_INTERNAL: &Tls13CipherSuite = &
 };
 
 /// The TLS1.3 ciphersuite TLS_AES_256_GCM_SHA384
-pub static TLS13_AES_256_GCM_SHA384: SupportedCipherSuite =
-    SupportedCipherSuite::Tls13(&Tls13CipherSuite {
-        common: CipherSuiteCommon {
-            suite: CipherSuite::TLS13_AES_256_GCM_SHA384,
-            hash_provider: &super::hash::SHA384,
-        },
-        hkdf_provider: &HkdfUsingHmac(&super::hmac::HMAC_SHA384),
-        aead_alg: &AeadAlgorithm(&aead::AES256_GCM),
-    });
+pub static TLS13_AES_256_GCM_SHA384: SupportedCipherSuite = SupportedCipherSuite::Tls13(&Tls13CipherSuite {
+    common: CipherSuiteCommon {
+        suite: CipherSuite::TLS13_AES_256_GCM_SHA384,
+        hash_provider: &super::hash::SHA384,
+    },
+    hkdf_provider: &HkdfUsingHmac(&super::hmac::HMAC_SHA384),
+    aead_alg: &AeadAlgorithm(&aead::AES256_GCM),
+});
 
 /// The TLS1.3 ciphersuite TLS_AES_128_GCM_SHA256
-pub static TLS13_AES_128_GCM_SHA256: SupportedCipherSuite =
-    SupportedCipherSuite::Tls13(&Tls13CipherSuite {
-        common: CipherSuiteCommon {
-            suite: CipherSuite::TLS13_AES_128_GCM_SHA256,
-            hash_provider: &super::hash::SHA256,
-        },
-        hkdf_provider: &HkdfUsingHmac(&super::hmac::HMAC_SHA256),
-        aead_alg: &AeadAlgorithm(&aead::AES128_GCM),
-    });
+pub static TLS13_AES_128_GCM_SHA256: SupportedCipherSuite = SupportedCipherSuite::Tls13(&Tls13CipherSuite {
+    common: CipherSuiteCommon {
+        suite: CipherSuite::TLS13_AES_128_GCM_SHA256,
+        hash_provider: &super::hash::SHA256,
+    },
+    hkdf_provider: &HkdfUsingHmac(&super::hmac::HMAC_SHA256),
+    aead_alg: &AeadAlgorithm(&aead::AES128_GCM),
+});
 
 // common encrypter/decrypter/key_len items for above Tls13AeadAlgorithm impls
 struct AeadAlgorithm(&'static aead::Algorithm);
 
 impl Tls13AeadAlgorithm for AeadAlgorithm {
     fn encrypter(&self, key: AeadKey, iv: Iv) -> Box<dyn MessageEncrypter> {
-        Box::new(Tls13MessageEncrypter {
-            enc_key: key.as_ref().to_vec(),
-            iv,
-            aead_algorithm: self.0,
-        })
+        Box::new(Tls13MessageEncrypter { enc_key: key.as_ref().to_vec(), iv, aead_algorithm: self.0 })
     }
 
     fn decrypter(&self, key: AeadKey, iv: Iv) -> Box<dyn MessageDecrypter> {
-        Box::new(Tls13MessageDecrypter {
-            dec_key: key.as_ref().to_vec(),
-            iv,
-            aead_algorithm: self.0,
-        })
+        Box::new(Tls13MessageDecrypter { dec_key: key.as_ref().to_vec(), iv, aead_algorithm: self.0 })
     }
 
     fn key_len(&self) -> usize {
         self.0.key_length
     }
 
-    fn extract_keys(
-        &self,
-        key: AeadKey,
-        iv: Iv,
-    ) -> Result<ConnectionTrafficSecrets, UnsupportedOperationError> {
+    fn extract_keys(&self, key: AeadKey, iv: Iv) -> Result<ConnectionTrafficSecrets, UnsupportedOperationError> {
         match self.0.cipher_type {
             CipherType::Aes128Gcm => Ok(ConnectionTrafficSecrets::Aes128Gcm { key, iv }),
             CipherType::Aes256Gcm => Ok(ConnectionTrafficSecrets::Aes256Gcm { key, iv }),
-            CipherType::Chacha20Poly1305 => {
-                Ok(ConnectionTrafficSecrets::Chacha20Poly1305 { key, iv })
-            }
+            CipherType::Chacha20Poly1305 => Ok(ConnectionTrafficSecrets::Chacha20Poly1305 { key, iv }),
             _ => Err(UnsupportedOperationError),
         }
     }

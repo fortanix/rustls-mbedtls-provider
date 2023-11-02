@@ -91,10 +91,7 @@ pub(crate) struct MbedHashContext {
 impl Clone for MbedHashContext {
     fn clone(&self) -> Self {
         let state = self.state.lock().unwrap();
-        Self {
-            state: Arc::new(Mutex::new(state.clone())),
-            hash_algo: self.hash_algo,
-        }
+        Self { state: Arc::new(Mutex::new(state.clone())), hash_algo: self.hash_algo }
     }
 }
 

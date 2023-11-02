@@ -170,11 +170,7 @@ impl BenchmarkParam {
         ciphersuite: rustls::SupportedCipherSuite,
         version: &'static rustls::SupportedProtocolVersion,
     ) -> Self {
-        Self {
-            key_type,
-            ciphersuite,
-            version,
-        }
+        Self { key_type, ciphersuite, version }
     }
 }
 
@@ -266,13 +262,11 @@ impl KeyType {
     }
 
     fn get_key(&self) -> PrivateKeyDer<'static> {
-        rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(
-            fs::File::open(self.path_for("end.key")).unwrap(),
-        ))
-        .next()
-        .unwrap()
-        .unwrap()
-        .into()
+        rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(fs::File::open(self.path_for("end.key")).unwrap()))
+            .next()
+            .unwrap()
+            .unwrap()
+            .into()
     }
 
     fn get_client_chain(&self) -> Vec<CertificateDer<'static>> {
@@ -284,13 +278,11 @@ impl KeyType {
     }
 
     fn get_client_key(&self) -> PrivateKeyDer<'static> {
-        rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(
-            fs::File::open(self.path_for("client.key")).unwrap(),
-        ))
-        .next()
-        .unwrap()
-        .unwrap()
-        .into()
+        rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(fs::File::open(self.path_for("client.key")).unwrap()))
+            .next()
+            .unwrap()
+            .unwrap()
+            .into()
     }
 }
 
@@ -335,17 +327,10 @@ fn make_server_config(
     cfg
 }
 
-fn make_client_config(
-    params: &BenchmarkParam,
-    clientauth: ClientAuth,
-    resume: ResumptionParam,
-) -> ClientConfig {
+fn make_client_config(params: &BenchmarkParam, clientauth: ClientAuth, resume: ResumptionParam) -> ClientConfig {
     let mut root_store = RootCertStore::empty();
-    let mut rootbuf =
-        io::BufReader::new(fs::File::open(params.key_type.path_for("ca.cert")).unwrap());
-    root_store.add_parsable_certificates(
-        rustls_pemfile::certs(&mut rootbuf).map(|result| result.unwrap()),
-    );
+    let mut rootbuf = io::BufReader::new(fs::File::open(params.key_type.path_for("ca.cert")).unwrap());
+    root_store.add_parsable_certificates(rustls_pemfile::certs(&mut rootbuf).map(|result| result.unwrap()));
 
     let cfg = ClientConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
         .with_cipher_suites(&[params.ciphersuite])
@@ -355,11 +340,8 @@ fn make_client_config(
         .with_root_certificates(root_store);
 
     let mut cfg = if clientauth == ClientAuth::Yes {
-        cfg.with_client_auth_cert(
-            params.key_type.get_client_chain(),
-            params.key_type.get_client_key(),
-        )
-        .unwrap()
+        cfg.with_client_auth_cert(params.key_type.get_client_chain(), params.key_type.get_client_key())
+            .unwrap()
     } else {
         cfg.with_no_client_auth()
     };
@@ -390,11 +372,7 @@ fn bench_handshake(params: &BenchmarkParam, clientauth: ClientAuth, resume: Resu
 
     assert!(params.ciphersuite.version() == params.version);
 
-    let rounds = apply_work_multiplier(if resume == ResumptionParam::No {
-        512
-    } else {
-        4096
-    });
+    let rounds = apply_work_multiplier(if resume == ResumptionParam::No { 512 } else { 4096 });
     let mut client_time = 0f64;
     let mut server_time = 0f64;
 
@@ -460,11 +438,7 @@ fn do_handshake(client: &mut ClientConnection, server: &mut ServerConnection) {
 }
 
 fn bench_bulk(params: &BenchmarkParam, plaintext_size: u64, max_fragment_size: Option<usize>) {
-    let client_config = Arc::new(make_client_config(
-        params,
-        ClientAuth::No,
-        ResumptionParam::No,
-    ));
+    let client_config = Arc::new(make_client_config(params, ClientAuth::No, ResumptionParam::No));
     let server_config = Arc::new(make_server_config(
         params,
         ClientAuth::No,
@@ -522,17 +496,8 @@ fn bench_bulk(params: &BenchmarkParam, plaintext_size: u64, max_fragment_size: O
 }
 
 fn bench_memory(params: &BenchmarkParam, conn_count: u64) {
-    let client_config = Arc::new(make_client_config(
-        params,
-        ClientAuth::No,
-        ResumptionParam::No,
-    ));
-    let server_config = Arc::new(make_server_config(
-        params,
-        ClientAuth::No,
-        ResumptionParam::No,
-        None,
-    ));
+    let client_config = Arc::new(make_client_config(params, ClientAuth::No, ResumptionParam::No));
+    let server_config = Arc::new(make_server_config(params, ClientAuth::No, ResumptionParam::No, None));
 
     // The target here is to end up with conn_count post-handshake
     // server and client sessions.
@@ -573,9 +538,7 @@ fn bench_memory(params: &BenchmarkParam, conn_count: u64) {
 fn lookup_matching_benches(name: &str) -> Vec<&BenchmarkParam> {
     let r: Vec<&BenchmarkParam> = ALL_BENCHMARKS
         .iter()
-        .filter(|params| {
-            format!("{:?}", params.ciphersuite.suite()).to_lowercase() == name.to_lowercase()
-        })
+        .filter(|params| format!("{:?}", params.ciphersuite.suite()).to_lowercase() == name.to_lowercase())
         .collect();
 
     if r.is_empty() {

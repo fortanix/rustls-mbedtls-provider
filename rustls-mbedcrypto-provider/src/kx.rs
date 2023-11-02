@@ -52,10 +52,7 @@ impl SupportedKxGroup for KxGroup {
             rustls::crypto::GetRandomFailed
         })?;
 
-        fn get_key_pair(
-            pk: &mut PkMbed,
-            kx_group: &KxGroup,
-        ) -> Result<KeyExchange, mbedtls::Error> {
+        fn get_key_pair(pk: &mut PkMbed, kx_group: &KxGroup) -> Result<KeyExchange, mbedtls::Error> {
             let group = EcGroup::new(kx_group.agreement_algorithm.group_id)?;
             let pub_key = pk
                 .ec_public()?
@@ -84,28 +81,19 @@ impl SupportedKxGroup for KxGroup {
 }
 
 /// Ephemeral ECDH on curve25519 (see RFC7748)
-pub static X25519: &dyn SupportedKxGroup = &KxGroup {
-    name: NamedGroup::X25519,
-    agreement_algorithm: &agreement::X25519,
-};
+pub static X25519: &dyn SupportedKxGroup = &KxGroup { name: NamedGroup::X25519, agreement_algorithm: &agreement::X25519 };
 
 /// Ephemeral ECDH on secp256r1 (aka NIST-P256)
-pub static SECP256R1: &dyn SupportedKxGroup = &KxGroup {
-    name: NamedGroup::secp256r1,
-    agreement_algorithm: &agreement::ECDH_P256,
-};
+pub static SECP256R1: &dyn SupportedKxGroup =
+    &KxGroup { name: NamedGroup::secp256r1, agreement_algorithm: &agreement::ECDH_P256 };
 
 /// Ephemeral ECDH on secp384r1 (aka NIST-P384)
-pub static SECP384R1: &dyn SupportedKxGroup = &KxGroup {
-    name: NamedGroup::secp384r1,
-    agreement_algorithm: &agreement::ECDH_P384,
-};
+pub static SECP384R1: &dyn SupportedKxGroup =
+    &KxGroup { name: NamedGroup::secp384r1, agreement_algorithm: &agreement::ECDH_P384 };
 
 /// Ephemeral ECDH on secp521r1 (aka NIST-P521)
-pub static SECP521R1: &dyn SupportedKxGroup = &KxGroup {
-    name: NamedGroup::secp521r1,
-    agreement_algorithm: &agreement::ECDH_P521,
-};
+pub static SECP521R1: &dyn SupportedKxGroup =
+    &KxGroup { name: NamedGroup::secp521r1, agreement_algorithm: &agreement::ECDH_P521 };
 
 /// A list of all the key exchange groups supported by mbedtls.
 pub static ALL_KX_GROUPS: &[&dyn SupportedKxGroup] = &[X25519, SECP256R1, SECP384R1, SECP521R1];
@@ -130,18 +118,15 @@ impl crypto::ActiveKeyExchange for KeyExchange {
         let ec_group = EcGroup::new(group_id).map_err(mbedtls_err_to_rustls_error)?;
         let private_key = Mpi::from_binary(&self.priv_key).map_err(mbedtls_err_to_rustls_error)?;
 
-        let mut sk = PkMbed::private_from_ec_components(ec_group.clone(), private_key)
-            .map_err(mbedtls_err_to_rustls_error)?;
+        let mut sk = PkMbed::private_from_ec_components(ec_group.clone(), private_key).map_err(mbedtls_err_to_rustls_error)?;
         if peer_public_key.len() != self.agreement_algorithm.public_key_len {
             return Err(Error::General(format!(
                 "Failed to validate {:?} comping peer public key, invalid length",
                 group_id
             )));
         }
-        let public_point = EcPoint::from_binary_no_compress(&ec_group, peer_public_key)
-            .map_err(mbedtls_err_to_rustls_error)?;
-        let peer_pk = PkMbed::public_from_ec_components(ec_group.clone(), public_point)
-            .map_err(mbedtls_err_to_rustls_error)?;
+        let public_point = EcPoint::from_binary_no_compress(&ec_group, peer_public_key).map_err(mbedtls_err_to_rustls_error)?;
+        let peer_pk = PkMbed::public_from_ec_components(ec_group.clone(), public_point).map_err(mbedtls_err_to_rustls_error)?;
 
         let mut shared_secret = vec![
             0u8;

@@ -248,29 +248,22 @@ impl KeyType {
 
     fn get_client_key(&self) -> PrivateKeyDer<'static> {
         PrivateKeyDer::Pkcs8(
-            rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(
-                self.bytes_for("client.key"),
-            ))
-            .next()
-            .unwrap()
-            .unwrap(),
+            rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(self.bytes_for("client.key")))
+                .next()
+                .unwrap()
+                .unwrap(),
         )
     }
 
     fn get_crl(&self, role: &str) -> CertificateRevocationListDer<'static> {
-        rustls_pemfile::crls(&mut io::BufReader::new(
-            self.bytes_for(&format!("{role}.revoked.crl.pem")),
-        ))
-        .map(|result| result.unwrap())
-        .next() // We only expect one CRL.
-        .unwrap()
+        rustls_pemfile::crls(&mut io::BufReader::new(self.bytes_for(&format!("{role}.revoked.crl.pem"))))
+            .map(|result| result.unwrap())
+            .next() // We only expect one CRL.
+            .unwrap()
     }
 }
 
-pub fn finish_server_config(
-    kt: KeyType,
-    conf: rustls::ConfigBuilder<ServerConfig, rustls::WantsVerifier>,
-) -> ServerConfig {
+pub fn finish_server_config(kt: KeyType, conf: rustls::ConfigBuilder<ServerConfig, rustls::WantsVerifier>) -> ServerConfig {
     conf.with_no_client_auth()
         .with_single_cert(kt.get_chain(), kt.get_key())
         .unwrap()
@@ -279,15 +272,11 @@ pub fn finish_server_config(
 pub fn make_server_config(kt: KeyType) -> ServerConfig {
     finish_server_config(
         kt,
-        ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
-            .with_safe_defaults(),
+        ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS).with_safe_defaults(),
     )
 }
 
-pub fn make_server_config_with_versions(
-    kt: KeyType,
-    versions: &[&'static rustls::SupportedProtocolVersion],
-) -> ServerConfig {
+pub fn make_server_config_with_versions(kt: KeyType, versions: &[&'static rustls::SupportedProtocolVersion]) -> ServerConfig {
     finish_server_config(
         kt,
         ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
@@ -329,17 +318,11 @@ pub fn make_server_config_with_mandatory_client_auth_crls(
     kt: KeyType,
     crls: Vec<CertificateRevocationListDer<'static>>,
 ) -> ServerConfig {
-    make_server_config_with_client_verifier(
-        kt,
-        WebPkiClientVerifier::builder(get_client_root_store(kt)).with_crls(crls),
-    )
+    make_server_config_with_client_verifier(kt, WebPkiClientVerifier::builder(get_client_root_store(kt)).with_crls(crls))
 }
 
 pub fn make_server_config_with_mandatory_client_auth(kt: KeyType) -> ServerConfig {
-    make_server_config_with_client_verifier(
-        kt,
-        WebPkiClientVerifier::builder(get_client_root_store(kt)),
-    )
+    make_server_config_with_client_verifier(kt, WebPkiClientVerifier::builder(get_client_root_store(kt)))
 }
 
 pub fn make_server_config_with_optional_client_auth(
@@ -355,10 +338,7 @@ pub fn make_server_config_with_optional_client_auth(
     )
 }
 
-pub fn make_server_config_with_client_verifier(
-    kt: KeyType,
-    verifier_builder: ClientCertVerifierBuilder,
-) -> ServerConfig {
+pub fn make_server_config_with_client_verifier(kt: KeyType, verifier_builder: ClientCertVerifierBuilder) -> ServerConfig {
     ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
         .with_safe_defaults()
         .with_client_cert_verifier(verifier_builder.build().unwrap())
@@ -366,15 +346,10 @@ pub fn make_server_config_with_client_verifier(
         .unwrap()
 }
 
-pub fn finish_client_config(
-    kt: KeyType,
-    config: rustls::ConfigBuilder<ClientConfig, rustls::WantsVerifier>,
-) -> ClientConfig {
+pub fn finish_client_config(kt: KeyType, config: rustls::ConfigBuilder<ClientConfig, rustls::WantsVerifier>) -> ClientConfig {
     let mut root_store = RootCertStore::empty();
     let mut rootbuf = io::BufReader::new(kt.bytes_for("ca.cert"));
-    root_store.add_parsable_certificates(
-        rustls_pemfile::certs(&mut rootbuf).map(|result| result.unwrap()),
-    );
+    root_store.add_parsable_certificates(rustls_pemfile::certs(&mut rootbuf).map(|result| result.unwrap()));
 
     config
         .with_root_certificates(root_store)
@@ -388,9 +363,7 @@ pub fn finish_client_config_with_creds(
     let mut root_store = RootCertStore::empty();
     let mut rootbuf = io::BufReader::new(kt.bytes_for("ca.cert"));
     // Passing a reference here just for testing.
-    root_store.add_parsable_certificates(
-        rustls_pemfile::certs(&mut rootbuf).map(|result| result.unwrap()),
-    );
+    root_store.add_parsable_certificates(rustls_pemfile::certs(&mut rootbuf).map(|result| result.unwrap()));
 
     config
         .with_root_certificates(root_store)
@@ -401,8 +374,7 @@ pub fn finish_client_config_with_creds(
 pub fn make_client_config(kt: KeyType) -> ClientConfig {
     finish_client_config(
         kt,
-        ClientConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
-            .with_safe_defaults(),
+        ClientConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS).with_safe_defaults(),
     )
 }
 
@@ -418,10 +390,7 @@ pub fn make_client_config_with_kx_groups(
     finish_client_config(kt, builder)
 }
 
-pub fn make_client_config_with_versions(
-    kt: KeyType,
-    versions: &[&'static rustls::SupportedProtocolVersion],
-) -> ClientConfig {
+pub fn make_client_config_with_versions(kt: KeyType, versions: &[&'static rustls::SupportedProtocolVersion]) -> ClientConfig {
     let builder = ClientConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
         .with_safe_default_cipher_suites()
         .with_safe_default_kx_groups()
@@ -433,8 +402,7 @@ pub fn make_client_config_with_versions(
 pub fn make_client_config_with_auth(kt: KeyType) -> ClientConfig {
     finish_client_config_with_creds(
         kt,
-        ClientConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
-            .with_safe_defaults(),
+        ClientConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS).with_safe_defaults(),
     )
 }
 
@@ -468,10 +436,7 @@ pub fn make_pair(kt: KeyType) -> (ClientConnection, ServerConnection) {
     make_pair_for_configs(make_client_config(kt), make_server_config(kt))
 }
 
-pub fn make_pair_for_configs(
-    client_config: ClientConfig,
-    server_config: ServerConfig,
-) -> (ClientConnection, ServerConnection) {
+pub fn make_pair_for_configs(client_config: ClientConfig, server_config: ServerConfig) -> (ClientConnection, ServerConnection) {
     make_pair_for_arc_configs(&Arc::new(client_config), &Arc::new(server_config))
 }
 
@@ -505,10 +470,7 @@ pub enum ErrorFromPeer {
     Server(Error),
 }
 
-pub fn do_handshake_until_error(
-    client: &mut ClientConnection,
-    server: &mut ServerConnection,
-) -> Result<(), ErrorFromPeer> {
+pub fn do_handshake_until_error(client: &mut ClientConnection, server: &mut ServerConnection) -> Result<(), ErrorFromPeer> {
     while server.is_handshaking() || client.is_handshaking() {
         transfer(client, server);
         server
