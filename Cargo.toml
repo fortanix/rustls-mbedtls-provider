@@ -1,8 +1,10 @@
 [workspace]
 members = [
   "rustls-mbedcrypto-provider",
+  "rustls-mbedpki-provider"
 ]
 default-members = [
   "rustls-mbedcrypto-provider",
+  "rustls-mbedpki-provider"
 ]
 resolver = "2"
