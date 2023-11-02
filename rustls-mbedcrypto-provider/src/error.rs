@@ -7,6 +7,7 @@
 
 use alloc::format;
 
-pub(crate) fn mbedtls_err_to_rustls_error(err: mbedtls::Error) -> rustls::Error {
+/// Convert a [`mbedtls::Error`] to a [`rustls::Error::General`] error.
+pub(crate) fn mbedtls_err_to_rustls_general_error(err: mbedtls::Error) -> rustls::Error {
     rustls::Error::General(format!("Got mbedtls error: {}", err))
 }

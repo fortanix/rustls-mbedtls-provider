@@ -5,7 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use crate::error::mbedtls_err_to_rustls_error;
+use crate::error::mbedtls_err_to_rustls_general_error;
 use alloc::boxed::Box;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -211,11 +211,11 @@ impl MessageDecrypter for GcmMessageDecrypter {
 
         let key_bit_len = self.dec_key.len() * 8;
         let cipher = Cipher::<Decryption, Authenticated, Fresh>::new(CipherId::Aes, CipherMode::GCM, key_bit_len as _)
-            .map_err(mbedtls_err_to_rustls_error)?;
+            .map_err(mbedtls_err_to_rustls_general_error)?;
 
         let cipher = cipher
             .set_key_iv(&self.dec_key, &nonce)
-            .map_err(mbedtls_err_to_rustls_error)?;
+            .map_err(mbedtls_err_to_rustls_general_error)?;
 
         let tag_offset = payload
             .len()
@@ -231,7 +231,7 @@ impl MessageDecrypter for GcmMessageDecrypter {
                 | mbedtls::Error::ChachapolyAuthFailed
                 | mbedtls::Error::CipherAuthFailed
                 | mbedtls::Error::GcmAuthFailed => rustls::Error::DecryptError,
-                _ => mbedtls_err_to_rustls_error(err),
+                _ => mbedtls_err_to_rustls_general_error(err),
             })?;
         if plain_len > MAX_FRAGMENT_LEN {
             return Err(Error::PeerSentOversizedRecord);
@@ -257,10 +257,10 @@ impl MessageEncrypter for GcmMessageEncrypter {
 
         let key_bit_len = self.enc_key.len() * 8;
         let cipher = Cipher::<Encryption, Authenticated, Fresh>::new(CipherId::Aes, CipherMode::GCM, key_bit_len as _)
-            .map_err(mbedtls_err_to_rustls_error)?;
+            .map_err(mbedtls_err_to_rustls_general_error)?;
         let cipher = cipher
             .set_key_iv(&self.enc_key, &nonce)
-            .map_err(mbedtls_err_to_rustls_error)?;
+            .map_err(mbedtls_err_to_rustls_general_error)?;
 
         cipher
             .encrypt_auth_inplace(&aad, &mut payload[GCM_EXPLICIT_NONCE_LEN..], &mut tag)
@@ -269,7 +269,7 @@ impl MessageEncrypter for GcmMessageEncrypter {
                 | mbedtls::Error::ChachapolyAuthFailed
                 | mbedtls::Error::CipherAuthFailed
                 | mbedtls::Error::GcmAuthFailed => rustls::Error::EncryptError,
-                _ => mbedtls_err_to_rustls_error(err),
+                _ => mbedtls_err_to_rustls_general_error(err),
             })?;
         payload.extend(tag);
 
@@ -313,11 +313,11 @@ impl MessageDecrypter for ChaCha20Poly1305MessageDecrypter {
             CipherMode::CHACHAPOLY,
             (self.dec_key.len() * 8) as _,
         )
-        .map_err(mbedtls_err_to_rustls_error)?;
+        .map_err(mbedtls_err_to_rustls_general_error)?;
 
         let cipher = cipher
             .set_key_iv(&self.dec_key, &nonce)
-            .map_err(mbedtls_err_to_rustls_error)?;
+            .map_err(mbedtls_err_to_rustls_general_error)?;
 
         let tag_offset = payload
             .len()
@@ -333,7 +333,7 @@ impl MessageDecrypter for ChaCha20Poly1305MessageDecrypter {
                 | mbedtls::Error::ChachapolyAuthFailed
                 | mbedtls::Error::CipherAuthFailed
                 | mbedtls::Error::GcmAuthFailed => rustls::Error::DecryptError,
-                _ => mbedtls_err_to_rustls_error(err),
+                _ => mbedtls_err_to_rustls_general_error(err),
             })?;
 
         if plain_len > MAX_FRAGMENT_LEN {
@@ -359,11 +359,11 @@ impl MessageEncrypter for ChaCha20Poly1305MessageEncrypter {
             CipherMode::CHACHAPOLY,
             (self.enc_key.len() * 8) as _,
         )
-        .map_err(mbedtls_err_to_rustls_error)?;
+        .map_err(mbedtls_err_to_rustls_general_error)?;
 
         let cipher = cipher
             .set_key_iv(&self.enc_key, &nonce)
-            .map_err(mbedtls_err_to_rustls_error)?;
+            .map_err(mbedtls_err_to_rustls_general_error)?;
 
         cipher
             .encrypt_auth_inplace(&aad, &mut payload, &mut tag)
@@ -372,7 +372,7 @@ impl MessageEncrypter for ChaCha20Poly1305MessageEncrypter {
                 | mbedtls::Error::ChachapolyAuthFailed
                 | mbedtls::Error::CipherAuthFailed
                 | mbedtls::Error::GcmAuthFailed => rustls::Error::EncryptError,
-                _ => mbedtls_err_to_rustls_error(err),
+                _ => mbedtls_err_to_rustls_general_error(err),
             })?;
         payload.extend(tag);
 
