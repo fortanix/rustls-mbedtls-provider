@@ -2,11 +2,12 @@
 name = "rustls-mbedcrypto-provider"
 version = "0.0.1"
 edition = "2021"
-license = "Apache-2.0 OR MIT"
+license = "MPL-2.0"
 description = "Mbedtls based crypto provider for rustls."
 homepage = "https://github.com/fortanix/rustls-mbedtls-provider"
 repository = "https://github.com/fortanix/rustls-mbedtls-provider"
 readme = "../README.md"
+authors = ["Fortanix Inc."]
 categories = ["network-programming", "cryptography"]
 resolver = "2"
 
