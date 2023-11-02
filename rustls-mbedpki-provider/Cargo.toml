@@ -15,6 +15,7 @@ rustls = { version = "0.21", features = ["dangerous_configuration"] }
 mbedtls = { version = "0.12.0-alpha.1", features = [
     "x509",
     "chrono",
+    "time",
     "std",
 ], default_features = false }
 
