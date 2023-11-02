@@ -1,13 +1,28 @@
-name: Rust
+name: rustls-mbedpki-provider
+
+permissions:
+  contents: read
 
 on:
   push:
-    branches: [ "master" ]
+    paths-ignore:
+      - '*.md'
+      - 'LICENSE'
+    branches:
+      - master
   pull_request:
-    branches: [ "master" ]
+    paths-ignore:
+      - '*.md'
+      - 'LICENSE'
+    branches:
+      - master
+  merge_group:
+  schedule:
+    - cron: '0 18 * * *'
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 10
 
 jobs:
   build:
@@ -17,12 +32,12 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: check mbedpki-provider
+    - name: check rustls-mbedpki-provider
       working-directory: rustls-mbedpki-provider
       env:
         RUSTFLAGS: -D warnings
       run: cargo check
 
-    - name: Run mbedpki-provider tests
+    - name: Run rustls-mbedpki-provider tests
       working-directory: rustls-mbedpki-provider
       run: cargo test
