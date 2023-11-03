@@ -128,8 +128,7 @@ impl crypto::ActiveKeyExchange for KeyExchange {
         }
         let public_point =
             EcPoint::from_binary_no_compress(&ec_group, peer_public_key).map_err(mbedtls_err_to_rustls_general_error)?;
-        let peer_pk =
-            PkMbed::public_from_ec_components(ec_group, public_point).map_err(mbedtls_err_to_rustls_general_error)?;
+        let peer_pk = PkMbed::public_from_ec_components(ec_group, public_point).map_err(mbedtls_err_to_rustls_general_error)?;
 
         let mut shared_secret = vec![
             0u8;

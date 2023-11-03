@@ -61,12 +61,12 @@ pub static TLS13_AES_128_GCM_SHA256: SupportedCipherSuite = SupportedCipherSuite
 struct AeadAlgorithm(&'static aead::Algorithm);
 
 impl Tls13AeadAlgorithm for AeadAlgorithm {
-    fn encrypter(&self, key: AeadKey, iv: Iv) -> Box<dyn MessageEncrypter> {
-        Box::new(Tls13MessageEncrypter { enc_key: key.as_ref().to_vec(), iv, aead_algorithm: self.0 })
+    fn encrypter(&self, enc_key: AeadKey, iv: Iv) -> Box<dyn MessageEncrypter> {
+        Box::new(Tls13MessageEncrypter { enc_key, iv, aead_algorithm: self.0 })
     }
 
-    fn decrypter(&self, key: AeadKey, iv: Iv) -> Box<dyn MessageDecrypter> {
-        Box::new(Tls13MessageDecrypter { dec_key: key.as_ref().to_vec(), iv, aead_algorithm: self.0 })
+    fn decrypter(&self, dec_key: AeadKey, iv: Iv) -> Box<dyn MessageDecrypter> {
+        Box::new(Tls13MessageDecrypter { dec_key, iv, aead_algorithm: self.0 })
     }
 
     fn key_len(&self) -> usize {
@@ -84,13 +84,13 @@ impl Tls13AeadAlgorithm for AeadAlgorithm {
 }
 
 struct Tls13MessageEncrypter {
-    enc_key: Vec<u8>,
+    enc_key: AeadKey,
     iv: Iv,
     aead_algorithm: &'static aead::Algorithm,
 }
 
 struct Tls13MessageDecrypter {
-    dec_key: Vec<u8>,
+    dec_key: AeadKey,
     iv: Iv,
     aead_algorithm: &'static aead::Algorithm,
 }
@@ -106,15 +106,16 @@ impl MessageEncrypter for Tls13MessageEncrypter {
         let aad = make_tls13_aad(total_len);
         let mut tag = vec![0u8; aead::TAG_LEN];
 
+        let enc_key = self.enc_key.as_ref();
         let cipher = Cipher::<Encryption, Authenticated, Fresh>::new(
             self.aead_algorithm.cipher_id,
             self.aead_algorithm.cipher_mode,
-            (self.enc_key.len() * 8) as _,
+            (enc_key.len() * 8) as _,
         )
         .map_err(mbedtls_err_to_rustls_general_error)?;
 
         let cipher = cipher
-            .set_key_iv(&self.enc_key, &nonce)
+            .set_key_iv(enc_key, &nonce)
             .map_err(mbedtls_err_to_rustls_general_error)?;
 
         cipher
@@ -146,16 +147,16 @@ impl MessageDecrypter for Tls13MessageDecrypter {
         let nonce = Nonce::new(&self.iv, seq).0;
         let aad = make_tls13_aad(payload.len());
 
-        let key_bit_len = self.dec_key.len() * 8;
+        let dec_key = self.dec_key.as_ref();
         let cipher = Cipher::<Decryption, Authenticated, Fresh>::new(
             self.aead_algorithm.cipher_id,
             self.aead_algorithm.cipher_mode,
-            key_bit_len as _,
+            (dec_key.len() * 8) as _,
         )
         .map_err(mbedtls_err_to_rustls_general_error)?;
 
         let cipher = cipher
-            .set_key_iv(&self.dec_key, &nonce)
+            .set_key_iv(dec_key, &nonce)
             .map_err(mbedtls_err_to_rustls_general_error)?;
 
         let tag_offset = payload

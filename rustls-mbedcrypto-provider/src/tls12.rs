@@ -118,17 +118,13 @@ static TLS12_RSA_SCHEMES: &[SignatureScheme] = &[
 ];
 
 impl Tls12AeadAlgorithm for Algorithm {
-    fn encrypter(&self, key: AeadKey, iv: &[u8], extra: &[u8]) -> Box<dyn MessageEncrypter> {
-        let enc_key = key.as_ref().to_vec();
+    fn encrypter(&self, enc_key: AeadKey, iv: &[u8], extra: &[u8]) -> Box<dyn MessageEncrypter> {
         let iv = gcm_iv(iv, extra);
         Box::new(GcmMessageEncrypter { enc_key, iv })
     }
 
-    fn decrypter(&self, key: AeadKey, iv: &[u8]) -> Box<dyn MessageDecrypter> {
-        let dec_key = key.as_ref().to_vec();
-
+    fn decrypter(&self, dec_key: AeadKey, iv: &[u8]) -> Box<dyn MessageDecrypter> {
         let mut ret = GcmMessageDecrypter { dec_key, dec_salt: [0u8; GCM_FIXED_IV_LEN] };
-
         debug_assert_eq!(iv.len(), GCM_FIXED_IV_LEN);
         ret.dec_salt.copy_from_slice(iv);
         Box::new(ret)
@@ -160,11 +156,11 @@ pub(crate) struct ChaCha20Poly1305;
 
 impl Tls12AeadAlgorithm for ChaCha20Poly1305 {
     fn decrypter(&self, dec_key: AeadKey, iv: &[u8]) -> Box<dyn MessageDecrypter> {
-        Box::new(ChaCha20Poly1305MessageDecrypter { dec_key: dec_key.as_ref().to_vec(), dec_offset: Iv::copy(iv) })
+        Box::new(ChaCha20Poly1305MessageDecrypter { dec_key, dec_offset: Iv::copy(iv) })
     }
 
     fn encrypter(&self, enc_key: AeadKey, enc_iv: &[u8], _: &[u8]) -> Box<dyn MessageEncrypter> {
-        Box::new(ChaCha20Poly1305MessageEncrypter { enc_key: enc_key.as_ref().to_vec(), enc_offset: Iv::copy(enc_iv) })
+        Box::new(ChaCha20Poly1305MessageEncrypter { enc_key, enc_offset: Iv::copy(enc_iv) })
     }
 
     fn key_block_shape(&self) -> KeyBlockShape {
@@ -185,13 +181,13 @@ impl Tls12AeadAlgorithm for ChaCha20Poly1305 {
 
 /// A `MessageEncrypter` for AES-GCM AEAD ciphersuites. TLS 1.2 only.
 struct GcmMessageEncrypter {
-    enc_key: Vec<u8>,
+    enc_key: AeadKey,
     iv: Iv,
 }
 
 /// A `MessageDecrypter` for AES-GCM AEAD ciphersuites.  TLS1.2 only.
 struct GcmMessageDecrypter {
-    dec_key: Vec<u8>,
+    dec_key: AeadKey,
     dec_salt: [u8; GCM_FIXED_IV_LEN],
 }
 
@@ -209,12 +205,12 @@ impl MessageDecrypter for GcmMessageDecrypter {
         };
         let aad = make_tls12_aad(seq, msg.typ, msg.version, payload.len() - GCM_OVERHEAD);
 
-        let key_bit_len = self.dec_key.len() * 8;
-        let cipher = Cipher::<Decryption, Authenticated, Fresh>::new(CipherId::Aes, CipherMode::GCM, key_bit_len as _)
+        let dec_key = self.dec_key.as_ref();
+        let cipher = Cipher::<Decryption, Authenticated, Fresh>::new(CipherId::Aes, CipherMode::GCM, (dec_key.len() * 8) as _)
             .map_err(mbedtls_err_to_rustls_general_error)?;
 
         let cipher = cipher
-            .set_key_iv(&self.dec_key, &nonce)
+            .set_key_iv(dec_key, &nonce)
             .map_err(mbedtls_err_to_rustls_general_error)?;
 
         let tag_offset = payload
@@ -255,11 +251,11 @@ impl MessageEncrypter for GcmMessageEncrypter {
         payload.extend_from_slice(&nonce.as_ref()[GCM_FIXED_IV_LEN..]);
         payload.extend_from_slice(msg.payload);
 
-        let key_bit_len = self.enc_key.len() * 8;
-        let cipher = Cipher::<Encryption, Authenticated, Fresh>::new(CipherId::Aes, CipherMode::GCM, key_bit_len as _)
+        let enc_key = self.enc_key.as_ref();
+        let cipher = Cipher::<Encryption, Authenticated, Fresh>::new(CipherId::Aes, CipherMode::GCM, (enc_key.len() * 8) as _)
             .map_err(mbedtls_err_to_rustls_general_error)?;
         let cipher = cipher
-            .set_key_iv(&self.enc_key, &nonce)
+            .set_key_iv(enc_key, &nonce)
             .map_err(mbedtls_err_to_rustls_general_error)?;
 
         cipher
@@ -281,7 +277,7 @@ impl MessageEncrypter for GcmMessageEncrypter {
 /// This implementation does the AAD construction required in TLS1.2.
 /// TLS1.3 uses `TLS13MessageEncrypter`.
 struct ChaCha20Poly1305MessageEncrypter {
-    enc_key: Vec<u8>,
+    enc_key: AeadKey,
     enc_offset: Iv,
 }
 
@@ -289,7 +285,7 @@ struct ChaCha20Poly1305MessageEncrypter {
 /// This implementation does the AAD construction required in TLS1.2.
 /// TLS1.3 uses `TLS13MessageDecrypter`.
 struct ChaCha20Poly1305MessageDecrypter {
-    dec_key: Vec<u8>,
+    dec_key: AeadKey,
     dec_offset: Iv,
 }
 
@@ -308,15 +304,16 @@ impl MessageDecrypter for ChaCha20Poly1305MessageDecrypter {
 
         let payload = msg.payload_mut();
 
+        let dec_key = self.dec_key.as_ref();
         let cipher = Cipher::<Decryption, Authenticated, Fresh>::new(
             CipherId::Chacha20,
             CipherMode::CHACHAPOLY,
-            (self.dec_key.len() * 8) as _,
+            (dec_key.len() * 8) as _,
         )
         .map_err(mbedtls_err_to_rustls_general_error)?;
 
         let cipher = cipher
-            .set_key_iv(&self.dec_key, &nonce)
+            .set_key_iv(dec_key, &nonce)
             .map_err(mbedtls_err_to_rustls_general_error)?;
 
         let tag_offset = payload
@@ -354,15 +351,16 @@ impl MessageEncrypter for ChaCha20Poly1305MessageEncrypter {
         let mut payload = Vec::with_capacity(plain_total_len);
         payload.extend_from_slice(msg.payload);
 
+        let enc_key = self.enc_key.as_ref();
         let cipher = Cipher::<Encryption, Authenticated, Fresh>::new(
             CipherId::Chacha20,
             CipherMode::CHACHAPOLY,
-            (self.enc_key.len() * 8) as _,
+            (enc_key.len() * 8) as _,
         )
         .map_err(mbedtls_err_to_rustls_general_error)?;
 
         let cipher = cipher
-            .set_key_iv(&self.enc_key, &nonce)
+            .set_key_iv(enc_key, &nonce)
             .map_err(mbedtls_err_to_rustls_general_error)?;
 
         cipher
