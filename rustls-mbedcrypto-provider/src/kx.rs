@@ -25,7 +25,7 @@ use rustls::Error;
 use rustls::NamedGroup;
 /// A key-exchange group supported by *mbedtls*.
 ///
-/// All possible instances of this class are provided by the library in
+/// All possible instances of this type are provided by the library in
 /// the `ALL_KX_GROUPS` array.
 struct KxGroup {
     /// The IANA "TLS Supported Groups" name of the group
@@ -37,7 +37,7 @@ struct KxGroup {
 
 impl fmt::Debug for KxGroup {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_fmt(format_args!("{:?}", self.name))
+        write!(f, "{:?}", self.name)
     }
 }
 
@@ -48,7 +48,7 @@ impl SupportedKxGroup for KxGroup {
             self.agreement_algorithm.group_id,
         )
         .map_err(|_err| {
-            error!("Meet error when generating ec key, mbedtls error: {}", _err);
+            error!("Encountered error when generating ec key, mbedtls error: {}", _err);
             rustls::crypto::GetRandomFailed
         })?;
 
@@ -129,7 +129,7 @@ impl crypto::ActiveKeyExchange for KeyExchange {
         let public_point =
             EcPoint::from_binary_no_compress(&ec_group, peer_public_key).map_err(mbedtls_err_to_rustls_general_error)?;
         let peer_pk =
-            PkMbed::public_from_ec_components(ec_group.clone(), public_point).map_err(mbedtls_err_to_rustls_general_error)?;
+            PkMbed::public_from_ec_components(ec_group, public_point).map_err(mbedtls_err_to_rustls_general_error)?;
 
         let mut shared_secret = vec![
             0u8;
