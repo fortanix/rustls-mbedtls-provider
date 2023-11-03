@@ -9,7 +9,6 @@ use super::aead;
 use crate::error::mbedtls_err_to_rustls_general_error;
 use alloc::boxed::Box;
 use alloc::string::String;
-use alloc::vec;
 use alloc::vec::Vec;
 use mbedtls::cipher::raw::CipherType;
 use mbedtls::cipher::{Authenticated, Cipher, Decryption, Encryption, Fresh};
@@ -104,7 +103,7 @@ impl MessageEncrypter for Tls13MessageEncrypter {
 
         let nonce = Nonce::new(&self.iv, seq).0;
         let aad = make_tls13_aad(total_len);
-        let mut tag = vec![0u8; aead::TAG_LEN];
+        let mut tag = [0u8; aead::TAG_LEN];
 
         let enc_key = self.enc_key.as_ref();
         let cipher = Cipher::<Encryption, Authenticated, Fresh>::new(

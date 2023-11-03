@@ -7,7 +7,6 @@
 
 use crate::error::mbedtls_err_to_rustls_general_error;
 use alloc::boxed::Box;
-use alloc::vec;
 use alloc::vec::Vec;
 use mbedtls::cipher::raw::{CipherId, CipherMode, CipherType};
 use mbedtls::cipher::{Authenticated, Cipher, Decryption, Encryption, Fresh};
@@ -245,7 +244,7 @@ impl MessageEncrypter for GcmMessageEncrypter {
     fn encrypt(&self, msg: BorrowedPlainMessage, seq: u64) -> Result<OpaqueMessage, Error> {
         let nonce = Nonce::new(&self.iv, seq).0;
         let aad = make_tls12_aad(seq, msg.typ, msg.version, msg.payload.len());
-        let mut tag = vec![0u8; aead::TAG_LEN];
+        let mut tag = [0u8; aead::TAG_LEN];
         let plain_total_len = msg.payload.len() + aead::TAG_LEN;
         let mut payload = Vec::with_capacity(GCM_EXPLICIT_NONCE_LEN + plain_total_len);
         payload.extend_from_slice(&nonce.as_ref()[GCM_FIXED_IV_LEN..]);
@@ -346,7 +345,7 @@ impl MessageEncrypter for ChaCha20Poly1305MessageEncrypter {
     fn encrypt(&self, msg: BorrowedPlainMessage, seq: u64) -> Result<OpaqueMessage, Error> {
         let nonce = Nonce::new(&self.enc_offset, seq).0;
         let aad = make_tls12_aad(seq, msg.typ, msg.version, msg.payload.len());
-        let mut tag = vec![0u8; aead::TAG_LEN];
+        let mut tag = [0u8; aead::TAG_LEN];
         let plain_total_len = msg.payload.len() + aead::TAG_LEN;
         let mut payload = Vec::with_capacity(plain_total_len);
         payload.extend_from_slice(msg.payload);
