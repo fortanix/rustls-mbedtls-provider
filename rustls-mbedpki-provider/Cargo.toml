@@ -11,7 +11,7 @@ categories = ["network-programming", "cryptography"]
 resolver = "2"
 
 [dependencies]
-rustls = { version = "0.21", features = ["dangerous_configuration"] }
+rustls = { git = "https://github.com/rustls/rustls", rev = "b776a5778ad333653670c34ff9125d8ae59b6047", version = "0.22.0-alpha.4" }
 mbedtls = { version = "0.12.0-alpha.2", features = [
     "x509",
     "chrono",
@@ -20,6 +20,7 @@ mbedtls = { version = "0.12.0-alpha.2", features = [
 
 x509-parser = "0.15"
 chrono = "0.4"
+pki-types = { package = "rustls-pki-types", version = "0.2.1", features = ["std"] }
 
 [target.'cfg(target_env = "msvc")'.dependencies]
 # mbedtls need feature `time` to build when targeting msvc

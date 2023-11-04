@@ -10,28 +10,26 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use rustls::{
-    client::ServerCertVerifier, Certificate, ClientConnection, ConnectionCommon, PrivateKey, ServerConnection, SideData,
-};
+use pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, UnixTime};
+use rustls::{client::danger::ServerCertVerifier, ClientConnection, ConnectionCommon, ServerConnection, SideData};
 
 /// Get a certificate chain from the contents of a pem file
-pub fn get_chain(bytes: &[u8]) -> Vec<Certificate> {
+pub fn get_chain(bytes: &[u8]) -> Vec<CertificateDer> {
     rustls_pemfile::certs(&mut io::BufReader::new(bytes))
         .unwrap()
         .into_iter()
-        .map(Certificate)
+        .map(CertificateDer::from)
         .collect()
 }
 
 /// Get a private key from the contents of a pem file
-pub fn get_key(bytes: &[u8]) -> PrivateKey {
-    PrivateKey(
-        rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(bytes))
-            .unwrap()
-            .into_iter()
-            .next()
-            .unwrap(),
-    )
+pub fn get_key(bytes: &[u8]) -> PrivateKeyDer {
+    let value = rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(bytes))
+        .unwrap()
+        .into_iter()
+        .next()
+        .unwrap();
+    PrivateKeyDer::from(PrivatePkcs8KeyDer::from(value))
 }
 
 // Copied from rustls repo
@@ -84,23 +82,22 @@ pub struct VerifierWithSupportedVerifySchemes<V> {
 impl<V: ServerCertVerifier> ServerCertVerifier for VerifierWithSupportedVerifySchemes<V> {
     fn verify_server_cert(
         &self,
-        end_entity: &Certificate,
-        intermediates: &[Certificate],
+        end_entity: &CertificateDer,
+        intermediates: &[CertificateDer],
         server_name: &rustls::ServerName,
-        scts: &mut dyn Iterator<Item = &[u8]>,
         ocsp_response: &[u8],
-        now: std::time::SystemTime,
-    ) -> Result<rustls::client::ServerCertVerified, rustls::Error> {
+        now: UnixTime,
+    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
         self.verifier
-            .verify_server_cert(end_entity, intermediates, server_name, scts, ocsp_response, now)
+            .verify_server_cert(end_entity, intermediates, server_name, ocsp_response, now)
     }
 
     fn verify_tls12_signature(
         &self,
         message: &[u8],
-        cert: &Certificate,
+        cert: &CertificateDer,
         dss: &rustls::DigitallySignedStruct,
-    ) -> Result<rustls::client::HandshakeSignatureValid, rustls::Error> {
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
         self.verifier
             .verify_tls12_signature(message, cert, dss)
     }
@@ -108,18 +105,14 @@ impl<V: ServerCertVerifier> ServerCertVerifier for VerifierWithSupportedVerifySc
     fn verify_tls13_signature(
         &self,
         message: &[u8],
-        cert: &Certificate,
+        cert: &CertificateDer,
         dss: &rustls::DigitallySignedStruct,
-    ) -> Result<rustls::client::HandshakeSignatureValid, rustls::Error> {
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
         self.verifier
             .verify_tls13_signature(message, cert, dss)
     }
 
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
         self.supported_verify_schemes.clone()
-    }
-
-    fn request_scts(&self) -> bool {
-        self.verifier.request_scts()
     }
 }

@@ -638,25 +638,13 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.21.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "446e14c5cda4f3f30fe71863c34ec70f5ac79d6087097ad0bb433e1be5edf04c"
-dependencies = [
- "log",
- "ring",
- "rustls-webpki 0.101.7",
- "sct",
-]
-
-[[package]]
-name = "rustls"
 version = "0.22.0-alpha.4"
 source = "git+https://github.com/rustls/rustls?rev=b776a5778ad333653670c34ff9125d8ae59b6047#b776a5778ad333653670c34ff9125d8ae59b6047"
 dependencies = [
  "log",
  "ring",
  "rustls-pki-types",
- "rustls-webpki 0.102.0-alpha.6",
+ "rustls-webpki",
  "subtle",
  "zeroize",
 ]
@@ -668,10 +656,10 @@ dependencies = [
  "env_logger",
  "log",
  "mbedtls",
- "rustls 0.22.0-alpha.4",
+ "rustls",
  "rustls-pemfile 2.0.0-alpha.1",
  "rustls-pki-types",
- "rustls-webpki 0.102.0-alpha.6",
+ "rustls-webpki",
  "webpki-roots",
 ]
 
@@ -681,8 +669,9 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "mbedtls",
- "rustls 0.21.8",
+ "rustls",
  "rustls-pemfile 1.0.3",
+ "rustls-pki-types",
  "x509-parser",
 ]
 
@@ -713,32 +702,12 @@ checksum = "a47003264dea418db67060fa420ad16d0d2f8f0a0360d825c00e177ac52cb5d8"
 
 [[package]]
 name = "rustls-webpki"
-version = "0.101.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b6275d1ee7a1cd780b64aca7726599a1dbc893b1e64144529e55c3c2f745765"
-dependencies = [
- "ring",
- "untrusted",
-]
-
-[[package]]
-name = "rustls-webpki"
 version = "0.102.0-alpha.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34d9ed3a8267782ba32d257ff5b197b63eef19a467dbd1be011caaae35ee416e"
 dependencies = [
  "ring",
  "rustls-pki-types",
- "untrusted",
-]
-
-[[package]]
-name = "sct"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da046153aa2352493d6cb7da4b6e5c0c057d8a1d0a9aa8560baffdd945acd414"
-dependencies = [
- "ring",
  "untrusted",
 ]
 
