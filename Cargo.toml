@@ -1,7 +1,4 @@
 [workspace]
-members = ["rustls-mbedcrypto-provider", "rustls-mbedpki-provider"]
+members = ["examples","rustls-mbedcrypto-provider", "rustls-mbedpki-provider"]
 default-members = ["rustls-mbedcrypto-provider", "rustls-mbedpki-provider"]
 resolver = "2"
-
-[workspace.dependencies]
-mbedtls = { version = "0.12.0-alpha.2", default_features = false }
