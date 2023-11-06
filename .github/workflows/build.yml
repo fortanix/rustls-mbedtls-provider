@@ -12,7 +12,7 @@ on:
       - master
   merge_group:
   schedule:
-    - cron: '30 13 * * 1,5'
+    - cron: '30 13 * * *'
 
 env:
   CARGO_TERM_COLOR: always
@@ -61,6 +61,9 @@ jobs:
         shell: bash
         env:
           RUST_BACKTRACE: 1
+
+      - name: cargo build (debug; rustls-mbedtls-provider-examples)
+        run: cargo build --locked -p rustls-mbedtls-provider-examples
 
   features:
     name: Features

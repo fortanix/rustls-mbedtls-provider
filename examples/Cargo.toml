@@ -2,8 +2,9 @@
 name = "rustls-mbedtls-provider-examples"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MPL-2.0"
+description = "rustls-mbedtls-provider example code."
+publish = false
 
 [dependencies]
 rustls-mbedcrypto-provider = { path = "../rustls-mbedcrypto-provider" }
