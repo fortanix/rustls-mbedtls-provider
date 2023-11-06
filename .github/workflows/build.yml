@@ -86,7 +86,7 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: cargo test (debug; no default features)
-        run: cargo test --locked --no-default-features
+        run: cargo test --locked --no-default-features --workspace
 
       - name: cargo test (rustls_mbedcrypto_provider; debug; no default features; tls12)
         run: cargo test --locked --no-default-features --features tls12 --package rustls-mbedcrypto-provider
@@ -95,7 +95,7 @@ jobs:
         run: cargo test --locked --no-default-features --features tls12,rdrand --package rustls-mbedcrypto-provider
 
       - name: cargo test (release; no run)
-        run: cargo test --locked --release --no-run
+        run: cargo test --locked --release --no-run --workspace
 
 # TODO: add fuzz tests
 # TODO: add benchmarks
