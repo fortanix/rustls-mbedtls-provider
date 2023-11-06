@@ -12,7 +12,7 @@ on:
       - master
   merge_group:
   schedule:
-    - cron: '30 13 * * 1,5'
+    - cron: '30 13 * * *'
 
 env:
   CARGO_TERM_COLOR: always
@@ -62,6 +62,9 @@ jobs:
         env:
           RUST_BACKTRACE: 1
 
+      - name: cargo build (debug; rustls-mbedtls-provider-examples)
+        run: cargo build --locked -p rustls-mbedtls-provider-examples
+
   features:
     name: Features
     runs-on: ubuntu-latest
@@ -86,7 +89,7 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: cargo test (debug; no default features)
-        run: cargo test --locked --no-default-features
+        run: cargo test --locked --no-default-features --workspace
 
       - name: cargo test (rustls_mbedcrypto_provider; debug; no default features; tls12)
         run: cargo test --locked --no-default-features --features tls12 --package rustls-mbedcrypto-provider
@@ -95,7 +98,7 @@ jobs:
         run: cargo test --locked --no-default-features --features tls12,rdrand --package rustls-mbedcrypto-provider
 
       - name: cargo test (release; no run)
-        run: cargo test --locked --release --no-run
+        run: cargo test --locked --release --no-run --workspace
 
 # TODO: add fuzz tests
 # TODO: add benchmarks

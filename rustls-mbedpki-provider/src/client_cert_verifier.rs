@@ -5,10 +5,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::time::SystemTime;
-
+use chrono::NaiveDateTime;
+use pki_types::{CertificateDer, UnixTime};
 use rustls::{
-    server::{ClientCertVerified, ClientCertVerifier},
+    server::danger::{ClientCertVerified, ClientCertVerifier},
     DistinguishedName,
 };
 
@@ -30,7 +30,7 @@ impl MbedTlsClientCertVerifier {
     /// certificates.
     ///
     /// Returns an error if any of the certificates are invalid.
-    pub fn new<'a>(trusted_cas: impl IntoIterator<Item = &'a rustls::Certificate>) -> mbedtls::Result<Self> {
+    pub fn new<'a>(trusted_cas: impl IntoIterator<Item = &'a CertificateDer<'a>>) -> mbedtls::Result<Self> {
         let trusted_cas = trusted_cas
             .into_iter()
             .map(rustls_cert_to_mbedtls_cert)
@@ -65,17 +65,23 @@ impl MbedTlsClientCertVerifier {
 }
 
 impl ClientCertVerifier for MbedTlsClientCertVerifier {
-    fn client_auth_root_subjects(&self) -> &[DistinguishedName] {
+    fn root_hint_subjects(&self) -> &[DistinguishedName] {
         &self.root_subjects
     }
 
     fn verify_client_cert(
         &self,
-        end_entity: &rustls::Certificate,
-        intermediates: &[rustls::Certificate],
-        now: SystemTime,
-    ) -> Result<rustls::server::ClientCertVerified, rustls::Error> {
-        let now = chrono::DateTime::<chrono::Local>::from(now).naive_local();
+        end_entity: &CertificateDer,
+        intermediates: &[CertificateDer],
+        now: UnixTime,
+    ) -> Result<rustls::server::danger::ClientCertVerified, rustls::Error> {
+        let now = NaiveDateTime::from_timestamp_opt(
+            now.as_secs()
+                .try_into()
+                .map_err(|_| rustls::Error::General(String::from("Invalid current unix timestamp")))?,
+            0,
+        )
+        .ok_or(rustls::Error::General(String::from("Invalid current unix timestamp")))?;
 
         let chain: mbedtls::alloc::List<_> = [end_entity]
             .into_iter()
@@ -98,19 +104,23 @@ impl ClientCertVerifier for MbedTlsClientCertVerifier {
     fn verify_tls12_signature(
         &self,
         message: &[u8],
-        cert: &rustls::Certificate,
+        cert: &CertificateDer,
         dss: &rustls::DigitallySignedStruct,
-    ) -> Result<rustls::client::HandshakeSignatureValid, rustls::Error> {
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
         verify_tls_signature(message, cert, dss, false)
     }
 
     fn verify_tls13_signature(
         &self,
         message: &[u8],
-        cert: &rustls::Certificate,
+        cert: &CertificateDer,
         dss: &rustls::DigitallySignedStruct,
-    ) -> Result<rustls::client::HandshakeSignatureValid, rustls::Error> {
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
         verify_tls_signature(message, cert, dss, true)
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        crate::SUPPORTED_SIGNATURE_SCHEMA.to_vec()
     }
 }
 
@@ -122,8 +132,10 @@ impl ClientCertVerifier for MbedTlsClientCertVerifier {
 mod tests {
 
     use chrono::DateTime;
+    use pki_types::{CertificateDer, UnixTime};
     use rustls::{
-        server::ClientCertVerifier, Certificate, ClientConfig, ClientConnection, RootCertStore, ServerConfig, ServerConnection,
+        server::danger::ClientCertVerifier, CertificateError, ClientConfig, ClientConnection, RootCertStore, ServerConfig,
+        ServerConnection,
     };
     use std::{sync::Arc, time::SystemTime};
 
@@ -144,9 +156,9 @@ mod tests {
     #[test]
     fn connection_client_cert_verifier() {
         let client_config = ClientConfig::builder().with_safe_defaults();
-        let root_ca = Certificate(include_bytes!("../test-data/rsa/ca.der").to_vec());
+        let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());
         let mut root_store = RootCertStore::empty();
-        root_store.add(&root_ca).unwrap();
+        root_store.add(root_ca.clone()).unwrap();
         let cert_chain = get_chain(include_bytes!("../test-data/rsa/client.fullchain"));
 
         let client_config = client_config
@@ -164,11 +176,11 @@ mod tests {
         assert!(do_handshake_until_error(&mut client_conn, &mut server_conn).is_ok());
     }
 
-    fn test_connection_client_cert_verifier_with_invalid_certs(invalid_cert_chain: Vec<Certificate>) {
+    fn test_connection_client_cert_verifier_with_invalid_certs(invalid_cert_chain: Vec<CertificateDer<'static>>) {
         let client_config = ClientConfig::builder().with_safe_defaults();
-        let root_ca = Certificate(include_bytes!("../test-data/rsa/ca.der").to_vec());
+        let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());
         let mut root_store = RootCertStore::empty();
-        root_store.add(&root_ca).unwrap();
+        root_store.add(root_ca.clone()).unwrap();
 
         let client_config = client_config
             .with_root_certificates(root_store)
@@ -207,11 +219,15 @@ mod tests {
     #[test]
     fn client_cert_verifier_valid_chain() {
         let cert_chain = get_chain(include_bytes!("../test-data/rsa/client.fullchain"));
-        let trusted_cas = [Certificate(include_bytes!("../test-data/rsa/ca.der").to_vec())];
+        let trusted_cas = [CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec())];
 
         let verifier = MbedTlsClientCertVerifier::new(trusted_cas.iter()).unwrap();
 
         let now = SystemTime::from(chrono::DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
+        let now = UnixTime::since_unix_epoch(
+            now.duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap(),
+        );
 
         assert!(verifier
             .verify_client_cert(&cert_chain[0], &cert_chain[1..], now)
@@ -222,11 +238,15 @@ mod tests {
     fn client_cert_verifier_broken_chain() {
         let mut cert_chain = get_chain(include_bytes!("../test-data/rsa/client.fullchain"));
         cert_chain.remove(1);
-        let trusted_cas = [Certificate(include_bytes!("../test-data/rsa/ca.der").to_vec())];
+        let trusted_cas = [CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec())];
 
         let verifier = MbedTlsClientCertVerifier::new(trusted_cas.iter()).unwrap();
 
         let now = SystemTime::from(DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
+        let now = UnixTime::since_unix_epoch(
+            now.duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap(),
+        );
 
         let verify_res = verifier.verify_client_cert(&cert_chain[0], &cert_chain[1..], now);
         assert!(matches!(verify_res, Err(rustls::Error::InvalidCertificate(_))));
@@ -235,17 +255,21 @@ mod tests {
     #[test]
     fn client_cert_verifier_expired_certs() {
         let cert_chain = get_chain(include_bytes!("../test-data/rsa/client.fullchain"));
-        let trusted_cas = [Certificate(include_bytes!("../test-data/rsa/ca.der").to_vec())];
+        let trusted_cas = [CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec())];
 
         let verifier = MbedTlsClientCertVerifier::new(trusted_cas.iter()).unwrap();
 
         let now = SystemTime::from(DateTime::parse_from_rfc3339("2052-11-26T12:00:00+00:00").unwrap());
+        let now = UnixTime::since_unix_epoch(
+            now.duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap(),
+        );
 
         assert_eq!(
             verifier
                 .verify_client_cert(&cert_chain[0], &cert_chain[1..], now)
                 .unwrap_err(),
-            rustls::Error::InvalidCertificate(rustls::CertificateError::Expired)
+            rustls::Error::InvalidCertificate(CertificateError::Expired)
         );
     }
 }

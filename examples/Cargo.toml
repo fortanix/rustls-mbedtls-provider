@@ -1,0 +1,16 @@
+[package]
+name = "rustls-mbedtls-provider-examples"
+version = "0.1.0"
+edition = "2021"
+license = "MPL-2.0"
+description = "rustls-mbedtls-provider example code."
+publish = false
+
+[dependencies]
+rustls-mbedcrypto-provider = { path = "../rustls-mbedcrypto-provider" }
+rustls-mbedpki-provider = { path = "../rustls-mbedpki-provider" }
+env_logger = "0.10"
+# TODO: upgrade to use formal 0.22.0 or 0.22.0-* versions when availabe
+rustls = { git = "https://github.com/rustls/rustls", rev = "b776a5778ad333653670c34ff9125d8ae59b6047", version = "0.22.0-alpha.4", default-features = false }
+rustls-native-certs = "0.6.3"
+

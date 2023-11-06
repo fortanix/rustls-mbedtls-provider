@@ -7,6 +7,7 @@
 
 use chrono::NaiveDateTime;
 use mbedtls::hash::Type;
+use pki_types::CertificateDer;
 use rustls::SignatureScheme;
 use std::sync::Arc;
 
@@ -19,10 +20,8 @@ pub mod server_cert_verifier;
 pub use client_cert_verifier::MbedTlsClientCertVerifier;
 pub use server_cert_verifier::MbedTlsServerCertVerifier;
 
-pub fn rustls_cert_to_mbedtls_cert(
-    cert: &rustls::Certificate,
-) -> mbedtls::Result<mbedtls::alloc::Box<mbedtls::x509::Certificate>> {
-    let cert = mbedtls::x509::Certificate::from_der(&cert.0)?;
+pub fn rustls_cert_to_mbedtls_cert(cert: &CertificateDer) -> mbedtls::Result<mbedtls::alloc::Box<mbedtls::x509::Certificate>> {
+    let cert = mbedtls::x509::Certificate::from_der(cert)?;
     Ok(cert)
 }
 
@@ -30,6 +29,18 @@ pub fn rustls_cert_to_mbedtls_cert(
 pub fn mbedtls_err_into_rustls_err(err: mbedtls::Error) -> rustls::Error {
     mbedtls_err_into_rustls_err_with_error_msg(err, "")
 }
+
+pub const SUPPORTED_SIGNATURE_SCHEMA: [SignatureScheme; 9] = [
+    rustls::SignatureScheme::RSA_PSS_SHA512,
+    rustls::SignatureScheme::RSA_PSS_SHA384,
+    rustls::SignatureScheme::RSA_PSS_SHA256,
+    rustls::SignatureScheme::RSA_PKCS1_SHA512,
+    rustls::SignatureScheme::RSA_PKCS1_SHA384,
+    rustls::SignatureScheme::RSA_PKCS1_SHA256,
+    rustls::SignatureScheme::RSA_PSS_SHA512,
+    rustls::SignatureScheme::RSA_PSS_SHA384,
+    rustls::SignatureScheme::RSA_PSS_SHA256,
+];
 
 /// Converts an `mbedtls::Error` into a `rustls::Error`; may include the provided `msg` in the
 /// returned error (e.g., if returning a `rustls::Error::General` error).
@@ -185,10 +196,10 @@ fn verify_certificates_active<'a>(
 /// `ServerCertVerifier`
 fn verify_tls_signature(
     message: &[u8],
-    cert: &rustls::Certificate,
+    cert: &CertificateDer,
     dss: &rustls::DigitallySignedStruct,
     is_tls13: bool,
-) -> Result<rustls::client::HandshakeSignatureValid, rustls::Error> {
+) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
     let mut cert = rustls_cert_to_mbedtls_cert(cert).map_err(mbedtls_err_into_rustls_err)?;
     let pk = cert.public_key_mut();
     let hash_type = rustls_signature_scheme_to_mbedtls_hash_type(dss.scheme);
@@ -220,5 +231,5 @@ fn verify_tls_signature(
     pk.verify(hash_type, &hash[..hash_size], dss.signature())
         .map_err(mbedtls_err_into_rustls_err)?;
 
-    Ok(rustls::client::HandshakeSignatureValid::assertion())
+    Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
 }
