@@ -20,6 +20,21 @@ pub mod server_cert_verifier;
 pub use client_cert_verifier::MbedTlsClientCertVerifier;
 pub use server_cert_verifier::MbedTlsServerCertVerifier;
 
+/// A config about whether to check certificate validity period
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct CertActiveCheck {
+    /// If accept expired certificate, default to false
+    pub ignore_expired: bool,
+    /// If accept not active certificate, default to false
+    pub ignore_not_active_yet: bool,
+}
+
+impl Default for CertActiveCheck {
+    fn default() -> Self {
+        Self { ignore_expired: false, ignore_not_active_yet: false }
+    }
+}
+
 pub fn rustls_cert_to_mbedtls_cert(cert: &CertificateDer) -> mbedtls::Result<mbedtls::alloc::Box<mbedtls::x509::Certificate>> {
     let cert = mbedtls::x509::Certificate::from_der(cert)?;
     Ok(cert)
@@ -166,14 +181,18 @@ pub fn buffer_for_hash_type(hash_type: mbedtls::hash::Type) -> Option<Vec<u8>> {
 fn verify_certificates_active<'a>(
     chain: impl IntoIterator<Item = &'a mbedtls::x509::Certificate>,
     now: NaiveDateTime,
-    ignore_expired: bool,
+    active_check: &CertActiveCheck,
 ) -> Result<(), rustls::Error> {
+    if active_check.ignore_expired && active_check.ignore_not_active_yet {
+        return Ok(());
+    }
+
     fn time_err_to_err(_time_err: mbedtls::x509::InvalidTimeError) -> rustls::Error {
         rustls::Error::InvalidCertificate(rustls::CertificateError::BadEncoding)
     }
 
     for cert in chain.into_iter() {
-        if !ignore_expired {
+        if !active_check.ignore_expired {
             let not_after = cert
                 .not_after()
                 .map_err(mbedtls_err_into_rustls_err)?
@@ -183,13 +202,15 @@ fn verify_certificates_active<'a>(
                 return Err(rustls::Error::InvalidCertificate(rustls::CertificateError::Expired));
             }
         }
-        let not_before = cert
-            .not_before()
-            .map_err(mbedtls_err_into_rustls_err)?
-            .try_into()
-            .map_err(time_err_to_err)?;
-        if now < not_before {
-            return Err(rustls::Error::InvalidCertificate(rustls::CertificateError::NotValidYet));
+        if !active_check.ignore_not_active_yet {
+            let not_before = cert
+                .not_before()
+                .map_err(mbedtls_err_into_rustls_err)?
+                .try_into()
+                .map_err(time_err_to_err)?;
+            if now < not_before {
+                return Err(rustls::Error::InvalidCertificate(rustls::CertificateError::NotValidYet));
+            }
         }
     }
     Ok(())
