@@ -328,4 +328,52 @@ mod tests {
             rustls::Error::InvalidCertificate(CertificateError::Expired)
         );
     }
+
+    #[test]
+    fn client_cert_verifier_ignore_expired_certs() {
+        let cert_chain = get_chain(include_bytes!("../test-data/rsa/client.fullchain"));
+        let trusted_cas = [CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec())];
+
+        let mut verifier = MbedTlsClientCertVerifier::new(trusted_cas.iter()).unwrap();
+        assert_eq!(verifier.ignore_expired(), false);
+        verifier.set_ignore_expired(true);
+        assert_eq!(verifier.ignore_expired(), true);
+        let now = SystemTime::from(DateTime::parse_from_rfc3339("2052-11-26T12:00:00+00:00").unwrap());
+        let now = UnixTime::since_unix_epoch(
+            now.duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap(),
+        );
+
+        assert!(verifier
+            .verify_client_cert(&cert_chain[0], &cert_chain[1..], now)
+            .is_ok());
+    }
+
+    #[test]
+    fn client_cert_verifier_callback() {
+        let mut cert_chain = get_chain(include_bytes!("../test-data/rsa/client.fullchain"));
+        cert_chain.remove(1);
+        let trusted_cas = [CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec())];
+
+        let mut verifier = MbedTlsClientCertVerifier::new(trusted_cas.iter()).unwrap();
+        assert!(verifier.verify_callback().is_none());
+        let now = SystemTime::from(DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
+        let now = UnixTime::since_unix_epoch(
+            now.duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap(),
+        );
+
+        let verify_res = verifier.verify_client_cert(&cert_chain[0], &cert_chain[1..], now);
+        assert!(matches!(verify_res, Err(rustls::Error::InvalidCertificate(_))));
+
+        verifier.set_verify_callback(Arc::new(
+            move |_cert: &mbedtls::x509::Certificate, _depth: i32, flags: &mut mbedtls::x509::VerifyError| {
+                flags.remove(mbedtls::x509::VerifyError::CERT_NOT_TRUSTED);
+                Ok(())
+            },
+        ));
+        assert!(verifier.verify_callback().is_some());
+        let verify_res = verifier.verify_client_cert(&cert_chain[0], &cert_chain[1..], now);
+        assert!(verify_res.is_ok(), "{:?}", verify_res);
+    }
 }
