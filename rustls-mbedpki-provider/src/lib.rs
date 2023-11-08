@@ -75,7 +75,7 @@ pub fn mbedtls_err_into_rustls_err_with_error_msg(err: mbedtls::Error, msg: &str
     }
 }
 
-fn rustls_signature_scheme_to_mbedtls_hash_type(signature_scheme: SignatureScheme) -> mbedtls::hash::Type {
+pub fn rustls_signature_scheme_to_mbedtls_hash_type(signature_scheme: SignatureScheme) -> mbedtls::hash::Type {
     match signature_scheme {
         SignatureScheme::RSA_PKCS1_SHA1 => Type::Sha1,
         SignatureScheme::ECDSA_SHA1_Legacy => Type::Sha1,
@@ -95,7 +95,7 @@ fn rustls_signature_scheme_to_mbedtls_hash_type(signature_scheme: SignatureSchem
     }
 }
 
-fn rustls_signature_scheme_to_mbedtls_pk_options(signature_scheme: SignatureScheme) -> Option<mbedtls::pk::Options> {
+pub fn rustls_signature_scheme_to_mbedtls_pk_options(signature_scheme: SignatureScheme) -> Option<mbedtls::pk::Options> {
     use mbedtls::pk::Options;
     use mbedtls::pk::RsaPadding;
     // reference: https://www.rfc-editor.org/rfc/rfc8446.html#section-4.2.3
@@ -156,7 +156,7 @@ fn hash_size_bytes(hash_type: mbedtls::hash::Type) -> Option<usize> {
     }
 }
 
-fn buffer_for_hash_type(hash_type: mbedtls::hash::Type) -> Option<Vec<u8>> {
+pub fn buffer_for_hash_type(hash_type: mbedtls::hash::Type) -> Option<Vec<u8>> {
     let size = hash_size_bytes(hash_type)?;
     Some(vec![0; size])
 }
@@ -166,19 +166,22 @@ fn buffer_for_hash_type(hash_type: mbedtls::hash::Type) -> Option<Vec<u8>> {
 fn verify_certificates_active<'a>(
     chain: impl IntoIterator<Item = &'a mbedtls::x509::Certificate>,
     now: NaiveDateTime,
+    ignore_expired: bool,
 ) -> Result<(), rustls::Error> {
     fn time_err_to_err(_time_err: mbedtls::x509::InvalidTimeError) -> rustls::Error {
         rustls::Error::InvalidCertificate(rustls::CertificateError::BadEncoding)
     }
 
     for cert in chain.into_iter() {
-        let not_after = cert
-            .not_after()
-            .map_err(mbedtls_err_into_rustls_err)?
-            .try_into()
-            .map_err(time_err_to_err)?;
-        if now > not_after {
-            return Err(rustls::Error::InvalidCertificate(rustls::CertificateError::Expired));
+        if !ignore_expired {
+            let not_after = cert
+                .not_after()
+                .map_err(mbedtls_err_into_rustls_err)?
+                .try_into()
+                .map_err(time_err_to_err)?;
+            if now > not_after {
+                return Err(rustls::Error::InvalidCertificate(rustls::CertificateError::Expired));
+            }
         }
         let not_before = cert
             .not_before()

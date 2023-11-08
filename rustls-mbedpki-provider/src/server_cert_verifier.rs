@@ -5,6 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::sync::Arc;
+
 use chrono::NaiveDateTime;
 use pki_types::{CertificateDer, UnixTime};
 use rustls::{
@@ -21,6 +23,8 @@ use crate::{
 /// `mbedtls`
 pub struct MbedTlsServerCertVerifier {
     trusted_cas: mbedtls::alloc::List<mbedtls::x509::Certificate>,
+    verify_callback: Option<Arc<dyn mbedtls::x509::VerifyCallback + 'static>>,
+    ignore_expired: bool,
 }
 
 impl MbedTlsServerCertVerifier {
@@ -47,12 +51,49 @@ impl MbedTlsServerCertVerifier {
         for ca in trusted_cas.iter() {
             root_subjects.push(rustls::DistinguishedName::from(ca.subject_raw()?));
         }
-        Ok(Self { trusted_cas })
+        Ok(Self { trusted_cas, verify_callback: None, ignore_expired: false })
     }
 
     /// The certificate authority certificates used to construct this object
     pub fn trusted_cas(&self) -> &mbedtls::alloc::List<mbedtls::x509::Certificate> {
         &self.trusted_cas
+    }
+
+    /// Sets the optional verification callback function for the certificate verification process.
+    ///
+    /// The verification callback allows you to customize how the certificate verification is performed.
+    ///
+    /// # Arguments
+    ///
+    /// * `callback` - A trait object implementing the `mbedtls::x509::VerifyCallback` trait, wrapped in an `Arc`.
+    pub fn set_verify_callback(&mut self, callback: Arc<dyn mbedtls::x509::VerifyCallback + 'static>) {
+        self.verify_callback = Some(callback);
+    }
+
+    /// Retrieves the verification callback function set for the certificate verification process.
+    ///
+    /// Returns `Some(callback)` if a verification callback has been set, or `None` otherwise.
+    ///
+    pub fn verify_callback(&self) -> Option<Arc<dyn mbedtls::x509::VerifyCallback + 'static>> {
+        self.verify_callback.clone()
+    }
+
+    /// Sets whether the system should ignore expired certificates during the verification process.
+    ///
+    /// By default, the system does not ignore expired certificates.
+    ///
+    /// # Arguments
+    ///
+    /// * `ignore_expired` - A boolean flag indicating whether to ignore expired certificates (`true`) or not (`false`).
+    pub fn set_ignore_expired(&mut self, ignore_expired: bool) {
+        self.ignore_expired = ignore_expired;
+    }
+
+    /// Checks if the system is configured to ignore expired certificates during the verification process.
+    ///
+    /// Returns `true` if expired certificates are being ignored, or `false` otherwise.
+    pub fn ignore_expired(&self) -> bool {
+        self.ignore_expired
     }
 }
 
@@ -94,18 +135,34 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
             .into_iter()
             .collect();
 
-        verify_certificates_active(chain.iter().map(|c| &**c), now)?;
+        verify_certificates_active(chain.iter().map(|c| &**c), now, self.ignore_expired)?;
 
         let server_name_str = server_name_to_str(server_name);
         let mut error_msg = String::default();
-        mbedtls::x509::Certificate::verify_with_expected_common_name(
-            &chain,
-            &self.trusted_cas,
-            None,
-            Some(&mut error_msg),
-            Some(&server_name_str),
-        )
-        .map_err(|e| mbedtls_err_into_rustls_err_with_error_msg(e, &error_msg))?;
+        match &self.verify_callback {
+            Some(callback) => {
+                let callback = callback.clone();
+                mbedtls::x509::Certificate::verify_with_callback_expected_common_name(
+                    &chain,
+                    &self.trusted_cas,
+                    None,
+                    Some(&mut error_msg),
+                    move |cert: &mbedtls::x509::Certificate, depth: i32, flags: &mut mbedtls::x509::VerifyError| {
+                        callback(cert, depth, flags)
+                    },
+                    Some(&server_name_str),
+                )
+                .map_err(|e| mbedtls_err_into_rustls_err_with_error_msg(e, &error_msg))?;
+            }
+            None => mbedtls::x509::Certificate::verify_with_expected_common_name(
+                &chain,
+                &self.trusted_cas,
+                None,
+                Some(&mut error_msg),
+                Some(&server_name_str),
+            )
+            .map_err(|e| mbedtls_err_into_rustls_err_with_error_msg(e, &error_msg))?,
+        };
 
         Ok(ServerCertVerified::assertion())
     }
