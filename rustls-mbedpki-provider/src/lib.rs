@@ -5,6 +5,33 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+//! rustls-mbedpki-provider
+//!
+//! rustls-mbedpki-provider is a pki provider for rustls based on [mbedtls].
+//!
+//! [mbedtls]: https://github.com/fortanix/rust-mbedtls
+
+// Require docs for public APIs, deny unsafe code, etc.
+#![forbid(unsafe_code, unused_must_use)]
+#![cfg_attr(not(bench), forbid(unstable_features))]
+#![deny(
+    clippy::alloc_instead_of_core,
+    clippy::clone_on_ref_ptr,
+    clippy::std_instead_of_core,
+    clippy::use_self,
+    clippy::upper_case_acronyms,
+    trivial_casts,
+    trivial_numeric_casts,
+    missing_docs,
+    unreachable_pub,
+    unused_import_braces,
+    unused_extern_crates,
+    unused_qualifications
+)]
+// Enable documentation for all features on docs.rs
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(bench, feature(test))]
+
 use chrono::NaiveDateTime;
 use mbedtls::hash::Type;
 use pki_types::CertificateDer;
@@ -14,12 +41,28 @@ use std::sync::Arc;
 #[cfg(test)]
 mod tests_common;
 
+/// module for implementation of [`ClientCertVerifier`]
+///
+/// [`ClientCertVerifier`]: rustls::server::danger::ClientCertVerifier
 pub mod client_cert_verifier;
+/// module for implementation of [`ServerCertVerifier`]
+///
+/// [`ServerCertVerifier`]: rustls::client::danger::ServerCertVerifier
 pub mod server_cert_verifier;
 
 pub use client_cert_verifier::MbedTlsClientCertVerifier;
 pub use server_cert_verifier::MbedTlsServerCertVerifier;
 
+/// A config about whether to check certificate validity period
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
+pub struct CertActiveCheck {
+    /// Accept expired certificates
+    pub ignore_expired: bool,
+    /// Accept certificates that are not yet active
+    pub ignore_not_active_yet: bool,
+}
+
+/// Helper function to convert a [`CertificateDer`] to [`mbedtls::x509::Certificate`]
 pub fn rustls_cert_to_mbedtls_cert(cert: &CertificateDer) -> mbedtls::Result<mbedtls::alloc::Box<mbedtls::x509::Certificate>> {
     let cert = mbedtls::x509::Certificate::from_der(cert)?;
     Ok(cert)
@@ -30,6 +73,7 @@ pub fn mbedtls_err_into_rustls_err(err: mbedtls::Error) -> rustls::Error {
     mbedtls_err_into_rustls_err_with_error_msg(err, "")
 }
 
+/// All supported signature schemas
 pub const SUPPORTED_SIGNATURE_SCHEMA: [SignatureScheme; 9] = [
     rustls::SignatureScheme::RSA_PSS_SHA512,
     rustls::SignatureScheme::RSA_PSS_SHA384,
@@ -75,7 +119,8 @@ pub fn mbedtls_err_into_rustls_err_with_error_msg(err: mbedtls::Error, msg: &str
     }
 }
 
-fn rustls_signature_scheme_to_mbedtls_hash_type(signature_scheme: SignatureScheme) -> mbedtls::hash::Type {
+/// Helper function to convert rustls [`SignatureScheme`] to mbedtls [`Type`]
+pub fn rustls_signature_scheme_to_mbedtls_hash_type(signature_scheme: SignatureScheme) -> Type {
     match signature_scheme {
         SignatureScheme::RSA_PKCS1_SHA1 => Type::Sha1,
         SignatureScheme::ECDSA_SHA1_Legacy => Type::Sha1,
@@ -95,7 +140,8 @@ fn rustls_signature_scheme_to_mbedtls_hash_type(signature_scheme: SignatureSchem
     }
 }
 
-fn rustls_signature_scheme_to_mbedtls_pk_options(signature_scheme: SignatureScheme) -> Option<mbedtls::pk::Options> {
+/// Helper function to convert rustls [`SignatureScheme`] to mbedtls [`mbedtls::pk::Options`]
+pub fn rustls_signature_scheme_to_mbedtls_pk_options(signature_scheme: SignatureScheme) -> Option<mbedtls::pk::Options> {
     use mbedtls::pk::Options;
     use mbedtls::pk::RsaPadding;
     // reference: https://www.rfc-editor.org/rfc/rfc8446.html#section-4.2.3
@@ -118,7 +164,8 @@ fn rustls_signature_scheme_to_mbedtls_pk_options(signature_scheme: SignatureSche
     }
 }
 
-fn rustls_signature_scheme_to_mbedtls_curve_id(signature_scheme: SignatureScheme) -> mbedtls::pk::EcGroupId {
+/// Helper function to convert rustls [`SignatureScheme`] to mbedtls [`mbedtls::pk::EcGroupId`]
+pub fn rustls_signature_scheme_to_mbedtls_curve_id(signature_scheme: SignatureScheme) -> mbedtls::pk::EcGroupId {
     // reference: https://www.rfc-editor.org/rfc/rfc8446.html#section-4.2.3
     use mbedtls::pk::EcGroupId;
     match signature_scheme {
@@ -141,7 +188,7 @@ fn rustls_signature_scheme_to_mbedtls_curve_id(signature_scheme: SignatureScheme
 }
 
 /// Returns the size of the message digest given the hash type.
-fn hash_size_bytes(hash_type: mbedtls::hash::Type) -> Option<usize> {
+fn hash_size_bytes(hash_type: Type) -> Option<usize> {
     match hash_type {
         mbedtls::hash::Type::None => None,
         mbedtls::hash::Type::Md2 => Some(16),
@@ -156,7 +203,8 @@ fn hash_size_bytes(hash_type: mbedtls::hash::Type) -> Option<usize> {
     }
 }
 
-fn buffer_for_hash_type(hash_type: mbedtls::hash::Type) -> Option<Vec<u8>> {
+/// Returns the a ready to use empty [`Vec<u8>`] for the message digest with given hash type.
+pub fn buffer_for_hash_type(hash_type: Type) -> Option<Vec<u8>> {
     let size = hash_size_bytes(hash_type)?;
     Some(vec![0; size])
 }
@@ -166,27 +214,36 @@ fn buffer_for_hash_type(hash_type: mbedtls::hash::Type) -> Option<Vec<u8>> {
 fn verify_certificates_active<'a>(
     chain: impl IntoIterator<Item = &'a mbedtls::x509::Certificate>,
     now: NaiveDateTime,
+    active_check: &CertActiveCheck,
 ) -> Result<(), rustls::Error> {
+    if active_check.ignore_expired && active_check.ignore_not_active_yet {
+        return Ok(());
+    }
+
     fn time_err_to_err(_time_err: mbedtls::x509::InvalidTimeError) -> rustls::Error {
         rustls::Error::InvalidCertificate(rustls::CertificateError::BadEncoding)
     }
 
     for cert in chain.into_iter() {
-        let not_after = cert
-            .not_after()
-            .map_err(mbedtls_err_into_rustls_err)?
-            .try_into()
-            .map_err(time_err_to_err)?;
-        if now > not_after {
-            return Err(rustls::Error::InvalidCertificate(rustls::CertificateError::Expired));
+        if !active_check.ignore_expired {
+            let not_after = cert
+                .not_after()
+                .map_err(mbedtls_err_into_rustls_err)?
+                .try_into()
+                .map_err(time_err_to_err)?;
+            if now > not_after {
+                return Err(rustls::Error::InvalidCertificate(rustls::CertificateError::Expired));
+            }
         }
-        let not_before = cert
-            .not_before()
-            .map_err(mbedtls_err_into_rustls_err)?
-            .try_into()
-            .map_err(time_err_to_err)?;
-        if now < not_before {
-            return Err(rustls::Error::InvalidCertificate(rustls::CertificateError::NotValidYet));
+        if !active_check.ignore_not_active_yet {
+            let not_before = cert
+                .not_before()
+                .map_err(mbedtls_err_into_rustls_err)?
+                .try_into()
+                .map_err(time_err_to_err)?;
+            if now < not_before {
+                return Err(rustls::Error::InvalidCertificate(rustls::CertificateError::NotValidYet));
+            }
         }
     }
     Ok(())

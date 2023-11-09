@@ -5,16 +5,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{
-    io,
-    ops::{Deref, DerefMut},
-};
+use std::io;
+
+use core::ops::{Deref, DerefMut};
 
 use pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, UnixTime};
 use rustls::{client::danger::ServerCertVerifier, ClientConnection, ConnectionCommon, ServerConnection, SideData};
 
 /// Get a certificate chain from the contents of a pem file
-pub fn get_chain(bytes: &[u8]) -> Vec<CertificateDer> {
+pub(crate) fn get_chain(bytes: &[u8]) -> Vec<CertificateDer> {
     rustls_pemfile::certs(&mut io::BufReader::new(bytes))
         .unwrap()
         .into_iter()
@@ -23,7 +22,7 @@ pub fn get_chain(bytes: &[u8]) -> Vec<CertificateDer> {
 }
 
 /// Get a private key from the contents of a pem file
-pub fn get_key(bytes: &[u8]) -> PrivateKeyDer {
+pub(crate) fn get_key(bytes: &[u8]) -> PrivateKeyDer {
     let value = rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(bytes))
         .unwrap()
         .into_iter()
@@ -33,7 +32,7 @@ pub fn get_key(bytes: &[u8]) -> PrivateKeyDer {
 }
 
 // Copied from rustls repo
-pub fn transfer(
+pub(crate) fn transfer(
     left: &mut (impl DerefMut + Deref<Target = ConnectionCommon<impl SideData>>),
     right: &mut (impl DerefMut + Deref<Target = ConnectionCommon<impl SideData>>),
 ) -> usize {
@@ -64,7 +63,10 @@ pub fn transfer(
 }
 
 // Copied from rustls repo
-pub fn do_handshake_until_error(client: &mut ClientConnection, server: &mut ServerConnection) -> Result<(), rustls::Error> {
+pub(crate) fn do_handshake_until_error(
+    client: &mut ClientConnection,
+    server: &mut ServerConnection,
+) -> Result<(), rustls::Error> {
     while server.is_handshaking() || client.is_handshaking() {
         transfer(client, server);
         server.process_new_packets()?;
@@ -74,9 +76,9 @@ pub fn do_handshake_until_error(client: &mut ClientConnection, server: &mut Serv
     Ok(())
 }
 
-pub struct VerifierWithSupportedVerifySchemes<V> {
-    pub verifier: V,
-    pub supported_verify_schemes: Vec<rustls::SignatureScheme>,
+pub(crate) struct VerifierWithSupportedVerifySchemes<V> {
+    pub(crate) verifier: V,
+    pub(crate) supported_verify_schemes: Vec<rustls::SignatureScheme>,
 }
 
 impl<V: ServerCertVerifier> ServerCertVerifier for VerifierWithSupportedVerifySchemes<V> {

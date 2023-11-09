@@ -5,6 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::sync::Arc;
+
 use chrono::NaiveDateTime;
 use pki_types::{CertificateDer, UnixTime};
 use rustls::{
@@ -14,19 +16,21 @@ use rustls::{
 
 use crate::{
     mbedtls_err_into_rustls_err, mbedtls_err_into_rustls_err_with_error_msg, rustls_cert_to_mbedtls_cert,
-    verify_certificates_active, verify_tls_signature,
+    verify_certificates_active, verify_tls_signature, CertActiveCheck,
 };
 
-/// A `rustls` `ClientCertVerifier` implemented using the PKI functionality of
+/// A [`rustls`] [`ClientCertVerifier`] implemented using the PKI functionality of
 /// `mbedtls`
 #[derive(Clone)]
 pub struct MbedTlsClientCertVerifier {
     trusted_cas: mbedtls::alloc::List<mbedtls::x509::Certificate>,
-    root_subjects: Vec<rustls::DistinguishedName>,
+    root_subjects: Vec<DistinguishedName>,
+    verify_callback: Option<Arc<dyn mbedtls::x509::VerifyCallback + 'static>>,
+    cert_active_check: CertActiveCheck,
 }
 
 impl MbedTlsClientCertVerifier {
-    /// Constructs a new `MbedTlsClientCertVerifier` object given the provided trusted certificate authority
+    /// Constructs a new [`MbedTlsClientCertVerifier`] object given the provided trusted certificate authority
     /// certificates.
     ///
     /// Returns an error if any of the certificates are invalid.
@@ -40,7 +44,7 @@ impl MbedTlsClientCertVerifier {
         Self::new_from_mbedtls_trusted_cas(trusted_cas)
     }
 
-    /// Constructs a new `MbedTlsClientCertVerifier` object given the provided trusted certificate authority
+    /// Constructs a new [`MbedTlsClientCertVerifier`] object given the provided trusted certificate authority
     /// certificates.
     pub fn new_from_mbedtls_trusted_cas(
         trusted_cas: mbedtls::alloc::List<mbedtls::x509::Certificate>,
@@ -49,7 +53,12 @@ impl MbedTlsClientCertVerifier {
         for ca in trusted_cas.iter() {
             root_subjects.push(DistinguishedName::from(ca.subject_raw()?));
         }
-        Ok(Self { trusted_cas, root_subjects })
+        Ok(Self {
+            trusted_cas,
+            root_subjects,
+            verify_callback: None,
+            cert_active_check: CertActiveCheck::default(),
+        })
     }
 
     /// The certificate authority certificates used to construct this object
@@ -61,6 +70,28 @@ impl MbedTlsClientCertVerifier {
     /// requesting client authentication, extractd from CA certificates.
     pub fn root_subjects(&self) -> &[DistinguishedName] {
         self.root_subjects.as_ref()
+    }
+
+    /// Retrieves the verification callback function set for the certificate verification process.
+    pub fn verify_callback(&self) -> Option<Arc<dyn mbedtls::x509::VerifyCallback + 'static>> {
+        self.verify_callback.clone()
+    }
+
+    /// Sets the verification callback for mbedtls certificate verification process,
+    ///
+    /// This callback function allows you to add logic at end of mbedtls verification before returning.
+    pub fn set_verify_callback(&mut self, callback: Option<Arc<dyn mbedtls::x509::VerifyCallback + 'static>>) {
+        self.verify_callback = callback;
+    }
+
+    /// Getter for [`CertActiveCheck`]
+    pub fn cert_active_check(&self) -> &CertActiveCheck {
+        &self.cert_active_check
+    }
+
+    /// Setter for [`CertActiveCheck`]
+    pub fn set_cert_active_check(&mut self, check: CertActiveCheck) {
+        self.cert_active_check = check;
     }
 }
 
@@ -74,7 +105,7 @@ impl ClientCertVerifier for MbedTlsClientCertVerifier {
         end_entity: &CertificateDer,
         intermediates: &[CertificateDer],
         now: UnixTime,
-    ) -> Result<rustls::server::danger::ClientCertVerified, rustls::Error> {
+    ) -> Result<ClientCertVerified, rustls::Error> {
         let now = NaiveDateTime::from_timestamp_opt(
             now.as_secs()
                 .try_into()
@@ -92,11 +123,25 @@ impl ClientCertVerifier for MbedTlsClientCertVerifier {
             .into_iter()
             .collect();
 
-        verify_certificates_active(chain.iter().map(|c| &**c), now)?;
+        verify_certificates_active(chain.iter().map(|c| &**c), now, &self.cert_active_check)?;
 
         let mut error_msg = String::default();
-        mbedtls::x509::Certificate::verify(&chain, &self.trusted_cas, None, Some(&mut error_msg))
-            .map_err(|e| mbedtls_err_into_rustls_err_with_error_msg(e, &error_msg))?;
+        match &self.verify_callback {
+            Some(callback) => {
+                let callback = Arc::clone(callback);
+                mbedtls::x509::Certificate::verify_with_callback(
+                    &chain,
+                    &self.trusted_cas,
+                    None,
+                    Some(&mut error_msg),
+                    move |cert: &mbedtls::x509::Certificate, depth: i32, flags: &mut mbedtls::x509::VerifyError| {
+                        callback(cert, depth, flags)
+                    },
+                )
+            }
+            None => mbedtls::x509::Certificate::verify(&chain, &self.trusted_cas, None, Some(&mut error_msg)),
+        }
+        .map_err(|e| mbedtls_err_into_rustls_err_with_error_msg(e, &error_msg))?;
 
         Ok(ClientCertVerified::assertion())
     }
@@ -271,5 +316,75 @@ mod tests {
                 .unwrap_err(),
             rustls::Error::InvalidCertificate(CertificateError::Expired)
         );
+    }
+
+    #[test]
+    fn client_cert_verifier_active_check() {
+        let cert_chain = get_chain(include_bytes!("../test-data/rsa/client.fullchain"));
+        let trusted_cas = [CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec())];
+
+        let mut verifier = MbedTlsClientCertVerifier::new(trusted_cas.iter()).unwrap();
+        let now = SystemTime::from(DateTime::parse_from_rfc3339("2052-11-26T12:00:00+00:00").unwrap());
+        let now = UnixTime::since_unix_epoch(
+            now.duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap(),
+        );
+
+        assert_eq!(
+            verifier
+                .verify_client_cert(&cert_chain[0], &cert_chain[1..], now)
+                .unwrap_err(),
+            rustls::Error::InvalidCertificate(CertificateError::Expired)
+        );
+        verifier.set_cert_active_check(crate::CertActiveCheck { ignore_expired: true, ignore_not_active_yet: false });
+
+        assert!(verifier
+            .verify_client_cert(&cert_chain[0], &cert_chain[1..], now)
+            .is_ok());
+
+        let now = SystemTime::from(DateTime::parse_from_rfc3339("2002-11-26T12:00:00+00:00").unwrap());
+        let now = UnixTime::since_unix_epoch(
+            now.duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap(),
+        );
+        assert_eq!(
+            verifier
+                .verify_client_cert(&cert_chain[0], &cert_chain[1..], now)
+                .unwrap_err(),
+            rustls::Error::InvalidCertificate(CertificateError::NotValidYet)
+        );
+        verifier.set_cert_active_check(crate::CertActiveCheck { ignore_expired: false, ignore_not_active_yet: true });
+
+        assert!(verifier
+            .verify_client_cert(&cert_chain[0], &cert_chain[1..], now)
+            .is_ok());
+    }
+
+    #[test]
+    fn client_cert_verifier_callback() {
+        let mut cert_chain = get_chain(include_bytes!("../test-data/rsa/client.fullchain"));
+        cert_chain.remove(1);
+        let trusted_cas = [CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec())];
+
+        let mut verifier = MbedTlsClientCertVerifier::new(trusted_cas.iter()).unwrap();
+        assert!(verifier.verify_callback().is_none());
+        let now = SystemTime::from(DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
+        let now = UnixTime::since_unix_epoch(
+            now.duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap(),
+        );
+
+        let verify_res = verifier.verify_client_cert(&cert_chain[0], &cert_chain[1..], now);
+        assert!(matches!(verify_res, Err(rustls::Error::InvalidCertificate(_))));
+
+        verifier.set_verify_callback(Some(Arc::new(
+            move |_cert: &mbedtls::x509::Certificate, _depth: i32, flags: &mut mbedtls::x509::VerifyError| {
+                flags.remove(mbedtls::x509::VerifyError::CERT_NOT_TRUSTED);
+                Ok(())
+            },
+        )));
+        assert!(verifier.verify_callback().is_some());
+        let verify_res = verifier.verify_client_cert(&cert_chain[0], &cert_chain[1..], now);
+        assert!(verify_res.is_ok(), "{:?}", verify_res);
     }
 }

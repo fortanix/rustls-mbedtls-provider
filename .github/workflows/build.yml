@@ -193,8 +193,8 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - run: cargo clippy --locked --package rustls-mbedcrypto-provider --all-features --all-targets -- --deny warnings
-      - run: cargo clippy --locked --package rustls-mbedcrypto-provider --no-default-features --all-targets -- --deny warnings
+      - run: cargo clippy --locked --all-features --all-targets -- --deny warnings
+      - run: cargo clippy --locked --no-default-features --all-targets -- --deny warnings
 
   clippy-nightly:
     name: Clippy (Nightly)
@@ -212,5 +212,5 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: clippy
-      - run: cargo clippy --locked --package rustls-mbedcrypto-provider --all-features --all-targets
-      - run: cargo clippy --locked --package rustls-mbedcrypto-provider --no-default-features --all-targets
+      - run: cargo clippy --locked --all-features --all-targets
+      - run: cargo clippy --locked --no-default-features --all-targets
