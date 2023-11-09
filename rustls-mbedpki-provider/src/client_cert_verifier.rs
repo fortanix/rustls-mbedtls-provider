@@ -138,11 +138,10 @@ impl ClientCertVerifier for MbedTlsClientCertVerifier {
                         callback(cert, depth, flags)
                     },
                 )
-                .map_err(|e| mbedtls_err_into_rustls_err_with_error_msg(e, &error_msg))?;
             }
-            None => mbedtls::x509::Certificate::verify(&chain, &self.trusted_cas, None, Some(&mut error_msg))
-                .map_err(|e| mbedtls_err_into_rustls_err_with_error_msg(e, &error_msg))?,
-        };
+            None => mbedtls::x509::Certificate::verify(&chain, &self.trusted_cas, None, Some(&mut error_msg)),
+        }
+        .map_err(|e| mbedtls_err_into_rustls_err_with_error_msg(e, &error_msg))?;
 
         Ok(ClientCertVerified::assertion())
     }
