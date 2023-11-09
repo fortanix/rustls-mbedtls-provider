@@ -86,7 +86,7 @@ impl MbedTlsServerCertVerifier {
     }
 }
 
-fn server_name_to_str(server_name: &rustls::ServerName) -> String {
+fn server_name_to_str(server_name: &ServerName) -> String {
     match server_name {
         ServerName::DnsName(name) => name.as_ref().to_string(),
         ServerName::IpAddress(addr) => addr.to_string(),
@@ -102,11 +102,11 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
         &self,
         end_entity: &CertificateDer,
         intermediates: &[CertificateDer],
-        server_name: &rustls::ServerName,
+        server_name: &ServerName,
         // Mbedtls does not support OSCP (Online Certificate Status Protocol).
         _ocsp_response: &[u8],
         now: UnixTime,
-    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+    ) -> Result<ServerCertVerified, rustls::Error> {
         let now = NaiveDateTime::from_timestamp_opt(
             now.as_secs()
                 .try_into()
@@ -130,7 +130,7 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
         let mut error_msg = String::default();
         match &self.verify_callback {
             Some(callback) => {
-                let callback = callback.clone();
+                let callback = Arc::clone(callback);
                 mbedtls::x509::Certificate::verify_with_callback_expected_common_name(
                     &chain,
                     &self.trusted_cas,
@@ -233,7 +233,7 @@ mod tests {
     }
 
     fn test_connection_server_cert_verifier(
-        supported_verify_schemes: Vec<rustls::SignatureScheme>,
+        supported_verify_schemes: Vec<SignatureScheme>,
         protocol_versions: &[&'static SupportedProtocolVersion],
     ) {
         let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());

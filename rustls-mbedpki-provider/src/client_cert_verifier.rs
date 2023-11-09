@@ -24,7 +24,7 @@ use crate::{
 #[derive(Clone)]
 pub struct MbedTlsClientCertVerifier {
     trusted_cas: mbedtls::alloc::List<mbedtls::x509::Certificate>,
-    root_subjects: Vec<rustls::DistinguishedName>,
+    root_subjects: Vec<DistinguishedName>,
     verify_callback: Option<Arc<dyn mbedtls::x509::VerifyCallback + 'static>>,
     cert_active_check: CertActiveCheck,
 }
@@ -105,7 +105,7 @@ impl ClientCertVerifier for MbedTlsClientCertVerifier {
         end_entity: &CertificateDer,
         intermediates: &[CertificateDer],
         now: UnixTime,
-    ) -> Result<rustls::server::danger::ClientCertVerified, rustls::Error> {
+    ) -> Result<ClientCertVerified, rustls::Error> {
         let now = NaiveDateTime::from_timestamp_opt(
             now.as_secs()
                 .try_into()
@@ -128,7 +128,7 @@ impl ClientCertVerifier for MbedTlsClientCertVerifier {
         let mut error_msg = String::default();
         match &self.verify_callback {
             Some(callback) => {
-                let callback = callback.clone();
+                let callback = Arc::clone(callback);
                 mbedtls::x509::Certificate::verify_with_callback(
                     &chain,
                     &self.trusted_cas,
