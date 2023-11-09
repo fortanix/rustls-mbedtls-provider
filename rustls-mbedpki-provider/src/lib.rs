@@ -28,7 +28,6 @@
     unused_extern_crates,
     unused_qualifications
 )]
-
 // Enable documentation for all features on docs.rs
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 #![cfg_attr(bench, feature(test))]
