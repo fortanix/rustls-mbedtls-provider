@@ -41,9 +41,13 @@ use std::sync::Arc;
 #[cfg(test)]
 mod tests_common;
 
-/// module for implementation of [ClientCertVerifier]
+/// module for implementation of [`ClientCertVerifier`]
+///
+/// [`ClientCertVerifier`]: rustls::server::danger::ClientCertVerifier
 pub mod client_cert_verifier;
-/// module for implementation of [ServerCertVerifier]
+/// module for implementation of [`ServerCertVerifier`]
+///
+/// [`ServerCertVerifier`]: rustls::client::danger::ServerCertVerifier
 pub mod server_cert_verifier;
 
 pub use client_cert_verifier::MbedTlsClientCertVerifier;

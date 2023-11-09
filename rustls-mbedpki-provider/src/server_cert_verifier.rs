@@ -19,7 +19,7 @@ use crate::{
     verify_certificates_active, verify_tls_signature, CertActiveCheck,
 };
 
-/// A `rustls` `ServerCertVerifier` implemented using the PKI functionality of
+/// A [`rustls`] [`ServerCertVerifier`] implemented using the PKI functionality of
 /// `mbedtls`
 pub struct MbedTlsServerCertVerifier {
     trusted_cas: mbedtls::alloc::List<mbedtls::x509::Certificate>,
@@ -28,7 +28,7 @@ pub struct MbedTlsServerCertVerifier {
 }
 
 impl MbedTlsServerCertVerifier {
-    /// Constructs a new `MbedTlsServerCertVerifier` object given the provided trusted certificate authority
+    /// Constructs a new [`MbedTlsServerCertVerifier`] object given the provided trusted certificate authority
     /// certificates.
     ///
     /// Returns an error if any of the certificates are invalid.
@@ -42,7 +42,7 @@ impl MbedTlsServerCertVerifier {
         Self::new_from_mbedtls_trusted_cas(trusted_cas)
     }
 
-    /// Constructs a new `MbedTlsServerCertVerifier` object given the provided trusted certificate authority
+    /// Constructs a new [`MbedTlsServerCertVerifier`] object given the provided trusted certificate authority
     /// certificates.
     pub fn new_from_mbedtls_trusted_cas(
         trusted_cas: mbedtls::alloc::List<mbedtls::x509::Certificate>,
