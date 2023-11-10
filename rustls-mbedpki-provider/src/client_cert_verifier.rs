@@ -96,7 +96,7 @@ impl MbedTlsClientCertVerifier {
 }
 
 impl ClientCertVerifier for MbedTlsClientCertVerifier {
-    fn root_hint_subjects(&self) -> &[DistinguishedName] {
+    fn client_auth_root_subjects(&self) -> &[DistinguishedName] {
         &self.root_subjects
     }
 

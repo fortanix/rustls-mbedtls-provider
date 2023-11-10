@@ -8,24 +8,24 @@
 use crate::error::mbedtls_err_to_rustls_general_error;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use mbedtls::cipher::raw::{CipherId, CipherMode, CipherType};
+use mbedtls::cipher::raw::{CipherId, CipherMode};
 use mbedtls::cipher::{Authenticated, Cipher, Decryption, Encryption, Fresh};
 use rustls::cipher_suite::CipherSuiteCommon;
 use rustls::crypto::cipher::{
     make_tls12_aad, AeadKey, BorrowedPlainMessage, Iv, KeyBlockShape, MessageDecrypter, MessageEncrypter, Nonce, OpaqueMessage,
-    PlainMessage, Tls12AeadAlgorithm, UnsupportedOperationError, NONCE_LEN,
+    PlainMessage, Tls12AeadAlgorithm,
 };
-use rustls::crypto::tls12::PrfUsingHmac;
 use rustls::crypto::KeyExchangeAlgorithm;
 
 use super::aead::{self, Algorithm, AES128_GCM, AES256_GCM};
 use alloc::string::String;
-use rustls::{CipherSuite, ConnectionTrafficSecrets, Error, SignatureScheme, SupportedCipherSuite, Tls12CipherSuite};
+use rustls::{CipherSuite, Error, SignatureScheme, SupportedCipherSuite, Tls12CipherSuite};
 
 pub(crate) const GCM_FIXED_IV_LEN: usize = 4;
 pub(crate) const GCM_EXPLICIT_NONCE_LEN: usize = 8;
 pub(crate) const GCM_OVERHEAD: usize = GCM_EXPLICIT_NONCE_LEN + 16;
 pub(crate) const MAX_FRAGMENT_LEN: usize = 16384;
+pub(crate) const NONCE_LEN: usize = 12;
 
 /// The TLS1.2 ciphersuite TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256.
 pub static TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256: SupportedCipherSuite =
@@ -37,7 +37,8 @@ pub static TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256: SupportedCipherSuite =
         kx: KeyExchangeAlgorithm::ECDHE,
         sign: TLS12_ECDSA_SCHEMES,
         aead_alg: &ChaCha20Poly1305,
-        prf_provider: &PrfUsingHmac(&super::hmac::HMAC_SHA256),
+        hmac_provider: &super::hmac::HMAC_SHA256,
+        // prf_provider: &PrfUsingHmac(&super::hmac::HMAC_SHA256),
     });
 
 /// The TLS1.2 ciphersuite TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
@@ -49,7 +50,7 @@ pub static TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256: SupportedCipherSuite = S
     kx: KeyExchangeAlgorithm::ECDHE,
     sign: TLS12_RSA_SCHEMES,
     aead_alg: &ChaCha20Poly1305,
-    prf_provider: &PrfUsingHmac(&super::hmac::HMAC_SHA256),
+    hmac_provider: &super::hmac::HMAC_SHA256,
 });
 
 /// The TLS1.2 ciphersuite TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
@@ -61,7 +62,7 @@ pub static TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256: SupportedCipherSuite = Support
     kx: KeyExchangeAlgorithm::ECDHE,
     sign: TLS12_RSA_SCHEMES,
     aead_alg: &AES128_GCM,
-    prf_provider: &PrfUsingHmac(&super::hmac::HMAC_SHA256),
+    hmac_provider: &super::hmac::HMAC_SHA256,
 });
 
 /// The TLS1.2 ciphersuite TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
@@ -73,7 +74,7 @@ pub static TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384: SupportedCipherSuite = Support
     kx: KeyExchangeAlgorithm::ECDHE,
     sign: TLS12_RSA_SCHEMES,
     aead_alg: &AES256_GCM,
-    prf_provider: &PrfUsingHmac(&super::hmac::HMAC_SHA384),
+    hmac_provider: &super::hmac::HMAC_SHA384,
 });
 
 /// The TLS1.2 ciphersuite TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
@@ -85,7 +86,7 @@ pub static TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256: SupportedCipherSuite = Suppo
     kx: KeyExchangeAlgorithm::ECDHE,
     sign: TLS12_ECDSA_SCHEMES,
     aead_alg: &AES128_GCM,
-    prf_provider: &PrfUsingHmac(&super::hmac::HMAC_SHA256),
+    hmac_provider: &super::hmac::HMAC_SHA256,
 });
 
 /// The TLS1.2 ciphersuite TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
@@ -97,7 +98,7 @@ pub static TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384: SupportedCipherSuite = Suppo
     kx: KeyExchangeAlgorithm::ECDHE,
     sign: TLS12_ECDSA_SCHEMES,
     aead_alg: &AES256_GCM,
-    prf_provider: &PrfUsingHmac(&super::hmac::HMAC_SHA384),
+    hmac_provider: &super::hmac::HMAC_SHA384,
 });
 
 static TLS12_ECDSA_SCHEMES: &[SignatureScheme] = &[
@@ -137,18 +138,18 @@ impl Tls12AeadAlgorithm for Algorithm {
         }
     }
 
-    fn extract_keys(
-        &self,
-        key: AeadKey,
-        iv: &[u8],
-        explicit: &[u8],
-    ) -> Result<ConnectionTrafficSecrets, UnsupportedOperationError> {
-        match self.cipher_type {
-            CipherType::Aes128Gcm => Ok(ConnectionTrafficSecrets::Aes128Gcm { key, iv: gcm_iv(iv, explicit) }),
-            CipherType::Aes256Gcm => Ok(ConnectionTrafficSecrets::Aes256Gcm { key, iv: gcm_iv(iv, explicit) }),
-            _ => Err(UnsupportedOperationError),
-        }
-    }
+    // fn extract_keys(
+    //     &self,
+    //     key: AeadKey,
+    //     iv: &[u8],
+    //     explicit: &[u8],
+    // ) -> Result<ConnectionTrafficSecrets, UnsupportedOperationError> {
+    //     match self.cipher_type {
+    //         CipherType::Aes128Gcm => Ok(ConnectionTrafficSecrets::Aes128Gcm { key, iv: gcm_iv(iv, explicit) }),
+    //         CipherType::Aes256Gcm => Ok(ConnectionTrafficSecrets::Aes256Gcm { key, iv: gcm_iv(iv, explicit) }),
+    //         _ => Err(UnsupportedOperationError),
+    //     }
+    // }
 }
 
 pub(crate) struct ChaCha20Poly1305;
@@ -166,16 +167,16 @@ impl Tls12AeadAlgorithm for ChaCha20Poly1305 {
         KeyBlockShape { enc_key_len: 32, fixed_iv_len: 12, explicit_nonce_len: 0 }
     }
 
-    fn extract_keys(
-        &self,
-        key: AeadKey,
-        iv: &[u8],
-        _explicit: &[u8],
-    ) -> Result<ConnectionTrafficSecrets, UnsupportedOperationError> {
-        // This should always be true because KeyBlockShape and the Iv nonce len are in agreement.
-        debug_assert_eq!(NONCE_LEN, iv.len());
-        Ok(ConnectionTrafficSecrets::Chacha20Poly1305 { key, iv: Iv::new(iv[..].try_into().unwrap()) })
-    }
+    // fn extract_keys(
+    //     &self,
+    //     key: AeadKey,
+    //     iv: &[u8],
+    //     _explicit: &[u8],
+    // ) -> Result<ConnectionTrafficSecrets, UnsupportedOperationError> {
+    //     // This should always be true because KeyBlockShape and the Iv nonce len are in agreement.
+    //     debug_assert_eq!(NONCE_LEN, iv.len());
+    //     Ok(ConnectionTrafficSecrets::Chacha20Poly1305 { key, iv: Iv::new(iv[..].try_into().unwrap()) })
+    // }
 }
 
 /// A `MessageEncrypter` for AES-GCM AEAD ciphersuites. TLS 1.2 only.
@@ -393,5 +394,5 @@ fn gcm_iv(write_iv: &[u8], explicit_nonce: &[u8]) -> Iv {
     iv[..GCM_FIXED_IV_LEN].copy_from_slice(write_iv);
     iv[GCM_FIXED_IV_LEN..].copy_from_slice(explicit_nonce);
 
-    Iv::new(iv)
+    Iv::from(iv)
 }

@@ -1007,13 +1007,11 @@ fn client_check_server_certificate_ee_revoked() {
         let server_config = Arc::new(make_server_config(*kt));
 
         // Setup a server verifier that will check the EE certificate's revocation status.
-        let crls = vec![kt.end_entity_crl()];
-        let builder = WebPkiServerVerifier::builder(get_client_root_store(*kt))
-            .with_crls(crls)
-            .only_check_end_entity_revocation();
-
+        // let crls = vec![kt.end_entity_crl()];
+        
         for version in rustls::ALL_VERSIONS {
-            let client_config = make_client_config_with_verifier(&[version], builder.clone());
+            let verifier = WebPkiServerVerifier::new(get_client_root_store(*kt));
+            let client_config = make_client_config_with_verifier(&[version], verifier);
             let mut client = ClientConnection::new(Arc::new(client_config), server_name("localhost")).unwrap();
             let mut server = ServerConnection::new(Arc::clone(&server_config)).unwrap();
 
@@ -1024,130 +1022,6 @@ fn client_check_server_certificate_ee_revoked() {
                 Err(ErrorFromPeer::Client(Error::InvalidCertificate(CertificateError::Revoked)))
             );
         }
-    }
-}
-
-#[test]
-fn client_check_server_certificate_ee_unknown_revocation() {
-    for kt in ALL_KEY_TYPES.iter() {
-        let server_config = Arc::new(make_server_config(*kt));
-
-        // Setup a server verifier builder that will check the EE certificate's revocation status, but not
-        // allow unknown revocation status (the default). We'll provide CRLs that are not relevant
-        // to the EE cert to ensure its status is unknown.
-        let unrelated_crls = vec![kt.intermediate_crl()];
-        let forbid_unknown_verifier = WebPkiServerVerifier::builder(get_client_root_store(*kt))
-            .with_crls(unrelated_crls.clone())
-            .only_check_end_entity_revocation();
-
-        // Also set up a verifier builder that will allow unknown revocation status.
-        let allow_unknown_verifier = WebPkiServerVerifier::builder(get_client_root_store(*kt))
-            .with_crls(unrelated_crls)
-            .only_check_end_entity_revocation()
-            .allow_unknown_revocation_status();
-
-        for version in rustls::ALL_VERSIONS {
-            let client_config = make_client_config_with_verifier(&[version], forbid_unknown_verifier.clone());
-            let mut client = ClientConnection::new(Arc::new(client_config), server_name("localhost")).unwrap();
-            let mut server = ServerConnection::new(Arc::clone(&server_config)).unwrap();
-
-            // We expect if we use the forbid_unknown_verifier that the handshake will fail since the
-            // server's EE certificate's revocation status is unknown given the CRLs we've provided.
-            let err = do_handshake_until_error(&mut client, &mut server);
-            assert!(matches!(
-                err,
-                Err(ErrorFromPeer::Client(Error::InvalidCertificate(
-                    CertificateError::UnknownRevocationStatus
-                )))
-            ));
-
-            // We expect if we use the allow_unknown_verifier that the handshake will not fail.
-            let client_config = make_client_config_with_verifier(&[version], allow_unknown_verifier.clone());
-            let mut client = ClientConnection::new(Arc::new(client_config), server_name("localhost")).unwrap();
-            let mut server = ServerConnection::new(Arc::clone(&server_config)).unwrap();
-            let res = do_handshake_until_error(&mut client, &mut server);
-            assert!(res.is_ok());
-        }
-    }
-}
-
-#[test]
-fn client_check_server_certificate_intermediate_revoked() {
-    for kt in ALL_KEY_TYPES.iter() {
-        let server_config = Arc::new(make_server_config(*kt));
-
-        // Setup a server verifier builder that will check the full chain revocation status against a CRL
-        // that marks the intermediate certificate as revoked. We allow unknown revocation status
-        // so the EE cert's unknown status doesn't cause an error.
-        let crls = vec![kt.intermediate_crl()];
-        let full_chain_verifier_builder = WebPkiServerVerifier::builder(get_client_root_store(*kt))
-            .with_crls(crls.clone())
-            .allow_unknown_revocation_status();
-
-        // Also set up a verifier builder that will use the same CRL, but only check the EE certificate
-        // revocation status.
-        let ee_verifier_builder = WebPkiServerVerifier::builder(get_client_root_store(*kt))
-            .with_crls(crls.clone())
-            .only_check_end_entity_revocation()
-            .allow_unknown_revocation_status();
-
-        for version in rustls::ALL_VERSIONS {
-            let client_config = make_client_config_with_verifier(&[version], full_chain_verifier_builder.clone());
-            let mut client = ClientConnection::new(Arc::new(client_config), server_name("localhost")).unwrap();
-            let mut server = ServerConnection::new(Arc::clone(&server_config)).unwrap();
-
-            // We expect the handshake to fail when using the full chain verifier since the intermediate's
-            // EE certificate is revoked.
-            let err = do_handshake_until_error(&mut client, &mut server);
-            assert_eq!(
-                err,
-                Err(ErrorFromPeer::Client(Error::InvalidCertificate(CertificateError::Revoked)))
-            );
-
-            let client_config = make_client_config_with_verifier(&[version], ee_verifier_builder.clone());
-            let mut client = ClientConnection::new(Arc::new(client_config), server_name("localhost")).unwrap();
-            let mut server = ServerConnection::new(Arc::clone(&server_config)).unwrap();
-            // We expect the handshake to succeed when we use the verifier that only checks the EE certificate
-            // revocation status. The revoked intermediate status should not be checked.
-            let res = do_handshake_until_error(&mut client, &mut server);
-            assert!(res.is_ok())
-        }
-    }
-}
-
-/// Simple smoke-test of the webpki verify_server_cert_signed_by_trust_anchor helper API.
-/// This public API is intended to be used by consumers implementing their own verifier and
-/// so isn't used by the other existing verifier tests.
-#[test]
-fn client_check_server_certificate_helper_api() {
-    for kt in ALL_KEY_TYPES.iter() {
-        let chain = kt.get_chain();
-        let correct_roots = get_client_root_store(*kt);
-        let incorrect_roots = get_client_root_store(match kt {
-            KeyType::Rsa => KeyType::Ecdsa,
-            _ => KeyType::Rsa,
-        });
-        // Using the correct trust anchors, we should verify without error.
-        assert!(verify_server_cert_signed_by_trust_anchor(
-            &ParsedCertificate::try_from(chain.first().unwrap()).unwrap(),
-            &correct_roots,
-            &[chain.get(1).unwrap().clone()],
-            UnixTime::now(),
-            webpki::ALL_VERIFICATION_ALGS,
-        )
-        .is_ok());
-        // Using the wrong trust anchors, we should get the expected error.
-        assert_eq!(
-            verify_server_cert_signed_by_trust_anchor(
-                &ParsedCertificate::try_from(chain.first().unwrap()).unwrap(),
-                &incorrect_roots,
-                &[chain.get(1).unwrap().clone()],
-                UnixTime::now(),
-                webpki::ALL_VERIFICATION_ALGS,
-            )
-            .unwrap_err(),
-            Error::InvalidCertificate(CertificateError::UnknownIssuer)
-        );
     }
 }
 
@@ -1262,43 +1136,6 @@ fn client_cert_resolve_default() {
 }
 
 #[test]
-fn client_cert_resolve_server_no_hints() {
-    // Test that a server can provide no hints and the client cert resolver gets the expected
-    // arguments.
-    for key_type in ALL_KEY_TYPES.into_iter() {
-        // Build a verifier with no hint subjects.
-        let verifier = WebPkiClientVerifier::builder(get_client_root_store(key_type)).clear_root_hint_subjects();
-        let server_config = make_server_config_with_client_verifier(key_type, verifier);
-        let expected_root_hint_subjects = Vec::default(); // no hints expected.
-        test_client_cert_resolve(key_type, server_config.into(), expected_root_hint_subjects);
-    }
-}
-
-#[test]
-fn client_cert_resolve_server_added_hint() {
-    // Test that a server can add an extra subject above/beyond those found in its trust store
-    // and the client cert resolver gets the expected arguments.
-    let extra_name = b"0\x1a1\x180\x16\x06\x03U\x04\x03\x0c\x0fponyland IDK CA".to_vec();
-    for key_type in ALL_KEY_TYPES.into_iter() {
-        let expected_hint_subjects = vec![
-            match key_type {
-                KeyType::Rsa => &b"0\x1a1\x180\x16\x06\x03U\x04\x03\x0c\x0fponytown RSA CA"[..],
-                KeyType::Ecdsa => &b"0\x1c1\x1a0\x18\x06\x03U\x04\x03\x0c\x11ponytown ECDSA CA"[..],
-                KeyType::Ed25519 => &b"0\x1c1\x1a0\x18\x06\x03U\x04\x03\x0c\x11ponytown EdDSA CA"[..],
-            }
-            .to_vec(),
-            extra_name.clone(),
-        ];
-        // Create a verifier that adds the extra_name as a hint subject in addition to the ones
-        // from the root cert store.
-        let verifier = WebPkiClientVerifier::builder(get_client_root_store(key_type))
-            .add_root_hint_subjects([DistinguishedName::from(extra_name.clone())].into_iter());
-        let server_config = make_server_config_with_client_verifier(key_type, verifier);
-        test_client_cert_resolve(key_type, server_config.into(), expected_hint_subjects);
-    }
-}
-
-#[test]
 fn client_auth_works() {
     for kt in ALL_KEY_TYPES.iter() {
         let server_config = Arc::new(make_server_config_with_mandatory_client_auth(*kt));
@@ -1307,102 +1144,6 @@ fn client_auth_works() {
             let client_config = make_client_config_with_versions_with_auth(*kt, &[version]);
             let (mut client, mut server) = make_pair_for_arc_configs(&Arc::new(client_config), &server_config);
             do_handshake(&mut client, &mut server);
-        }
-    }
-}
-
-#[test]
-fn client_mandatory_auth_client_revocation_works() {
-    for kt in ALL_KEY_TYPES.iter() {
-        // Create a server configuration that includes a CRL that specifies the client certificate
-        // is revoked.
-        let relevant_crls = vec![kt.client_crl()];
-        // Only check the EE certificate status. See client_mandatory_auth_intermediate_revocation_works
-        // for testing revocation status of the whole chain.
-        let ee_verifier_builder = WebPkiClientVerifier::builder(get_client_root_store(*kt))
-            .with_crls(relevant_crls)
-            .only_check_end_entity_revocation();
-        let revoked_server_config = Arc::new(make_server_config_with_client_verifier(*kt, ee_verifier_builder));
-
-        // Create a server configuration that includes a CRL that doesn't cover the client certificate,
-        // and uses the default behaviour of treating unknown revocation status as an error.
-        let unrelated_crls = vec![kt.intermediate_crl()];
-        let ee_verifier_builder = WebPkiClientVerifier::builder(get_client_root_store(*kt))
-            .with_crls(unrelated_crls.clone())
-            .only_check_end_entity_revocation();
-        let missing_client_crl_server_config = Arc::new(make_server_config_with_client_verifier(*kt, ee_verifier_builder));
-
-        // Create a server configuration that includes a CRL that doesn't cover the client certificate,
-        // but change the builder to allow unknown revocation status.
-        let ee_verifier_builder = WebPkiClientVerifier::builder(get_client_root_store(*kt))
-            .with_crls(unrelated_crls.clone())
-            .only_check_end_entity_revocation()
-            .allow_unknown_revocation_status();
-        let allow_missing_client_crl_server_config =
-            Arc::new(make_server_config_with_client_verifier(*kt, ee_verifier_builder));
-
-        for version in rustls::ALL_VERSIONS {
-            // Connecting to the server with a CRL that indicates the client certificate is revoked
-            // should fail with the expected error.
-            let client_config = Arc::new(make_client_config_with_versions_with_auth(*kt, &[version]));
-            let (mut client, mut server) = make_pair_for_arc_configs(&client_config, &revoked_server_config);
-            let err = do_handshake_until_error(&mut client, &mut server);
-            assert_eq!(
-                err,
-                Err(ErrorFromPeer::Server(Error::InvalidCertificate(CertificateError::Revoked)))
-            );
-            // Connecting to the server missing CRL information for the client certificate should
-            // fail with the expected unknown revocation status error.
-            let (mut client, mut server) = make_pair_for_arc_configs(&client_config, &missing_client_crl_server_config);
-            let res = do_handshake_until_error(&mut client, &mut server);
-            assert!(matches!(
-                res,
-                Err(ErrorFromPeer::Server(Error::InvalidCertificate(
-                    CertificateError::UnknownRevocationStatus
-                )))
-            ));
-            // Connecting to the server missing CRL information for the client should not error
-            // if the server's verifier allows unknown revocation status.
-            let (mut client, mut server) = make_pair_for_arc_configs(&client_config, &allow_missing_client_crl_server_config);
-            let res = do_handshake_until_error(&mut client, &mut server);
-            assert!(res.is_ok());
-        }
-    }
-}
-
-#[test]
-fn client_mandatory_auth_intermediate_revocation_works() {
-    for kt in ALL_KEY_TYPES.iter() {
-        // Create a server configuration that includes a CRL that specifies the intermediate certificate
-        // is revoked. We check the full chain for revocation status (default), and allow unknown
-        // revocation status so the EE's unknown revocation status isn't an error.
-        let crls = vec![kt.intermediate_crl()];
-        let full_chain_verifier_builder = WebPkiClientVerifier::builder(get_client_root_store(*kt))
-            .with_crls(crls.clone())
-            .allow_unknown_revocation_status();
-        let full_chain_server_config = Arc::new(make_server_config_with_client_verifier(*kt, full_chain_verifier_builder));
-
-        // Also create a server configuration that uses the same CRL, but that only checks the EE
-        // cert revocation status.
-        let ee_only_verifier_builder = WebPkiClientVerifier::builder(get_client_root_store(*kt))
-            .with_crls(crls)
-            .only_check_end_entity_revocation()
-            .allow_unknown_revocation_status();
-        let ee_server_config = Arc::new(make_server_config_with_client_verifier(*kt, ee_only_verifier_builder));
-
-        for version in rustls::ALL_VERSIONS {
-            // When checking the full chain, we expect an error - the intermediate is revoked.
-            let client_config = Arc::new(make_client_config_with_versions_with_auth(*kt, &[version]));
-            let (mut client, mut server) = make_pair_for_arc_configs(&client_config, &full_chain_server_config);
-            let err = do_handshake_until_error(&mut client, &mut server);
-            assert_eq!(
-                err,
-                Err(ErrorFromPeer::Server(Error::InvalidCertificate(CertificateError::Revoked)))
-            );
-            // However, when checking just the EE cert we expect no error - the intermediate's
-            // revocation status should not be checked.
-            let (mut client, mut server) = make_pair_for_arc_configs(&client_config, &ee_server_config);
-            assert!(do_handshake_until_error(&mut client, &mut server).is_ok());
         }
     }
 }
@@ -3599,7 +3340,7 @@ fn test_client_rejects_hrr_with_varied_session_id() {
                     .get_keyshare_extension()
                     .expect("missing key share extension");
                 assert_eq!(keyshares.len(), 1);
-                assert_eq!(keyshares[0].group(), rustls::NamedGroup::secp384r1);
+                assert_eq!(keyshares[0].group, rustls::NamedGroup::secp384r1);
 
                 ch.session_id = different_session_id;
                 *encoded = Payload::new(parsed.get_encoding());
@@ -4179,143 +3920,6 @@ fn test_no_warning_logging_during_successful_sessions() {
             assert_eq!(c.borrow().trace, 0);
             assert_eq!(c.borrow().debug, 0);
         });
-    }
-}
-
-/// Test that secrets can be extracted and used for encryption/decryption.
-#[cfg(feature = "tls12")]
-#[test]
-fn test_secret_extraction_enabled() {
-    use rustls::ConnectionTrafficSecrets;
-    // Normally, secret extraction would be used to configure kTLS (TLS offload
-    // to the kernel). We want this test to run on any platform, though, so
-    // instead we just compare secrets for equality.
-
-    // TLS 1.2 and 1.3 have different mechanisms for key exchange and handshake,
-    // and secrets are stored/extracted differently, so we want to test them both.
-    // We support 3 different AEAD algorithms (AES-128-GCM mode, AES-256-GCM, and
-    // Chacha20Poly1305), so that's 2*3 = 6 combinations to test.
-    let kt = KeyType::Rsa;
-    for suite in [
-        rustls_mbedcrypto_provider::tls13::TLS13_AES_128_GCM_SHA256,
-        rustls_mbedcrypto_provider::tls13::TLS13_AES_256_GCM_SHA384,
-        rustls_mbedcrypto_provider::tls13::TLS13_CHACHA20_POLY1305_SHA256,
-        rustls_mbedcrypto_provider::tls12::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-        rustls_mbedcrypto_provider::tls12::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-        rustls_mbedcrypto_provider::tls12::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
-    ] {
-        let version = suite.version();
-        println!("Testing suite {:?}", suite.suite().as_str());
-
-        // Only offer the cipher suite (and protocol version) that we're testing
-        let mut server_config = ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
-            .with_cipher_suites(&[suite])
-            .with_safe_default_kx_groups()
-            .with_protocol_versions(&[version])
-            .unwrap()
-            .with_no_client_auth()
-            .with_single_cert(kt.get_chain(), kt.get_key())
-            .unwrap();
-        // Opt into secret extraction from both sides
-        server_config.enable_secret_extraction = true;
-        let server_config = Arc::new(server_config);
-
-        let mut client_config = make_client_config(kt);
-        client_config.enable_secret_extraction = true;
-
-        let (mut client, mut server) = make_pair_for_arc_configs(&Arc::new(client_config), &server_config);
-
-        do_handshake(&mut client, &mut server);
-
-        // The handshake is finished, we're now able to extract traffic secrets
-        let client_secrets = client
-            .dangerous_extract_secrets()
-            .unwrap();
-        let server_secrets = server
-            .dangerous_extract_secrets()
-            .unwrap();
-
-        // Comparing secrets for equality is something you should never have to
-        // do in production code, so ConnectionTrafficSecrets doesn't implement
-        // PartialEq/Eq on purpose. Instead, we have to get creative.
-        fn explode_secrets(s: &ConnectionTrafficSecrets) -> (&[u8], &[u8]) {
-            match s {
-                ConnectionTrafficSecrets::Aes128Gcm { key, iv } => (key.as_ref(), iv.as_ref()),
-                ConnectionTrafficSecrets::Aes256Gcm { key, iv } => (key.as_ref(), iv.as_ref()),
-                ConnectionTrafficSecrets::Chacha20Poly1305 { key, iv } => (key.as_ref(), iv.as_ref()),
-                _ => panic!("unexpected secret type"),
-            }
-        }
-
-        fn assert_secrets_equal(
-            (l_seq, l_sec): (u64, ConnectionTrafficSecrets),
-            (r_seq, r_sec): (u64, ConnectionTrafficSecrets),
-        ) {
-            assert_eq!(l_seq, r_seq);
-            assert_eq!(explode_secrets(&l_sec), explode_secrets(&r_sec));
-        }
-
-        assert_secrets_equal(client_secrets.tx, server_secrets.rx);
-        assert_secrets_equal(client_secrets.rx, server_secrets.tx);
-    }
-}
-
-/// Test that secrets cannot be extracted unless explicitly enabled, and until
-/// the handshake is done.
-#[cfg(feature = "tls12")]
-#[test]
-fn test_secret_extraction_disabled_or_too_early() {
-    let suite = rustls_mbedcrypto_provider::tls13::TLS13_AES_128_GCM_SHA256;
-    let kt = KeyType::Rsa;
-
-    for (server_enable, client_enable) in [(true, false), (false, true)] {
-        let mut server_config = ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
-            .with_cipher_suites(&[suite])
-            .with_safe_default_kx_groups()
-            .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_no_client_auth()
-            .with_single_cert(kt.get_chain(), kt.get_key())
-            .unwrap();
-        server_config.enable_secret_extraction = server_enable;
-        let server_config = Arc::new(server_config);
-
-        let mut client_config = make_client_config(kt);
-        client_config.enable_secret_extraction = client_enable;
-
-        let client_config = Arc::new(client_config);
-
-        let (client, server) = make_pair_for_arc_configs(&client_config, &server_config);
-
-        assert!(
-            client
-                .dangerous_extract_secrets()
-                .is_err(),
-            "extraction should fail until handshake completes"
-        );
-        assert!(
-            server
-                .dangerous_extract_secrets()
-                .is_err(),
-            "extraction should fail until handshake completes"
-        );
-
-        let (mut client, mut server) = make_pair_for_arc_configs(&client_config, &server_config);
-
-        do_handshake(&mut client, &mut server);
-
-        assert_eq!(
-            server_enable,
-            server
-                .dangerous_extract_secrets()
-                .is_ok()
-        );
-        assert_eq!(
-            client_enable,
-            client
-                .dangerous_extract_secrets()
-                .is_ok()
-        );
     }
 }
 

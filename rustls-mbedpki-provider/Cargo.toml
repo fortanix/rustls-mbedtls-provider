@@ -11,7 +11,7 @@ categories = ["network-programming", "cryptography"]
 resolver = "2"
 
 [dependencies]
-rustls = { git = "https://github.com/rustls/rustls", rev = "b776a5778ad333653670c34ff9125d8ae59b6047", version = "0.22.0-alpha.4", default_features = false }
+rustls = { version = "0.22.0-alpha.3", default_features = false }
 mbedtls = { version = "0.12.0-alpha.2", features = [
     "x509",
     "chrono",
@@ -35,4 +35,4 @@ mbedtls = { version = "0.12.0-alpha.2", default-features = false, features = [
 
 [dev-dependencies]
 rustls-pemfile = "1.0"
-rustls = { git = "https://github.com/rustls/rustls", rev = "b776a5778ad333653670c34ff9125d8ae59b6047", version = "0.22.0-alpha.4" }
+rustls = { version = "0.22.0-alpha.3" }
