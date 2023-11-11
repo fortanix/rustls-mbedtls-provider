@@ -40,7 +40,7 @@ pub static TLS13_AES_256_GCM_SHA384: SupportedCipherSuite = SupportedCipherSuite
         suite: CipherSuite::TLS13_AES_256_GCM_SHA384,
         hash_provider: &super::hash::SHA384,
     },
-    hmac_provider: &super::hmac::HMAC_SHA256,
+    hmac_provider: &super::hmac::HMAC_SHA384,
     aead_alg: &AeadAlgorithm(&aead::AES256_GCM),
 });
 

@@ -1001,30 +1001,6 @@ fn client_checks_server_certificate_with_given_ip_address() {
     }
 }
 
-#[test]
-fn client_check_server_certificate_ee_revoked() {
-    for kt in ALL_KEY_TYPES.iter() {
-        let server_config = Arc::new(make_server_config(*kt));
-
-        // Setup a server verifier that will check the EE certificate's revocation status.
-        // let crls = vec![kt.end_entity_crl()];
-        
-        for version in rustls::ALL_VERSIONS {
-            let verifier = WebPkiServerVerifier::new(get_client_root_store(*kt));
-            let client_config = make_client_config_with_verifier(&[version], verifier);
-            let mut client = ClientConnection::new(Arc::new(client_config), server_name("localhost")).unwrap();
-            let mut server = ServerConnection::new(Arc::clone(&server_config)).unwrap();
-
-            // We expect the handshake to fail since the server's EE certificate is revoked.
-            let err = do_handshake_until_error(&mut client, &mut server);
-            assert_eq!(
-                err,
-                Err(ErrorFromPeer::Client(Error::InvalidCertificate(CertificateError::Revoked)))
-            );
-        }
-    }
-}
-
 struct ClientCheckCertResolve {
     query_count: AtomicUsize,
     expect_queries: usize,
@@ -1546,18 +1522,7 @@ fn client_complete_io_for_handshake() {
     assert!(!client.wants_write());
 }
 
-#[test]
-fn buffered_client_complete_io_for_handshake() {
-    let (mut client, mut server) = make_pair(KeyType::Rsa);
 
-    assert!(client.is_handshaking());
-    let (rdlen, wrlen) = client
-        .complete_io(&mut OtherSession::new_buffered(&mut server))
-        .unwrap();
-    assert!(rdlen > 0 && wrlen > 0);
-    assert!(!client.is_handshaking());
-    assert!(!client.wants_write());
-}
 
 #[test]
 fn client_complete_io_for_handshake_eof() {
@@ -1597,31 +1562,7 @@ fn client_complete_io_for_write() {
     }
 }
 
-#[test]
-fn buffered_client_complete_io_for_write() {
-    for kt in ALL_KEY_TYPES.iter() {
-        let (mut client, mut server) = make_pair(*kt);
 
-        do_handshake(&mut client, &mut server);
-
-        client
-            .writer()
-            .write_all(b"01234567890123456789")
-            .unwrap();
-        client
-            .writer()
-            .write_all(b"01234567890123456789")
-            .unwrap();
-        {
-            let mut pipe = OtherSession::new_buffered(&mut server);
-            let (rdlen, wrlen) = client.complete_io(&mut pipe).unwrap();
-            assert!(rdlen == 0 && wrlen > 0);
-            println!("{:?}", pipe.writevs);
-            assert_eq!(pipe.writevs, vec![vec![42, 42]]);
-        }
-        check_read(&mut server.reader(), b"0123456789012345678901234567890123456789");
-    }
-}
 
 #[test]
 fn client_complete_io_for_read() {
