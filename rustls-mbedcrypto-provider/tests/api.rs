@@ -15,8 +15,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use pki_types::{CertificateDer, UnixTime};
-use rustls::client::{verify_server_cert_signed_by_trust_anchor, ResolvesClientCert, Resumption, WebPkiServerVerifier};
+use pki_types::CertificateDer;
+use rustls::client::{ResolvesClientCert, Resumption};
 use rustls::internal::msgs::{
     base::Payload,
     codec::Codec,
@@ -24,10 +24,10 @@ use rustls::internal::msgs::{
     handshake::{ClientExtension, HandshakePayload},
     message::{Message, MessagePayload, PlainMessage},
 };
-use rustls::server::{ClientHello, ParsedCertificate, ResolvesServerCert, WebPkiClientVerifier};
+use rustls::server::{ClientHello, ResolvesServerCert, WebPkiClientVerifier};
 use rustls::{
     sign, AlertDescription, CertificateError, CipherSuite, ClientConfig, ClientConnection, ConnectionCommon, ContentType,
-    DistinguishedName, Error, KeyLog, PeerIncompatible, PeerMisbehaved, ProtocolVersion, ServerConfig, ServerConnection,
+    Error, KeyLog, PeerIncompatible, PeerMisbehaved, ProtocolVersion, ServerConfig, ServerConnection,
     SideData, SignatureScheme, Stream, StreamOwned, SupportedCipherSuite,
 };
 use rustls_mbedcrypto_provider::ALL_CIPHER_SUITES;
@@ -1383,12 +1383,6 @@ where
             buffered: false,
             buffer: vec![],
         }
-    }
-
-    fn new_buffered(sess: &'a mut C) -> OtherSession<'a, C, S> {
-        let mut os = OtherSession::new(sess);
-        os.buffered = true;
-        os
     }
 
     fn new_fails(sess: &'a mut C) -> OtherSession<'a, C, S> {

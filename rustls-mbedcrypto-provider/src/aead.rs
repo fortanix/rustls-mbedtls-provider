@@ -41,6 +41,7 @@ pub(crate) static CHACHA20_POLY1305: Algorithm = Algorithm {
 /// An AEAD Algorithm.
 pub(crate) struct Algorithm {
     pub(crate) key_length: usize,
+    #[allow(dead_code)]
     pub(crate) cipher_type: CipherType,
     pub(crate) cipher_id: CipherId,
     pub(crate) cipher_mode: CipherMode,
