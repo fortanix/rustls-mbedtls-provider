@@ -655,7 +655,8 @@ dependencies = [
 [[package]]
 name = "rustls"
 version = "0.22.0-alpha.4"
-source = "git+https://github.com/rustls/rustls?rev=b776a5778ad333653670c34ff9125d8ae59b6047#b776a5778ad333653670c34ff9125d8ae59b6047"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c23376606de66c7b9249d091b59ee55b52df72063e1cae7bb44e0691c9e5150"
 dependencies = [
  "log",
  "ring",
