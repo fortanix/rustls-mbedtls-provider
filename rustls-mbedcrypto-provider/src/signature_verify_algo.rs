@@ -82,7 +82,10 @@ pub struct Algorithm {
 
 impl SignatureVerificationAlgorithm for Algorithm {
     fn verify_signature(&self, public_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), InvalidSignature> {
-        let mut pk = Pk::from_public_key(public_key).map_err(|_| InvalidSignature)?;
+        let mut pk = Pk::from_public_key(public_key).map_err(|e| {
+            crate::log::error!("{e}");
+            InvalidSignature
+        })?;
         let signature_curve = utils::pk::rustls_signature_scheme_to_mbedtls_curve_id(self.signature_scheme);
         match signature_curve {
             mbedtls::pk::EcGroupId::None => (),
@@ -99,9 +102,15 @@ impl SignatureVerificationAlgorithm for Algorithm {
             pk.set_options(opts);
         }
         let mut hash = vec![0u8; self.hash_algo.output_len];
-        mbedtls::hash::Md::hash(self.hash_algo.hash_type, message, &mut hash).map_err(|_| InvalidSignature)?;
+        mbedtls::hash::Md::hash(self.hash_algo.hash_type, message, &mut hash).map_err(|e| {
+            crate::log::error!("{e}");
+            InvalidSignature
+        })?;
         pk.verify(self.hash_algo.hash_type, &hash, signature)
-            .map_err(|_| InvalidSignature)
+            .map_err(|e| {
+                crate::log::error!("{e}");
+                InvalidSignature
+            })
     }
 
     fn public_key_alg_id(&self) -> AlgorithmIdentifier {

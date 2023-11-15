@@ -7,7 +7,10 @@
 
 use std::io;
 
-use core::ops::{Deref, DerefMut};
+use core::{
+    fmt::Debug,
+    ops::{Deref, DerefMut},
+};
 
 use pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, UnixTime};
 use rustls::{client::danger::ServerCertVerifier, ClientConnection, ConnectionCommon, ServerConnection, SideData};
@@ -79,6 +82,15 @@ pub(crate) fn do_handshake_until_error(
 pub(crate) struct VerifierWithSupportedVerifySchemes<V> {
     pub(crate) verifier: V,
     pub(crate) supported_verify_schemes: Vec<rustls::SignatureScheme>,
+}
+
+impl<V> Debug for VerifierWithSupportedVerifySchemes<V> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("VerifierWithSupportedVerifySchemes")
+            .field("verifier", &"..")
+            .field("supported_verify_schemes", &self.supported_verify_schemes)
+            .finish()
+    }
 }
 
 impl<V: ServerCertVerifier> ServerCertVerifier for VerifierWithSupportedVerifySchemes<V> {

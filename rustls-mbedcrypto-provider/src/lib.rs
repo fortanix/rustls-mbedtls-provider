@@ -86,9 +86,9 @@ pub mod sign;
 pub mod signature_verify_algo;
 /// TLS1.2 ciphersuites implementation.
 #[cfg(feature = "tls12")]
-pub mod tls12;
+pub(crate) mod tls12;
 /// TLS1.3 ciphersuites implementation.
-pub mod tls13;
+pub(crate) mod tls13;
 
 use mbedtls::rng::Random;
 use rustls::{SignatureScheme, SupportedCipherSuite, WebPkiSupportedAlgorithms};
@@ -146,11 +146,7 @@ impl rustls::crypto::CryptoProvider for Mbedtls {
         &self,
         key_der: pki_types::PrivateKeyDer<'static>,
     ) -> Result<alloc::sync::Arc<dyn rustls::sign::SigningKey>, rustls::Error> {
-        let pk = mbedtls::pk::Pk::from_private_key(key_der.secret_der(), None)
-            .map_err(|err| rustls::Error::Other(rustls::OtherError(alloc::sync::Arc::new(err))))?;
-        Ok(alloc::sync::Arc::new(MbedTlsPkSigningKey(alloc::sync::Arc::new(
-            std::sync::Mutex::new(pk),
-        ))))
+        Ok(alloc::sync::Arc::new(MbedTlsPkSigningKey::new(&key_der)?))
     }
 
     fn signature_verification_algorithms(&self) -> WebPkiSupportedAlgorithms {
@@ -185,6 +181,17 @@ pub static ALL_CIPHER_SUITES: &[SupportedCipherSuite] = &[
     tls12::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
 ];
 
+/// All defined cipher suites supported by *mbedtls* appear in this module.
+pub mod cipher_suite {
+    #[cfg(feature = "tls12")]
+    pub use super::tls12::{
+        TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+        TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+        TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+    };
+    pub use super::tls13::{TLS13_AES_128_GCM_SHA256, TLS13_AES_256_GCM_SHA384, TLS13_CHACHA20_POLY1305_SHA256};
+}
+
 /// A `WebPkiSupportedAlgorithms` value that reflects pki's capabilities when
 /// compiled against *mbedtls*.
 static SUPPORTED_SIG_ALGS: WebPkiSupportedAlgorithms = WebPkiSupportedAlgorithms {
@@ -207,12 +214,12 @@ static SUPPORTED_SIG_ALGS: WebPkiSupportedAlgorithms = WebPkiSupportedAlgorithms
             SignatureScheme::ECDSA_NISTP256_SHA256,
             &[signature_verify_algo::ECDSA_P256_SHA256],
         ),
-        (SignatureScheme::RSA_PSS_SHA512, &[signature_verify_algo::RSA_PKCS1_SHA512]),
-        (SignatureScheme::RSA_PSS_SHA384, &[signature_verify_algo::RSA_PKCS1_SHA384]),
-        (SignatureScheme::RSA_PSS_SHA256, &[signature_verify_algo::RSA_PKCS1_SHA256]),
-        (SignatureScheme::RSA_PKCS1_SHA512, &[signature_verify_algo::RSA_PSS_SHA512]),
-        (SignatureScheme::RSA_PKCS1_SHA384, &[signature_verify_algo::RSA_PSS_SHA384]),
-        (SignatureScheme::RSA_PKCS1_SHA256, &[signature_verify_algo::RSA_PSS_SHA256]),
+        (SignatureScheme::RSA_PKCS1_SHA512, &[signature_verify_algo::RSA_PKCS1_SHA512]),
+        (SignatureScheme::RSA_PKCS1_SHA384, &[signature_verify_algo::RSA_PKCS1_SHA384]),
+        (SignatureScheme::RSA_PKCS1_SHA256, &[signature_verify_algo::RSA_PKCS1_SHA256]),
+        (SignatureScheme::RSA_PSS_SHA512, &[signature_verify_algo::RSA_PSS_SHA512]),
+        (SignatureScheme::RSA_PSS_SHA384, &[signature_verify_algo::RSA_PSS_SHA384]),
+        (SignatureScheme::RSA_PSS_SHA256, &[signature_verify_algo::RSA_PSS_SHA256]),
     ],
 };
 

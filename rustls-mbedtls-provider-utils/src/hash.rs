@@ -11,10 +11,10 @@ fn hash_size_bytes(hash_type: Type) -> Option<usize> {
         Type::Md4 => Some(16),
         Type::Md5 => Some(16),
         Type::Sha1 => Some(20),
-        Type::Sha224 => Some(28),
-        Type::Sha256 => Some(32),
-        Type::Sha384 => Some(48),
-        Type::Sha512 => Some(64),
+        Type::Sha224 => Some(224 / 8),
+        Type::Sha256 => Some(256 / 8),
+        Type::Sha384 => Some(384 / 8),
+        Type::Sha512 => Some(512 / 8),
         Type::Ripemd => Some(20), // this is MD_RIPEMD160
     }
 }
