@@ -5,18 +5,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::sync::Arc;
-
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec;
+use alloc::vec::Vec;
 use chrono::NaiveDateTime;
 use pki_types::{CertificateDer, UnixTime};
 use rustls::{
     server::danger::{ClientCertVerified, ClientCertVerifier},
     DistinguishedName,
 };
+use utils::error::mbedtls_err_into_rustls_err_with_error_msg;
 
 use crate::{
-    mbedtls_err_into_rustls_err, mbedtls_err_into_rustls_err_with_error_msg, rustls_cert_to_mbedtls_cert,
-    verify_certificates_active, verify_tls_signature, CertActiveCheck,
+    mbedtls_err_into_rustls_err, rustls_cert_to_mbedtls_cert, verify_certificates_active, verify_tls_signature, CertActiveCheck,
 };
 
 /// A [`rustls`] [`ClientCertVerifier`] implemented using the PKI functionality of
@@ -27,6 +29,17 @@ pub struct MbedTlsClientCertVerifier {
     root_subjects: Vec<DistinguishedName>,
     verify_callback: Option<Arc<dyn mbedtls::x509::VerifyCallback + 'static>>,
     cert_active_check: CertActiveCheck,
+}
+
+impl std::fmt::Debug for MbedTlsClientCertVerifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MbedTlsClientCertVerifier")
+            .field("trusted_cas", &"..")
+            .field("root_subjects", &self.root_subjects)
+            .field("verify_callback", &"..")
+            .field("cert_active_check", &self.cert_active_check)
+            .finish()
+    }
 }
 
 impl MbedTlsClientCertVerifier {

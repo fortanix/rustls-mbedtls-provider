@@ -17,6 +17,10 @@ mbedtls = { version = "0.12.0-alpha.2", default-features = false, features = [
     "std",
 ] }
 log = { version = "0.4.4", optional = true }
+pki-types = { package = "rustls-pki-types", version = "0.2.1", features = [
+    "std",
+] }
+utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-provider-utils", version = "0.1.0-alpha.1" }
 
 [target.'cfg(target_env = "msvc")'.dependencies]
 # mbedtls need feature `time` to build when targeting msvc
@@ -33,7 +37,6 @@ webpki = { package = "rustls-webpki", version = "0.102.0-alpha.1", default-featu
     "alloc",
     "std",
 ] }
-pki-types = { package = "rustls-pki-types", version = "0.2.0" }
 webpki-roots = "0.26.0-alpha.1"
 rustls-pemfile = "2.0.0-alpha.1"
 env_logger = "0.10"

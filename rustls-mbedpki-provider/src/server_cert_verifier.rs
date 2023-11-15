@@ -5,18 +5,21 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::sync::Arc;
-
+use alloc::string::String;
+use alloc::string::ToString;
+use alloc::sync::Arc;
+use alloc::vec;
+use alloc::vec::Vec;
 use chrono::NaiveDateTime;
 use pki_types::{CertificateDer, UnixTime};
 use rustls::{
     client::danger::{ServerCertVerified, ServerCertVerifier},
     ServerName,
 };
+use utils::error::mbedtls_err_into_rustls_err_with_error_msg;
 
 use crate::{
-    mbedtls_err_into_rustls_err, mbedtls_err_into_rustls_err_with_error_msg, rustls_cert_to_mbedtls_cert,
-    verify_certificates_active, verify_tls_signature, CertActiveCheck,
+    mbedtls_err_into_rustls_err, rustls_cert_to_mbedtls_cert, verify_certificates_active, verify_tls_signature, CertActiveCheck,
 };
 
 /// A [`rustls`] [`ServerCertVerifier`] implemented using the PKI functionality of
@@ -25,6 +28,16 @@ pub struct MbedTlsServerCertVerifier {
     trusted_cas: mbedtls::alloc::List<mbedtls::x509::Certificate>,
     verify_callback: Option<Arc<dyn mbedtls::x509::VerifyCallback + 'static>>,
     cert_active_check: CertActiveCheck,
+}
+
+impl std::fmt::Debug for MbedTlsServerCertVerifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MbedTlsServerCertVerifier")
+            .field("trusted_cas", &"..")
+            .field("verify_callback", &"..")
+            .field("cert_active_check", &self.cert_active_check)
+            .finish()
+    }
 }
 
 impl MbedTlsServerCertVerifier {

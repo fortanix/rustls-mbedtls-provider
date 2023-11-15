@@ -12,7 +12,6 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use mbedtls::cipher::raw::CipherType;
 use mbedtls::cipher::{Authenticated, Cipher, Decryption, Encryption, Fresh};
-use rustls::cipher_suite::CipherSuiteCommon;
 use rustls::crypto::cipher::{
     make_tls13_aad, AeadKey, BorrowedPlainMessage, Iv, MessageDecrypter, MessageEncrypter, Nonce, OpaqueMessage, PlainMessage,
     Tls13AeadAlgorithm, UnsupportedOperationError,
@@ -20,7 +19,8 @@ use rustls::crypto::cipher::{
 use rustls::crypto::tls13::HkdfUsingHmac;
 use rustls::internal::msgs::codec::Codec;
 use rustls::{
-    CipherSuite, ConnectionTrafficSecrets, ContentType, Error, ProtocolVersion, SupportedCipherSuite, Tls13CipherSuite,
+    CipherSuite, CipherSuiteCommon, ConnectionTrafficSecrets, ContentType, Error, ProtocolVersion, SupportedCipherSuite,
+    Tls13CipherSuite,
 };
 
 /// The TLS1.3 ciphersuite TLS_CHACHA20_POLY1305_SHA256

@@ -674,6 +674,7 @@ dependencies = [
  "log",
  "mbedtls",
  "rustls",
+ "rustls-mbedtls-provider-utils",
  "rustls-pemfile 2.0.0-alpha.1",
  "rustls-pki-types",
  "rustls-webpki",
@@ -687,6 +688,7 @@ dependencies = [
  "chrono",
  "mbedtls",
  "rustls",
+ "rustls-mbedtls-provider-utils",
  "rustls-pemfile 1.0.3",
  "rustls-pki-types",
  "x509-parser",
@@ -701,6 +703,15 @@ dependencies = [
  "rustls-mbedcrypto-provider",
  "rustls-mbedpki-provider",
  "rustls-native-certs",
+]
+
+[[package]]
+name = "rustls-mbedtls-provider-utils"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "mbedtls",
+ "rustls",
+ "rustls-pki-types",
 ]
 
 [[package]]

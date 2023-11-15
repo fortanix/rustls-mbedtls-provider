@@ -80,6 +80,8 @@ pub(crate) mod hash;
 pub(crate) mod hmac;
 pub(crate) mod kx;
 
+/// Message signing interfaces.
+pub mod signer;
 /// TLS1.2 ciphersuites implementation.
 #[cfg(feature = "tls12")]
 pub mod tls12;
@@ -136,6 +138,17 @@ impl rustls::crypto::CryptoProvider for Mbedtls {
 
     fn default_kx_groups(&self) -> &'static [&'static dyn rustls::crypto::SupportedKxGroup] {
         ALL_KX_GROUPS
+    }
+
+    fn load_private_key(
+        &self,
+        _key_der: pki_types::PrivateKeyDer<'static>,
+    ) -> Result<alloc::sync::Arc<dyn rustls::sign::SigningKey>, rustls::Error> {
+        todo!()
+    }
+
+    fn signature_verification_algorithms(&self) -> rustls::WebPkiSupportedAlgorithms {
+        todo!()
     }
 }
 
