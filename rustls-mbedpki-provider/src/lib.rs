@@ -137,7 +137,7 @@ fn verify_tls_signature(
     let pk = cert.public_key_mut();
     let hash_type = utils::hash::rustls_signature_scheme_to_mbedtls_hash_type(dss.scheme);
 
-    // for tls 1.3, we need to verify the advertised curve in signaure scheme matches the public key
+    // for tls 1.3, we need to verify the advertised curve in signature scheme matches the public key
     if is_tls13 {
         let signature_curve = utils::pk::rustls_signature_scheme_to_mbedtls_curve_id(dss.scheme);
         match signature_curve {

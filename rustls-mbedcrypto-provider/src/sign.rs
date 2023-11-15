@@ -7,7 +7,6 @@ use utils::error::mbedtls_err_into_rustls_err;
 use utils::hash::{buffer_for_hash_type, rustls_signature_scheme_to_mbedtls_hash_type};
 use utils::pk::{rustls_signature_scheme_to_mbedtls_pk_options, rustls_signature_scheme_to_mbedtls_pk_type};
 
-///
 struct MbedTlsSigner(Arc<Mutex<mbedtls::pk::Pk>>, rustls::SignatureScheme);
 
 impl Debug for MbedTlsSigner {

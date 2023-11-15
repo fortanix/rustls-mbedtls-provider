@@ -43,6 +43,15 @@ pub(crate) static MBED_SHA_384: Algorithm = Algorithm {
     output_len: 384 / 8,
 };
 
+/// SHA-512 as specified in [FIPS 180-4].
+///
+/// [FIPS 180-4]: http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf
+pub(crate) static MBED_SHA_512: Algorithm = Algorithm {
+    hash_algorithm: HashAlgorithm::SHA512,
+    hash_type: mbedtls::hash::Type::Sha512,
+    output_len: 512 / 8,
+};
+
 impl hash::Hash for Hash {
     fn start(&self) -> Box<dyn hash::Context> {
         Box::new(HashContext(MbedHashContext::new(self.0)))

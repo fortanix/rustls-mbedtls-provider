@@ -81,7 +81,9 @@ pub(crate) mod hmac;
 pub(crate) mod kx;
 
 /// Message signing interfaces.
-pub mod signer;
+pub mod sign;
+/// Supported signature verify algorithms
+pub mod signature_verify_algo;
 /// TLS1.2 ciphersuites implementation.
 #[cfg(feature = "tls12")]
 pub mod tls12;
@@ -89,7 +91,7 @@ pub mod tls12;
 pub mod tls13;
 
 use mbedtls::rng::Random;
-use rustls::SupportedCipherSuite;
+use rustls::{SignatureScheme, SupportedCipherSuite, WebPkiSupportedAlgorithms};
 
 /// RNG supported by *mbedtls*
 pub mod rng {
@@ -142,13 +144,17 @@ impl rustls::crypto::CryptoProvider for Mbedtls {
 
     fn load_private_key(
         &self,
-        _key_der: pki_types::PrivateKeyDer<'static>,
+        key_der: pki_types::PrivateKeyDer<'static>,
     ) -> Result<alloc::sync::Arc<dyn rustls::sign::SigningKey>, rustls::Error> {
-        todo!()
+        let pk = mbedtls::pk::Pk::from_private_key(key_der.secret_der(), None)
+            .map_err(|err| rustls::Error::Other(rustls::OtherError(alloc::sync::Arc::new(err))))?;
+        Ok(alloc::sync::Arc::new(MbedTlsPkSigningKey(alloc::sync::Arc::new(
+            std::sync::Mutex::new(pk),
+        ))))
     }
 
-    fn signature_verification_algorithms(&self) -> rustls::WebPkiSupportedAlgorithms {
-        todo!()
+    fn signature_verification_algorithms(&self) -> WebPkiSupportedAlgorithms {
+        SUPPORTED_SIG_ALGS
     }
 }
 
@@ -179,6 +185,37 @@ pub static ALL_CIPHER_SUITES: &[SupportedCipherSuite] = &[
     tls12::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
 ];
 
+/// A `WebPkiSupportedAlgorithms` value that reflects pki's capabilities when
+/// compiled against *mbedtls*.
+static SUPPORTED_SIG_ALGS: WebPkiSupportedAlgorithms = WebPkiSupportedAlgorithms {
+    all: &[
+        signature_verify_algo::ECDSA_P256_SHA256,
+        signature_verify_algo::ECDSA_P384_SHA384,
+        signature_verify_algo::RSA_PKCS1_SHA256,
+        signature_verify_algo::RSA_PKCS1_SHA384,
+        signature_verify_algo::RSA_PKCS1_SHA512,
+        signature_verify_algo::RSA_PSS_SHA256,
+        signature_verify_algo::RSA_PSS_SHA384,
+        signature_verify_algo::RSA_PSS_SHA512,
+    ],
+    mapping: &[
+        (
+            SignatureScheme::ECDSA_NISTP384_SHA384,
+            &[signature_verify_algo::ECDSA_P384_SHA384],
+        ),
+        (
+            SignatureScheme::ECDSA_NISTP256_SHA256,
+            &[signature_verify_algo::ECDSA_P256_SHA256],
+        ),
+        (SignatureScheme::RSA_PSS_SHA512, &[signature_verify_algo::RSA_PKCS1_SHA512]),
+        (SignatureScheme::RSA_PSS_SHA384, &[signature_verify_algo::RSA_PKCS1_SHA384]),
+        (SignatureScheme::RSA_PSS_SHA256, &[signature_verify_algo::RSA_PKCS1_SHA256]),
+        (SignatureScheme::RSA_PKCS1_SHA512, &[signature_verify_algo::RSA_PSS_SHA512]),
+        (SignatureScheme::RSA_PKCS1_SHA384, &[signature_verify_algo::RSA_PSS_SHA384]),
+        (SignatureScheme::RSA_PKCS1_SHA256, &[signature_verify_algo::RSA_PSS_SHA256]),
+    ],
+};
+
 /// All defined key exchange groups supported by *mbedtls* appear in this module.
 ///
 /// [`ALL_KX_GROUPS`] is provided as an array of all of these values.
@@ -190,3 +227,4 @@ pub mod kx_group {
 }
 
 pub use kx::ALL_KX_GROUPS;
+use sign::MbedTlsPkSigningKey;
