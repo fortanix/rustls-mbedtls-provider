@@ -147,7 +147,10 @@ mod tests {
             SignatureScheme::ED448,
             SignatureScheme::Unknown(123),
         ] {
-            assert_eq!(rustls_signature_scheme_to_mbedtls_curve_id(scheme), mbedtls::pk::EcGroupId::None);
+            assert_eq!(
+                rustls_signature_scheme_to_mbedtls_curve_id(scheme),
+                mbedtls::pk::EcGroupId::None
+            );
         }
     }
 }
