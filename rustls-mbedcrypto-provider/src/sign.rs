@@ -130,7 +130,7 @@ impl rustls::sign::SigningKey for MbedTlsPkSigningKey {
                 // choose a rsa schema
                 for scheme in RSA_SIGNATURE_SCHEME_PREFER_LIST {
                     if offered.contains(scheme) {
-                        let signer = MbedTlsSigner(self.pk.clone(), *scheme);
+                        let signer = MbedTlsSigner(Arc::clone(&self.pk), *scheme);
                         return Some(Box::new(signer));
                     }
                 }
@@ -141,7 +141,7 @@ impl rustls::sign::SigningKey for MbedTlsPkSigningKey {
                     .ec_signature_scheme
                     .expect("validated");
                 if offered.contains(&scheme) {
-                    let signer = MbedTlsSigner(self.pk.clone(), scheme);
+                    let signer = MbedTlsSigner(Arc::clone(&self.pk), scheme);
                     return Some(Box::new(signer));
                 }
                 None

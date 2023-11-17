@@ -9,8 +9,8 @@
 #![cfg_attr(read_buf, feature(core_io_borrowed_buf))]
 //! Assorted public API tests.
 use std::cell::RefCell;
-use std::fmt;
-use std::fmt::Debug;
+use core::fmt;
+use core::fmt::Debug;
 use std::io::{self, IoSlice, Read, Write};
 use std::mem;
 use std::ops::{Deref, DerefMut};
@@ -35,7 +35,7 @@ use rustls::{
 };
 use rustls::{CipherSuite, ProtocolVersion, SignatureScheme};
 use rustls::{ClientConfig, ClientConnection};
-use rustls::{ConnectionTrafficSecrets, DistinguishedName};
+use rustls::DistinguishedName;
 use rustls::{ServerConfig, ServerConnection};
 use rustls::{Stream, StreamOwned};
 
@@ -4263,6 +4263,7 @@ fn test_no_warning_logging_during_successful_sessions() {
 #[cfg(feature = "tls12")]
 #[test]
 fn test_secret_extraction_enabled() {
+    use rustls::ConnectionTrafficSecrets;
     // Normally, secret extraction would be used to configure kTLS (TLS offload
     // to the kernel). We want this test to run on any platform, though, so
     // instead we just compare secrets for equality.

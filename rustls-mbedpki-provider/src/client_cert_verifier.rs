@@ -31,8 +31,8 @@ pub struct MbedTlsClientCertVerifier {
     cert_active_check: CertActiveCheck,
 }
 
-impl std::fmt::Debug for MbedTlsClientCertVerifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for MbedTlsClientCertVerifier {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("MbedTlsClientCertVerifier")
             .field("trusted_cas", &"..")
             .field("root_subjects", &self.root_subjects)

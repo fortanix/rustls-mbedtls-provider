@@ -32,7 +32,7 @@ pub fn get_pk_supported_scheme(pk_type: &Type, offered: &[SignatureScheme]) -> O
             }
         }
     }
-    return None;
+    None
 }
 
 /// Helper function to get the corresponding [`rustls::SignatureAlgorithm`] of given [`mbedtls::pk::Pk`]
