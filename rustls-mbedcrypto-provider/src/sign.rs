@@ -1,13 +1,15 @@
+use alloc::string::String;
 use alloc::vec;
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::fmt::Debug;
-use mbedtls::pk::ECDSA_MAX_LEN;
+use mbedtls::pk::{EcGroupId, ECDSA_MAX_LEN};
+use rustls::SignatureScheme;
 use std::sync::Mutex;
 use utils::error::mbedtls_err_into_rustls_err;
 use utils::hash::{buffer_for_hash_type, rustls_signature_scheme_to_mbedtls_hash_type};
 use utils::pk::rustls_signature_scheme_to_mbedtls_pk_options;
 
-struct MbedTlsSigner(Arc<Mutex<mbedtls::pk::Pk>>, rustls::SignatureScheme);
+struct MbedTlsSigner(Arc<Mutex<mbedtls::pk::Pk>>, SignatureScheme);
 
 impl Debug for MbedTlsSigner {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -51,7 +53,7 @@ impl rustls::sign::Signer for MbedTlsSigner {
         Ok(sig)
     }
 
-    fn scheme(&self) -> rustls::SignatureScheme {
+    fn scheme(&self) -> SignatureScheme {
         self.1
     }
 }
@@ -59,12 +61,20 @@ impl rustls::sign::Signer for MbedTlsSigner {
 /// A [`SigningKey`] implemented by using [`mbedtls`]
 ///
 /// [`SigningKey`]: rustls::sign::SigningKey
-pub struct MbedTlsPkSigningKey(pub Arc<Mutex<mbedtls::pk::Pk>>);
+pub struct MbedTlsPkSigningKey {
+    pk: Arc<Mutex<mbedtls::pk::Pk>>,
+    pk_type: mbedtls::pk::Type,
+    signature_algorithm: rustls::SignatureAlgorithm,
+    ec_signature_scheme: Option<SignatureScheme>,
+}
 
 impl Debug for MbedTlsPkSigningKey {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("MbedTlsPkSigningKey")
-            .field(&"Arc<Mutex<mbedtls::pk::Pk>>")
+        f.debug_struct("MbedTlsPkSigningKey")
+            .field("pk", &"Arc<Mutex<mbedtls::pk::Pk>>")
+            .field("pk_type", &self.pk_type)
+            .field("signature_algorithm", &self.signature_algorithm)
+            .field("ec_signature_scheme", &self.ec_signature_scheme)
             .finish()
     }
 }
@@ -74,50 +84,87 @@ impl MbedTlsPkSigningKey {
     pub fn new(der: &pki_types::PrivateKeyDer<'_>) -> Result<Self, rustls::Error> {
         let pk = mbedtls::pk::Pk::from_private_key(der.secret_der(), None)
             .map_err(|err| rustls::Error::Other(rustls::OtherError(alloc::sync::Arc::new(err))))?;
-
-        Ok(Self(alloc::sync::Arc::new(std::sync::Mutex::new(pk))))
+        let pk_type = pk.pk_type();
+        let signature_algorithm = pk_type_to_signature_algo(pk_type);
+        let ec_signature_scheme = if signature_algorithm == rustls::SignatureAlgorithm::ECDSA {
+            Some(
+                match pk
+                    .curve()
+                    .map_err(|err| rustls::Error::Other(rustls::OtherError(alloc::sync::Arc::new(err))))?
+                {
+                    EcGroupId::SecP256R1 => SignatureScheme::ECDSA_NISTP256_SHA256,
+                    EcGroupId::SecP384R1 => SignatureScheme::ECDSA_NISTP384_SHA384,
+                    EcGroupId::SecP521R1 => SignatureScheme::ECDSA_NISTP521_SHA512,
+                    _ => {
+                        return Err(rustls::Error::General(String::from(
+                            "MbedTlsPkSigningKey: unsupported ec curve",
+                        )))
+                    }
+                },
+            )
+        } else {
+            None
+        };
+        Ok(Self {
+            pk: alloc::sync::Arc::new(std::sync::Mutex::new(pk)),
+            pk_type,
+            signature_algorithm,
+            ec_signature_scheme,
+        })
     }
 }
 
+const RSA_SIGNATURE_SCHEME_PREFER_LIST: &[SignatureScheme] = &[
+    SignatureScheme::RSA_PSS_SHA256,
+    SignatureScheme::RSA_PSS_SHA384,
+    SignatureScheme::RSA_PSS_SHA512,
+    SignatureScheme::RSA_PKCS1_SHA256,
+    SignatureScheme::RSA_PKCS1_SHA384,
+    SignatureScheme::RSA_PKCS1_SHA512,
+];
+
 impl rustls::sign::SigningKey for MbedTlsPkSigningKey {
-    fn choose_scheme(&self, offered: &[rustls::SignatureScheme]) -> Option<Box<dyn rustls::sign::Signer>> {
-        let pk_type = self
-            .0
-            .lock()
-            .expect("poisoned pk lock")
-            .pk_type();
-        for scheme in offered {
-            let scheme_type = utils::pk::rustls_signature_scheme_to_mbedtls_pk_type(scheme);
-            if let Some(mut scheme_type) = scheme_type {
-                // TODO: better handling logic here.
-                if scheme_type == mbedtls::pk::Type::Ecdsa {
-                    scheme_type = mbedtls::pk::Type::Eckey;
+    fn choose_scheme(&self, offered: &[SignatureScheme]) -> Option<Box<dyn rustls::sign::Signer>> {
+        match self.pk_type {
+            mbedtls::pk::Type::Rsa | mbedtls::pk::Type::RsaAlt | mbedtls::pk::Type::RsassaPss => {
+                // choose a rsa schema
+                for scheme in RSA_SIGNATURE_SCHEME_PREFER_LIST {
+                    if offered.contains(scheme) {
+                        let signer = MbedTlsSigner(self.pk.clone(), *scheme);
+                        return Some(Box::new(signer));
+                    }
                 }
-                if scheme_type == pk_type {
-                    let signer = MbedTlsSigner(self.0.clone(), *scheme);
+                None
+            }
+            mbedtls::pk::Type::Eckey | mbedtls::pk::Type::EckeyDh | mbedtls::pk::Type::Ecdsa => {
+                let scheme = self
+                    .ec_signature_scheme
+                    .expect("validated");
+                if offered.contains(&scheme) {
+                    let signer = MbedTlsSigner(self.pk.clone(), scheme);
                     return Some(Box::new(signer));
                 }
+                None
             }
+            _ => None,
         }
-        None
     }
 
     fn algorithm(&self) -> rustls::SignatureAlgorithm {
-        use rustls::SignatureAlgorithm;
-        match self
-            .0
-            .lock()
-            .expect("poisoned pk lock")
-            .pk_type()
-        {
-            mbedtls::pk::Type::Rsa => SignatureAlgorithm::RSA,
-            mbedtls::pk::Type::Ecdsa => SignatureAlgorithm::ECDSA,
-            mbedtls::pk::Type::RsassaPss => SignatureAlgorithm::RSA,
-            mbedtls::pk::Type::RsaAlt => SignatureAlgorithm::RSA,
-            mbedtls::pk::Type::Eckey => SignatureAlgorithm::ECDSA,
-            mbedtls::pk::Type::EckeyDh => SignatureAlgorithm::Unknown(255),
-            mbedtls::pk::Type::Custom => SignatureAlgorithm::Unknown(255),
-            mbedtls::pk::Type::None => SignatureAlgorithm::Unknown(255),
-        }
+        self.signature_algorithm
+    }
+}
+
+fn pk_type_to_signature_algo(pk_type: mbedtls::pk::Type) -> rustls::SignatureAlgorithm {
+    use rustls::SignatureAlgorithm;
+    match pk_type {
+        mbedtls::pk::Type::Rsa => SignatureAlgorithm::RSA,
+        mbedtls::pk::Type::Ecdsa => SignatureAlgorithm::ECDSA,
+        mbedtls::pk::Type::RsassaPss => SignatureAlgorithm::RSA,
+        mbedtls::pk::Type::RsaAlt => SignatureAlgorithm::RSA,
+        mbedtls::pk::Type::Eckey => SignatureAlgorithm::ECDSA,
+        mbedtls::pk::Type::EckeyDh => SignatureAlgorithm::Unknown(255),
+        mbedtls::pk::Type::Custom => SignatureAlgorithm::Unknown(255),
+        mbedtls::pk::Type::None => SignatureAlgorithm::Unknown(255),
     }
 }

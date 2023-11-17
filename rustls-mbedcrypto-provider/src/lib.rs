@@ -146,7 +146,7 @@ impl rustls::crypto::CryptoProvider for Mbedtls {
         &self,
         key_der: pki_types::PrivateKeyDer<'static>,
     ) -> Result<alloc::sync::Arc<dyn rustls::sign::SigningKey>, rustls::Error> {
-        Ok(alloc::sync::Arc::new(MbedTlsPkSigningKey::new(&key_der)?))
+        Ok(alloc::sync::Arc::new(sign::MbedTlsPkSigningKey::new(&key_der)?))
     }
 
     fn signature_verification_algorithms(&self) -> WebPkiSupportedAlgorithms {
@@ -197,29 +197,37 @@ pub mod cipher_suite {
 static SUPPORTED_SIG_ALGS: WebPkiSupportedAlgorithms = WebPkiSupportedAlgorithms {
     all: &[
         signature_verify_algo::ECDSA_P256_SHA256,
+        signature_verify_algo::ECDSA_P256_SHA384,
+        signature_verify_algo::ECDSA_P384_SHA256,
         signature_verify_algo::ECDSA_P384_SHA384,
-        signature_verify_algo::RSA_PKCS1_SHA256,
-        signature_verify_algo::RSA_PKCS1_SHA384,
-        signature_verify_algo::RSA_PKCS1_SHA512,
         signature_verify_algo::RSA_PSS_SHA256,
         signature_verify_algo::RSA_PSS_SHA384,
         signature_verify_algo::RSA_PSS_SHA512,
+        signature_verify_algo::RSA_PKCS1_SHA256,
+        signature_verify_algo::RSA_PKCS1_SHA384,
+        signature_verify_algo::RSA_PKCS1_SHA512,
     ],
     mapping: &[
         (
             SignatureScheme::ECDSA_NISTP384_SHA384,
-            &[signature_verify_algo::ECDSA_P384_SHA384],
+            &[
+                signature_verify_algo::ECDSA_P384_SHA384,
+                signature_verify_algo::ECDSA_P256_SHA384,
+            ],
         ),
         (
             SignatureScheme::ECDSA_NISTP256_SHA256,
-            &[signature_verify_algo::ECDSA_P256_SHA256],
+            &[
+                signature_verify_algo::ECDSA_P256_SHA256,
+                signature_verify_algo::ECDSA_P384_SHA256,
+            ],
         ),
-        (SignatureScheme::RSA_PKCS1_SHA512, &[signature_verify_algo::RSA_PKCS1_SHA512]),
-        (SignatureScheme::RSA_PKCS1_SHA384, &[signature_verify_algo::RSA_PKCS1_SHA384]),
-        (SignatureScheme::RSA_PKCS1_SHA256, &[signature_verify_algo::RSA_PKCS1_SHA256]),
         (SignatureScheme::RSA_PSS_SHA512, &[signature_verify_algo::RSA_PSS_SHA512]),
         (SignatureScheme::RSA_PSS_SHA384, &[signature_verify_algo::RSA_PSS_SHA384]),
         (SignatureScheme::RSA_PSS_SHA256, &[signature_verify_algo::RSA_PSS_SHA256]),
+        (SignatureScheme::RSA_PKCS1_SHA512, &[signature_verify_algo::RSA_PKCS1_SHA512]),
+        (SignatureScheme::RSA_PKCS1_SHA384, &[signature_verify_algo::RSA_PKCS1_SHA384]),
+        (SignatureScheme::RSA_PKCS1_SHA256, &[signature_verify_algo::RSA_PKCS1_SHA256]),
     ],
 };
 
@@ -234,4 +242,3 @@ pub mod kx_group {
 }
 
 pub use kx::ALL_KX_GROUPS;
-use sign::MbedTlsPkSigningKey;
