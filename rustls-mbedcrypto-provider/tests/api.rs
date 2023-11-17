@@ -8,9 +8,9 @@
 #![cfg_attr(read_buf, feature(read_buf))]
 #![cfg_attr(read_buf, feature(core_io_borrowed_buf))]
 //! Assorted public API tests.
-use std::cell::RefCell;
 use core::fmt;
 use core::fmt::Debug;
+use std::cell::RefCell;
 use std::io::{self, IoSlice, Read, Write};
 use std::mem;
 use std::ops::{Deref, DerefMut};
@@ -28,6 +28,7 @@ use rustls::internal::msgs::enums::AlertLevel;
 use rustls::internal::msgs::handshake::{ClientExtension, HandshakePayload};
 use rustls::internal::msgs::message::{Message, MessagePayload, PlainMessage};
 use rustls::server::{ClientHello, ParsedCertificate, ResolvesServerCert};
+use rustls::DistinguishedName;
 use rustls::SupportedCipherSuite;
 use rustls::{
     sign, AlertDescription, CertificateError, ConnectionCommon, ContentType, Error, KeyLog, PeerIncompatible, PeerMisbehaved,
@@ -35,7 +36,6 @@ use rustls::{
 };
 use rustls::{CipherSuite, ProtocolVersion, SignatureScheme};
 use rustls::{ClientConfig, ClientConnection};
-use rustls::DistinguishedName;
 use rustls::{ServerConfig, ServerConnection};
 use rustls::{Stream, StreamOwned};
 

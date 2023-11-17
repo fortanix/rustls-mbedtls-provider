@@ -130,3 +130,21 @@ impl<V: ServerCertVerifier> ServerCertVerifier for VerifierWithSupportedVerifySc
         self.supported_verify_schemes.clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verifier_with_supported_verify_schemes_debug() {
+        let verifier = VerifierWithSupportedVerifySchemes {
+            verifier: "Sample Verifier".to_string(),
+            supported_verify_schemes: vec![
+                rustls::SignatureScheme::RSA_PKCS1_SHA1,
+                rustls::SignatureScheme::ECDSA_NISTP521_SHA512,
+            ],
+        };
+
+        assert_eq!("VerifierWithSupportedVerifySchemes { verifier: \"..\", supported_verify_schemes: [RSA_PKCS1_SHA1, ECDSA_NISTP521_SHA512] }",format!("{:?}", verifier));
+    }
+}

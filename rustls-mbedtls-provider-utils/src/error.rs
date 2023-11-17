@@ -37,3 +37,61 @@ pub fn mbedtls_err_into_rustls_err_with_error_msg(err: mbedtls::Error, msg: &str
         _ => rustls::Error::General(format!("{err}{sep}{msg}", sep = if msg.is_empty() {""} else {"\n"})),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rustls::CertificateError;
+
+    #[test]
+    fn test_mbedtls_err_into_rustls_err() {
+        assert_eq!(
+            mbedtls_err_into_rustls_err(mbedtls::Error::X509InvalidSignature),
+            rustls::Error::InvalidCertificate(CertificateError::BadSignature)
+        );
+        assert_eq!(
+            mbedtls_err_into_rustls_err(mbedtls::Error::X509BadInputData),
+            rustls::Error::InvalidCertificate(CertificateError::BadEncoding)
+        );
+        assert_eq!(
+            mbedtls_err_into_rustls_err(mbedtls::Error::X509InvalidName),
+            rustls::Error::InvalidCertificate(CertificateError::NotValidForName)
+        );
+    }
+
+    #[test]
+    fn test_mbedtls_err_into_rustls_err_with_error_msg() {
+        assert_eq!(
+            mbedtls_err_into_rustls_err_with_error_msg(mbedtls::Error::X509InvalidSignature, ""),
+            rustls::Error::InvalidCertificate(CertificateError::BadSignature)
+        );
+        assert_eq!(
+            mbedtls_err_into_rustls_err_with_error_msg(mbedtls::Error::RsaVerifyFailed, ""),
+            rustls::Error::InvalidCertificate(CertificateError::BadSignature)
+        );
+        assert_eq!(
+            mbedtls_err_into_rustls_err_with_error_msg(mbedtls::Error::X509InvalidName, ""),
+            rustls::Error::InvalidCertificate(CertificateError::NotValidForName)
+        );
+        assert_eq!(
+            format!(
+                "{:?}",
+                mbedtls_err_into_rustls_err_with_error_msg(mbedtls::Error::X509UnknownVersion, "")
+            ),
+            format!(
+                "{:?}",
+                rustls::Error::InvalidCertificate(CertificateError::Other(Arc::new(mbedtls::Error::X509UnknownVersion)))
+            )
+        );
+        assert_eq!(
+            format!(
+                "{:?}",
+                mbedtls_err_into_rustls_err_with_error_msg(mbedtls::Error::X509InvalidSerial, "Invalid serial number")
+            ),
+            format!(
+                "{:?}",
+                rustls::Error::InvalidCertificate(CertificateError::Other(Arc::new(mbedtls::Error::X509InvalidSerial)))
+            )
+        );
+    }
+}

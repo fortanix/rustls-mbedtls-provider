@@ -212,6 +212,16 @@ mod tests {
     }
 
     #[test]
+    fn client_cert_verifier_debug() {
+        let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());
+        let client_cert_verifier = MbedTlsClientCertVerifier::new([&root_ca]).unwrap();
+        assert_eq!(
+            r#"MbedTlsClientCertVerifier { trusted_cas: "..", root_subjects: [DistinguishedName(301a3118301606035504030c0f706f6e79746f776e20525341204341)], verify_callback: "..", cert_active_check: CertActiveCheck { ignore_expired: false, ignore_not_active_yet: false } }"#,
+            format!("{:?}", client_cert_verifier)
+        );
+    }
+
+    #[test]
     fn connection_client_cert_verifier() {
         let client_config = ClientConfig::builder().with_safe_defaults();
         let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());

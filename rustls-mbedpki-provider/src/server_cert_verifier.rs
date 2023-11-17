@@ -223,6 +223,16 @@ mod tests {
             .with_no_client_auth()
     }
 
+    #[test]
+    fn server_cert_verifier_debug() {
+        let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());
+        let server_cert_verifier = MbedTlsServerCertVerifier::new([&root_ca]).unwrap();
+        assert_eq!(
+            "MbedTlsServerCertVerifier { trusted_cas: \"..\", verify_callback: \"..\", cert_active_check: CertActiveCheck { ignore_expired: false, ignore_not_active_yet: false } }",
+            format!("{:?}", server_cert_verifier)
+        );
+    }
+
     fn test_connection_server_cert_verifier_with_invalid_certs(
         invalid_cert_chain: Vec<CertificateDer<'static>>,
     ) -> rustls::Error {
