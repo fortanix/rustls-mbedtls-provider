@@ -168,3 +168,36 @@ fn pk_type_to_signature_algo(pk_type: mbedtls::pk::Type) -> rustls::SignatureAlg
         mbedtls::pk::Type::None => SignatureAlgorithm::Unknown(255),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rustls::{SignatureAlgorithm, sign::SigningKey};
+
+    #[test]
+    fn test_signing_key() {
+        let ec_key_pem = include_str!("../../test-ca/ecdsa/end.key");
+        let der: pki_types::PrivateKeyDer<'static> = rustls_pemfile::pkcs8_private_keys(&mut std::io::BufReader::new(ec_key_pem.as_bytes())).next()
+        .unwrap()
+        .unwrap()
+        .into();
+        let key = MbedTlsPkSigningKey::new(&der).unwrap();
+        assert_eq!("MbedTlsPkSigningKey { pk: \"Arc<Mutex<mbedtls::pk::Pk>>\", pk_type: Eckey, signature_algorithm: ECDSA, ec_signature_scheme: Some(ECDSA_NISTP256_SHA256) }", format!("{:?}", key));
+        assert!(key.choose_scheme(&[SignatureScheme::RSA_PKCS1_SHA1]).is_none());
+        let res = key.choose_scheme(&[SignatureScheme::ECDSA_NISTP256_SHA256]);
+        assert!(res.is_some());
+        assert_eq!("Some(MbedTlsSigner(\"Arc<Mutex<mbedtls::pk::Pk>>\", ECDSA_NISTP256_SHA256))", format!("{:?}", res));
+    }
+
+    #[test]
+    fn test_pk_type_to_signature_algo() {
+        assert_eq!(pk_type_to_signature_algo(mbedtls::pk::Type::Rsa), SignatureAlgorithm::RSA);
+        assert_eq!(pk_type_to_signature_algo(mbedtls::pk::Type::Ecdsa), SignatureAlgorithm::ECDSA);
+        assert_eq!(pk_type_to_signature_algo(mbedtls::pk::Type::RsassaPss), SignatureAlgorithm::RSA);
+        assert_eq!(pk_type_to_signature_algo(mbedtls::pk::Type::RsaAlt), SignatureAlgorithm::RSA);
+        assert_eq!(pk_type_to_signature_algo(mbedtls::pk::Type::Eckey), SignatureAlgorithm::ECDSA);
+        assert_eq!(pk_type_to_signature_algo(mbedtls::pk::Type::EckeyDh), SignatureAlgorithm::Unknown(255));
+        assert_eq!(pk_type_to_signature_algo(mbedtls::pk::Type::Custom), SignatureAlgorithm::Unknown(255));
+        assert_eq!(pk_type_to_signature_algo(mbedtls::pk::Type::None), SignatureAlgorithm::Unknown(255));
+    }
+}

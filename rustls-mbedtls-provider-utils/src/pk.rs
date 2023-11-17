@@ -22,23 +22,6 @@ pub fn rustls_signature_scheme_to_mbedtls_pk_type(scheme: &SignatureScheme) -> O
     }
 }
 
-/// Helper function to get the corresponding [`rustls::SignatureAlgorithm`] of given [`mbedtls::pk::Pk`]
-pub fn get_signature_algo_from_pk(pk: &mbedtls::pk::Pk) -> rustls::SignatureAlgorithm {
-    let pk_type = pk.pk_type();
-    match pk_type {
-        Type::Rsa | Type::RsaAlt | Type::RsassaPss => rustls::SignatureAlgorithm::RSA,
-        Type::Ecdsa => rustls::SignatureAlgorithm::ECDSA,
-        Type::Eckey | Type::EckeyDh => match pk.curve().expect("validated") {
-            // TODO: ED25519 maybe not supported yet or not supported by mbedtls
-            mbedtls::pk::EcGroupId::Curve25519 => rustls::SignatureAlgorithm::ED25519,
-            // TODO: ED448 maybe not supported yet or not supported by mbedtls
-            mbedtls::pk::EcGroupId::Curve448 => rustls::SignatureAlgorithm::ED448,
-            _ => rustls::SignatureAlgorithm::Unknown(u8::MAX),
-        },
-        _ => rustls::SignatureAlgorithm::Unknown(u8::MAX),
-    }
-}
-
 /// Helper function to convert rustls [`SignatureScheme`] to mbedtls [`mbedtls::pk::Options`]
 pub fn rustls_signature_scheme_to_mbedtls_pk_options(signature_scheme: SignatureScheme) -> Option<mbedtls::pk::Options> {
     use mbedtls::pk::Options;
@@ -98,19 +81,43 @@ mod tests {
 
     #[test]
     fn test_rustls_signature_scheme_to_mbedtls_pk_type() {
-        assert_eq!(
-            rustls_signature_scheme_to_mbedtls_pk_type(&SignatureScheme::RSA_PKCS1_SHA1),
-            Some(Type::Rsa)
-        );
-        assert_eq!(
-            rustls_signature_scheme_to_mbedtls_pk_type(&SignatureScheme::ECDSA_NISTP256_SHA256),
-            Some(Type::Ecdsa)
-        );
-        assert_eq!(rustls_signature_scheme_to_mbedtls_pk_type(&SignatureScheme::ED25519), None);
-        assert_eq!(
-            rustls_signature_scheme_to_mbedtls_pk_type(&SignatureScheme::Unknown(100)),
-            None
-        );
+        let test_data = [
+            (
+                Some(Type::Rsa),
+                vec![
+                    SignatureScheme::RSA_PKCS1_SHA1,
+                    SignatureScheme::RSA_PKCS1_SHA256,
+                    SignatureScheme::RSA_PKCS1_SHA384,
+                    SignatureScheme::RSA_PKCS1_SHA512,
+                    SignatureScheme::RSA_PSS_SHA384,
+                    SignatureScheme::RSA_PSS_SHA256,
+                    SignatureScheme::RSA_PSS_SHA512,
+                ],
+            ),
+            (
+                Some(Type::Ecdsa),
+                vec![
+                    SignatureScheme::ECDSA_SHA1_Legacy,
+                    SignatureScheme::ECDSA_NISTP256_SHA256,
+                    SignatureScheme::ECDSA_NISTP384_SHA384,
+                    SignatureScheme::ECDSA_NISTP521_SHA512,
+                ],
+            ),
+            (
+                None,
+                vec![
+                    SignatureScheme::ED25519,
+                    SignatureScheme::ED448,
+                    SignatureScheme::Unknown(100),
+                ],
+            ),
+        ];
+
+        for pair in &test_data {
+            for scheme in &pair.1 {
+                assert_eq!(pair.0, rustls_signature_scheme_to_mbedtls_pk_type(scheme));
+            }
+        }
     }
 
     #[test]
@@ -127,21 +134,20 @@ mod tests {
             rustls_signature_scheme_to_mbedtls_curve_id(SignatureScheme::ECDSA_NISTP521_SHA512),
             mbedtls::pk::EcGroupId::SecP521R1
         );
-        assert_eq!(
-            rustls_signature_scheme_to_mbedtls_curve_id(SignatureScheme::ECDSA_SHA1_Legacy),
-            mbedtls::pk::EcGroupId::None
-        );
-        assert_eq!(
-            rustls_signature_scheme_to_mbedtls_curve_id(SignatureScheme::RSA_PKCS1_SHA1),
-            mbedtls::pk::EcGroupId::None
-        );
-        assert_eq!(
-            rustls_signature_scheme_to_mbedtls_curve_id(SignatureScheme::ED25519),
-            mbedtls::pk::EcGroupId::None
-        );
-        assert_eq!(
-            rustls_signature_scheme_to_mbedtls_curve_id(SignatureScheme::Unknown(100)),
-            mbedtls::pk::EcGroupId::None
-        );
+        for scheme in [
+            SignatureScheme::ECDSA_SHA1_Legacy,
+            SignatureScheme::RSA_PKCS1_SHA1,
+            SignatureScheme::RSA_PKCS1_SHA256,
+            SignatureScheme::RSA_PKCS1_SHA384,
+            SignatureScheme::RSA_PKCS1_SHA512,
+            SignatureScheme::RSA_PSS_SHA256,
+            SignatureScheme::RSA_PSS_SHA384,
+            SignatureScheme::RSA_PSS_SHA512,
+            SignatureScheme::ED25519,
+            SignatureScheme::ED448,
+            SignatureScheme::Unknown(123),
+        ] {
+            assert_eq!(rustls_signature_scheme_to_mbedtls_curve_id(scheme), mbedtls::pk::EcGroupId::None);
+        }
     }
 }

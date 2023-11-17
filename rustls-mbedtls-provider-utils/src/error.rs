@@ -50,7 +50,15 @@ mod tests {
             rustls::Error::InvalidCertificate(CertificateError::BadSignature)
         );
         assert_eq!(
+            mbedtls_err_into_rustls_err(mbedtls::Error::RsaVerifyFailed),
+            rustls::Error::InvalidCertificate(CertificateError::BadSignature)
+        );
+        assert_eq!(
             mbedtls_err_into_rustls_err(mbedtls::Error::X509BadInputData),
+            rustls::Error::InvalidCertificate(CertificateError::BadEncoding)
+        );
+        assert_eq!(
+            mbedtls_err_into_rustls_err(mbedtls::Error::X509CertUnknownFormat),
             rustls::Error::InvalidCertificate(CertificateError::BadEncoding)
         );
         assert_eq!(
@@ -64,6 +72,10 @@ mod tests {
         assert_eq!(
             mbedtls_err_into_rustls_err_with_error_msg(mbedtls::Error::X509InvalidSignature, ""),
             rustls::Error::InvalidCertificate(CertificateError::BadSignature)
+        );
+        assert_eq!(
+            mbedtls_err_into_rustls_err_with_error_msg(mbedtls::Error::CipherAuthFailed, ""),
+            rustls::Error::General(String::from("mbedTLS error CipherAuthFailed"))
         );
         assert_eq!(
             mbedtls_err_into_rustls_err_with_error_msg(mbedtls::Error::RsaVerifyFailed, ""),
