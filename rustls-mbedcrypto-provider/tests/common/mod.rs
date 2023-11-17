@@ -202,7 +202,7 @@ where
 pub enum KeyType {
     Rsa,
     Ecdsa,
-    Ed25519,
+    // Ed25519,
 }
 
 pub static ALL_KEY_TYPES: [KeyType; 2] = [
@@ -217,7 +217,7 @@ impl KeyType {
         match self {
             Self::Rsa => bytes_for("rsa", part),
             Self::Ecdsa => bytes_for("ecdsa", part),
-            Self::Ed25519 => bytes_for("eddsa", part),
+            // Self::Ed25519 => bytes_for("eddsa", part),
         }
     }
 

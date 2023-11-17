@@ -480,7 +480,7 @@ fn test_config_builders_debug_mbedtls() {
         .with_protocol_versions(&[&rustls::version::TLS13])
         .unwrap();
     let b = b.with_no_client_auth();
-    assert_eq!("ConfigBuilder<ServerConfig, _> { state: WantsServerCert { cipher_suites: [TLS13_CHACHA20_POLY1305_SHA256], kx_groups: [X25519], provider: Mbedtls, versions: [TLSv1_3], verifier: dyn ClientCertVerifier } }", format!("{:?}", b));
+    assert_eq!("ConfigBuilder<ServerConfig, _> { state: WantsServerCert { cipher_suites: [TLS13_CHACHA20_POLY1305_SHA256], kx_groups: [X25519], provider: Mbedtls, versions: [TLSv1_3], verifier: NoClientAuth } }", format!("{:?}", b));
 
     let b = client_config_builder();
     assert_eq!(
@@ -938,7 +938,8 @@ fn server_cert_resolve_reduces_sigalgs_for_ecdsa_ciphersuite() {
         vec![
             SignatureScheme::ECDSA_NISTP384_SHA384,
             SignatureScheme::ECDSA_NISTP256_SHA256,
-            SignatureScheme::ED25519,
+            // mbedtls does not support ED25519
+            // SignatureScheme::ED25519,
         ],
     );
 }
@@ -1248,7 +1249,8 @@ fn test_client_cert_resolve(key_type: KeyType, server_config: Arc<ServerConfig>,
             ProtocolVersion::TLSv1_2 => vec![
                 SignatureScheme::ECDSA_NISTP384_SHA384,
                 SignatureScheme::ECDSA_NISTP256_SHA256,
-                SignatureScheme::ED25519,
+                // mbedtls does not support ED25519
+                // SignatureScheme::ED25519,
                 SignatureScheme::RSA_PSS_SHA512,
                 SignatureScheme::RSA_PSS_SHA384,
                 SignatureScheme::RSA_PSS_SHA256,
@@ -1259,7 +1261,8 @@ fn test_client_cert_resolve(key_type: KeyType, server_config: Arc<ServerConfig>,
             ProtocolVersion::TLSv1_3 => vec![
                 SignatureScheme::ECDSA_NISTP384_SHA384,
                 SignatureScheme::ECDSA_NISTP256_SHA256,
-                SignatureScheme::ED25519,
+                // mbedtls does not support ED25519
+                // SignatureScheme::ED25519,
                 SignatureScheme::RSA_PSS_SHA512,
                 SignatureScheme::RSA_PSS_SHA384,
                 SignatureScheme::RSA_PSS_SHA256,
@@ -1297,7 +1300,7 @@ fn client_cert_resolve_default() {
         let expected_root_hint_subjects = vec![match key_type {
             KeyType::Rsa => &b"0\x1a1\x180\x16\x06\x03U\x04\x03\x0c\x0fponytown RSA CA"[..],
             KeyType::Ecdsa => &b"0\x1c1\x1a0\x18\x06\x03U\x04\x03\x0c\x11ponytown ECDSA CA"[..],
-            KeyType::Ed25519 => &b"0\x1c1\x1a0\x18\x06\x03U\x04\x03\x0c\x11ponytown EdDSA CA"[..],
+            // KeyType::Ed25519 => &b"0\x1c1\x1a0\x18\x06\x03U\x04\x03\x0c\x11ponytown EdDSA CA"[..],
         }
         .to_vec()];
 
@@ -1328,7 +1331,7 @@ fn client_cert_resolve_server_added_hint() {
             match key_type {
                 KeyType::Rsa => &b"0\x1a1\x180\x16\x06\x03U\x04\x03\x0c\x0fponytown RSA CA"[..],
                 KeyType::Ecdsa => &b"0\x1c1\x1a0\x18\x06\x03U\x04\x03\x0c\x11ponytown ECDSA CA"[..],
-                KeyType::Ed25519 => &b"0\x1c1\x1a0\x18\x06\x03U\x04\x03\x0c\x11ponytown EdDSA CA"[..],
+                // KeyType::Ed25519 => &b"0\x1c1\x1a0\x18\x06\x03U\x04\x03\x0c\x11ponytown EdDSA CA"[..],
             }
             .to_vec(),
             extra_name.clone(),
@@ -3874,7 +3877,7 @@ fn test_server_mtu_reduction() {
 }
 
 fn check_client_max_fragment_size(size: usize) -> Option<Error> {
-    let mut client_config = make_client_config(KeyType::Ed25519);
+    let mut client_config = make_client_config(KeyType::Rsa);
     client_config.max_fragment_size = Some(size);
     ClientConnection::new(Arc::new(client_config), server_name("localhost")).err()
 }
@@ -4046,13 +4049,13 @@ fn test_client_rejects_illegal_tls13_ccs() {
 #[cfg(feature = "tls12")]
 #[test]
 fn test_client_tls12_no_resume_after_server_downgrade() {
-    let mut client_config = common::make_client_config(KeyType::Ed25519);
+    let mut client_config = common::make_client_config(KeyType::Rsa);
     let client_storage = Arc::new(ClientStorage::new());
     client_config.resumption = Resumption::store(client_storage.clone());
     let client_config = Arc::new(client_config);
 
     let server_config_1 = Arc::new(common::finish_server_config(
-        KeyType::Ed25519,
+        KeyType::Rsa,
         server_config_builder()
             .with_safe_default_cipher_suites()
             .with_safe_default_kx_groups()
@@ -4061,7 +4064,7 @@ fn test_client_tls12_no_resume_after_server_downgrade() {
     ));
 
     let mut server_config_2 = common::finish_server_config(
-        KeyType::Ed25519,
+        KeyType::Rsa,
         server_config_builder()
             .with_safe_default_cipher_suites()
             .with_safe_default_kx_groups()
@@ -4099,12 +4102,12 @@ fn test_client_tls12_no_resume_after_server_downgrade() {
 fn test_acceptor() {
     use rustls::server::Acceptor;
 
-    let client_config = Arc::new(make_client_config(KeyType::Ed25519));
+    let client_config = Arc::new(make_client_config(KeyType::Rsa));
     let mut client = ClientConnection::new(client_config, server_name("localhost")).unwrap();
     let mut buf = Vec::new();
     client.write_tls(&mut buf).unwrap();
 
-    let server_config = Arc::new(make_server_config(KeyType::Ed25519));
+    let server_config = Arc::new(make_server_config(KeyType::Rsa));
     let mut acceptor = Acceptor::default();
     acceptor
         .read_tls(&mut buf.as_slice())
