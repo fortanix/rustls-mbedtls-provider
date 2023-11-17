@@ -32,7 +32,7 @@ extern crate alloc;
 #[cfg(not(test))]
 extern crate std;
 
-/// Utility code related to error types in [`mbedtls::error`]  and [`rustls::error`]
+/// Utility code related to error types: [`mbedtls::Error`] and [`rustls::Error`]
 pub mod error;
 /// Utility code related to [`mbedtls::hash`] types
 pub mod hash;
