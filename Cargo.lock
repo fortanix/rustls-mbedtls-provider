@@ -686,7 +686,7 @@ dependencies = [
  "chrono",
  "mbedtls",
  "rustls",
- "rustls-pemfile 2.0.0-alpha.2",
+ "rustls-pemfile 1.0.3",
  "rustls-pki-types",
  "x509-parser",
 ]
