@@ -115,12 +115,12 @@ impl MbedTlsPkSigningKey {
 }
 
 const RSA_SIGNATURE_SCHEME_PREFER_LIST: &[SignatureScheme] = &[
-    SignatureScheme::RSA_PSS_SHA256,
-    SignatureScheme::RSA_PSS_SHA384,
     SignatureScheme::RSA_PSS_SHA512,
-    SignatureScheme::RSA_PKCS1_SHA256,
-    SignatureScheme::RSA_PKCS1_SHA384,
+    SignatureScheme::RSA_PSS_SHA384,
+    SignatureScheme::RSA_PSS_SHA256,
     SignatureScheme::RSA_PKCS1_SHA512,
+    SignatureScheme::RSA_PKCS1_SHA384,
+    SignatureScheme::RSA_PKCS1_SHA256,
 ];
 
 impl rustls::sign::SigningKey for MbedTlsPkSigningKey {
