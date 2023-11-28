@@ -8,7 +8,6 @@
 use super::agreement;
 use crate::error::mbedtls_err_to_rustls_general_error;
 
-use crate::log::error;
 use alloc::boxed::Box;
 use alloc::fmt;
 use alloc::format;
@@ -42,15 +41,12 @@ impl fmt::Debug for KxGroup {
 }
 
 impl SupportedKxGroup for KxGroup {
-    fn start(&self) -> Result<Box<dyn crypto::ActiveKeyExchange>, rustls::crypto::GetRandomFailed> {
+    fn start(&self) -> Result<Box<dyn crypto::ActiveKeyExchange>, Error> {
         let mut pk = PkMbed::generate_ec(
             &mut super::rng::rng_new().ok_or(rustls::crypto::GetRandomFailed)?,
             self.agreement_algorithm.group_id,
         )
-        .map_err(|_err| {
-            error!("Encountered error when generating ec key, mbedtls error: {}", _err);
-            rustls::crypto::GetRandomFailed
-        })?;
+        .map_err(|err| rustls::Error::General(format!("Encountered error when generating ec key, mbedtls error: {}", err)))?;
 
         fn get_key_pair(pk: &mut PkMbed, kx_group: &KxGroup) -> Result<KeyExchange, mbedtls::Error> {
             let group = EcGroup::new(kx_group.agreement_algorithm.group_id)?;
@@ -68,10 +64,7 @@ impl SupportedKxGroup for KxGroup {
 
         match get_key_pair(&mut pk, self) {
             Ok(group) => Ok(Box::new(group)),
-            Err(_err) => {
-                error!("Unexpected mbedtls error: {}", _err);
-                Err(rustls::crypto::GetRandomFailed)
-            }
+            Err(err) => Err(rustls::Error::General(format!("Unexpected mbedtls error: {}", err))),
         }
     }
 

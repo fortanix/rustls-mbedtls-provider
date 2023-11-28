@@ -11,3 +11,4 @@ admin/rustfmt
 **/._.DS_Store
 /.idea
 /default.profraw
+.cargo/

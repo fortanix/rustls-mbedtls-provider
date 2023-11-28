@@ -5,18 +5,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::sync::Arc;
-
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec;
+use alloc::vec::Vec;
 use chrono::NaiveDateTime;
 use pki_types::{CertificateDer, UnixTime};
 use rustls::{
     server::danger::{ClientCertVerified, ClientCertVerifier},
     DistinguishedName,
 };
+use utils::error::mbedtls_err_into_rustls_err_with_error_msg;
 
 use crate::{
-    mbedtls_err_into_rustls_err, mbedtls_err_into_rustls_err_with_error_msg, rustls_cert_to_mbedtls_cert,
-    verify_certificates_active, verify_tls_signature, CertActiveCheck,
+    mbedtls_err_into_rustls_err, rustls_cert_to_mbedtls_cert, verify_certificates_active, verify_tls_signature, CertActiveCheck,
 };
 
 /// A [`rustls`] [`ClientCertVerifier`] implemented using the PKI functionality of
@@ -27,6 +29,17 @@ pub struct MbedTlsClientCertVerifier {
     root_subjects: Vec<DistinguishedName>,
     verify_callback: Option<Arc<dyn mbedtls::x509::VerifyCallback + 'static>>,
     cert_active_check: CertActiveCheck,
+}
+
+impl core::fmt::Debug for MbedTlsClientCertVerifier {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("MbedTlsClientCertVerifier")
+            .field("trusted_cas", &"..")
+            .field("root_subjects", &self.root_subjects)
+            .field("verify_callback", &"..")
+            .field("cert_active_check", &self.cert_active_check)
+            .finish()
+    }
 }
 
 impl MbedTlsClientCertVerifier {
@@ -196,6 +209,16 @@ mod tests {
                 get_key(include_bytes!("../test-data/rsa/end.key")),
             )
             .unwrap()
+    }
+
+    #[test]
+    fn client_cert_verifier_debug() {
+        let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());
+        let client_cert_verifier = MbedTlsClientCertVerifier::new([&root_ca]).unwrap();
+        assert_eq!(
+            r#"MbedTlsClientCertVerifier { trusted_cas: "..", root_subjects: [DistinguishedName(301a3118301606035504030c0f706f6e79746f776e20525341204341)], verify_callback: "..", cert_active_check: CertActiveCheck { ignore_expired: false, ignore_not_active_yet: false } }"#,
+            format!("{:?}", client_cert_verifier)
+        );
     }
 
     #[test]

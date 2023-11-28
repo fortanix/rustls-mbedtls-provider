@@ -80,14 +80,18 @@ pub(crate) mod hash;
 pub(crate) mod hmac;
 pub(crate) mod kx;
 
+/// Message signing interfaces.
+pub mod sign;
+/// Supported signature verify algorithms
+pub mod signature_verify_algo;
 /// TLS1.2 ciphersuites implementation.
 #[cfg(feature = "tls12")]
-pub mod tls12;
+pub(crate) mod tls12;
 /// TLS1.3 ciphersuites implementation.
-pub mod tls13;
+pub(crate) mod tls13;
 
 use mbedtls::rng::Random;
-use rustls::SupportedCipherSuite;
+use rustls::{SignatureScheme, SupportedCipherSuite, WebPkiSupportedAlgorithms};
 
 /// RNG supported by *mbedtls*
 pub mod rng {
@@ -137,6 +141,17 @@ impl rustls::crypto::CryptoProvider for Mbedtls {
     fn default_kx_groups(&self) -> &'static [&'static dyn rustls::crypto::SupportedKxGroup] {
         ALL_KX_GROUPS
     }
+
+    fn load_private_key(
+        &self,
+        key_der: pki_types::PrivateKeyDer<'static>,
+    ) -> Result<alloc::sync::Arc<dyn rustls::sign::SigningKey>, rustls::Error> {
+        Ok(alloc::sync::Arc::new(sign::MbedTlsPkSigningKey::new(&key_der)?))
+    }
+
+    fn signature_verification_algorithms(&self) -> WebPkiSupportedAlgorithms {
+        SUPPORTED_SIG_ALGS
+    }
 }
 
 /// The cipher suite configuration that an application should use by default.
@@ -165,6 +180,56 @@ pub static ALL_CIPHER_SUITES: &[SupportedCipherSuite] = &[
     #[cfg(feature = "tls12")]
     tls12::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
 ];
+
+/// All defined cipher suites supported by *mbedtls* appear in this module.
+pub mod cipher_suite {
+    #[cfg(feature = "tls12")]
+    pub use super::tls12::{
+        TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+        TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+        TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+    };
+    pub use super::tls13::{TLS13_AES_128_GCM_SHA256, TLS13_AES_256_GCM_SHA384, TLS13_CHACHA20_POLY1305_SHA256};
+}
+
+/// A `WebPkiSupportedAlgorithms` value that reflects pki's capabilities when
+/// compiled against *mbedtls*.
+static SUPPORTED_SIG_ALGS: WebPkiSupportedAlgorithms = WebPkiSupportedAlgorithms {
+    all: &[
+        signature_verify_algo::ECDSA_P256_SHA256,
+        signature_verify_algo::ECDSA_P256_SHA384,
+        signature_verify_algo::ECDSA_P384_SHA256,
+        signature_verify_algo::ECDSA_P384_SHA384,
+        signature_verify_algo::RSA_PSS_SHA256,
+        signature_verify_algo::RSA_PSS_SHA384,
+        signature_verify_algo::RSA_PSS_SHA512,
+        signature_verify_algo::RSA_PKCS1_SHA256,
+        signature_verify_algo::RSA_PKCS1_SHA384,
+        signature_verify_algo::RSA_PKCS1_SHA512,
+    ],
+    mapping: &[
+        (
+            SignatureScheme::ECDSA_NISTP384_SHA384,
+            &[
+                signature_verify_algo::ECDSA_P384_SHA384,
+                signature_verify_algo::ECDSA_P256_SHA384,
+            ],
+        ),
+        (
+            SignatureScheme::ECDSA_NISTP256_SHA256,
+            &[
+                signature_verify_algo::ECDSA_P256_SHA256,
+                signature_verify_algo::ECDSA_P384_SHA256,
+            ],
+        ),
+        (SignatureScheme::RSA_PSS_SHA512, &[signature_verify_algo::RSA_PSS_SHA512]),
+        (SignatureScheme::RSA_PSS_SHA384, &[signature_verify_algo::RSA_PSS_SHA384]),
+        (SignatureScheme::RSA_PSS_SHA256, &[signature_verify_algo::RSA_PSS_SHA256]),
+        (SignatureScheme::RSA_PKCS1_SHA512, &[signature_verify_algo::RSA_PKCS1_SHA512]),
+        (SignatureScheme::RSA_PKCS1_SHA384, &[signature_verify_algo::RSA_PKCS1_SHA384]),
+        (SignatureScheme::RSA_PKCS1_SHA256, &[signature_verify_algo::RSA_PKCS1_SHA256]),
+    ],
+};
 
 /// All defined key exchange groups supported by *mbedtls* appear in this module.
 ///

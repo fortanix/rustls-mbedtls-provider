@@ -1,9 +1,10 @@
 [package]
-name = "rustls-mbedpki-provider"
+name = "rustls-mbedtls-provider-utils"
 version = "0.1.0-alpha.1"
 edition = "2021"
 license = "MPL-2.0"
-description = "Implements rustls PKI traits using mbedtls"
+description = "Utility code used in mbedtls based provider for rustls."
+homepage = "https://github.com/fortanix/rustls-mbedtls-provider"
 repository = "https://github.com/fortanix/rustls-mbedtls-provider"
 readme = "../README.md"
 authors = ["Fortanix Inc."]
@@ -11,29 +12,17 @@ categories = ["network-programming", "cryptography"]
 resolver = "2"
 
 [dependencies]
-rustls = { version = "0.22.0-alpha.4", default_features = false }
-mbedtls = { version = "0.12.0-alpha.2", features = [
-    "x509",
-    "chrono",
+rustls = { version = "0.22.0-alpha.4", default-features = false }
+mbedtls = { version = "0.12.0-alpha.2", default-features = false, features = [
     "std",
-], default_features = false }
-
-x509-parser = "0.15"
-chrono = "0.4"
+] }
 pki-types = { package = "rustls-pki-types", version = "0.2.1", features = [
     "std",
 ] }
-utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-provider-utils", version = "0.1.0-alpha.1" }
 
 [target.'cfg(target_env = "msvc")'.dependencies]
 # mbedtls need feature `time` to build when targeting msvc
 mbedtls = { version = "0.12.0-alpha.2", default-features = false, features = [
-    "x509",
-    "chrono",
     "std",
     "time",
 ] }
-
-[dev-dependencies]
-rustls-pemfile = "1.0"
-rustls = { version = "0.22.0-alpha.4" }

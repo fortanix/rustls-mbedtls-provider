@@ -7,7 +7,10 @@
 
 use std::io;
 
-use core::ops::{Deref, DerefMut};
+use core::{
+    fmt::Debug,
+    ops::{Deref, DerefMut},
+};
 
 use pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, UnixTime};
 use rustls::{client::danger::ServerCertVerifier, ClientConnection, ConnectionCommon, ServerConnection, SideData};
@@ -81,6 +84,15 @@ pub(crate) struct VerifierWithSupportedVerifySchemes<V> {
     pub(crate) supported_verify_schemes: Vec<rustls::SignatureScheme>,
 }
 
+impl<V> Debug for VerifierWithSupportedVerifySchemes<V> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("VerifierWithSupportedVerifySchemes")
+            .field("verifier", &"..")
+            .field("supported_verify_schemes", &self.supported_verify_schemes)
+            .finish()
+    }
+}
+
 impl<V: ServerCertVerifier> ServerCertVerifier for VerifierWithSupportedVerifySchemes<V> {
     fn verify_server_cert(
         &self,
@@ -116,5 +128,23 @@ impl<V: ServerCertVerifier> ServerCertVerifier for VerifierWithSupportedVerifySc
 
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
         self.supported_verify_schemes.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verifier_with_supported_verify_schemes_debug() {
+        let verifier = VerifierWithSupportedVerifySchemes {
+            verifier: "Sample Verifier".to_string(),
+            supported_verify_schemes: vec![
+                rustls::SignatureScheme::RSA_PKCS1_SHA1,
+                rustls::SignatureScheme::ECDSA_NISTP521_SHA512,
+            ],
+        };
+
+        assert_eq!("VerifierWithSupportedVerifySchemes { verifier: \"..\", supported_verify_schemes: [RSA_PKCS1_SHA1, ECDSA_NISTP521_SHA512] }",format!("{:?}", verifier));
     }
 }

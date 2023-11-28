@@ -10,7 +10,6 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use mbedtls::cipher::raw::{CipherId, CipherMode, CipherType};
 use mbedtls::cipher::{Authenticated, Cipher, Decryption, Encryption, Fresh};
-use rustls::cipher_suite::CipherSuiteCommon;
 use rustls::crypto::cipher::{
     make_tls12_aad, AeadKey, BorrowedPlainMessage, Iv, KeyBlockShape, MessageDecrypter, MessageEncrypter, Nonce, OpaqueMessage,
     PlainMessage, Tls12AeadAlgorithm, UnsupportedOperationError, NONCE_LEN,
@@ -20,7 +19,9 @@ use rustls::crypto::KeyExchangeAlgorithm;
 
 use super::aead::{self, Algorithm, AES128_GCM, AES256_GCM};
 use alloc::string::String;
-use rustls::{CipherSuite, ConnectionTrafficSecrets, Error, SignatureScheme, SupportedCipherSuite, Tls12CipherSuite};
+use rustls::{
+    CipherSuite, CipherSuiteCommon, ConnectionTrafficSecrets, Error, SignatureScheme, SupportedCipherSuite, Tls12CipherSuite,
+};
 
 pub(crate) const GCM_FIXED_IV_LEN: usize = 4;
 pub(crate) const GCM_EXPLICIT_NONCE_LEN: usize = 8;
