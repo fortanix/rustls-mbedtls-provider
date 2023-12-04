@@ -11,7 +11,7 @@ categories = ["network-programming", "cryptography"]
 resolver = "2"
 
 [dependencies]
-rustls = { version = "0.22.0-alpha.4", default_features = false }
+rustls = { version = "0.22.0", default_features = false }
 mbedtls = { version = "0.12.0-alpha.2", features = [
     "x509",
     "chrono",
@@ -35,5 +35,5 @@ mbedtls = { version = "0.12.0-alpha.2", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-rustls-pemfile = "1.0"
-rustls = { version = "0.22.0-alpha.4" }
+rustls-pemfile = "2.0"
+rustls = { version = "0.22.0" }
