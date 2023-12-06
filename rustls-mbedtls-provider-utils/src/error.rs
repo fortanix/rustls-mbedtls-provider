@@ -1,4 +1,5 @@
 use alloc::{format, sync::Arc};
+use rustls::OtherError;
 
 /// Converts an `mbedtls::Error` into a `rustls::Error`
 pub fn mbedtls_err_into_rustls_err(err: mbedtls::Error) -> rustls::Error {
@@ -30,7 +31,7 @@ pub fn mbedtls_err_into_rustls_err_with_error_msg(err: mbedtls::Error, msg: &str
         mbedtls::Error::X509SigMismatch |
         mbedtls::Error::X509UnknownOid |
         mbedtls::Error::X509UnknownSigAlg |
-        mbedtls::Error::X509UnknownVersion => rustls::Error::InvalidCertificate(rustls::CertificateError::Other(Arc::new(err))),
+        mbedtls::Error::X509UnknownVersion => rustls::Error::InvalidCertificate(rustls::CertificateError::Other(OtherError(Arc::new(err)))),
 
         mbedtls::Error::X509InvalidName => rustls::Error::InvalidCertificate(rustls::CertificateError::NotValidForName),
 
@@ -92,7 +93,9 @@ mod tests {
             ),
             format!(
                 "{:?}",
-                rustls::Error::InvalidCertificate(CertificateError::Other(Arc::new(mbedtls::Error::X509UnknownVersion)))
+                rustls::Error::InvalidCertificate(CertificateError::Other(OtherError(Arc::new(
+                    mbedtls::Error::X509UnknownVersion
+                ))))
             )
         );
         assert_eq!(
@@ -102,7 +105,9 @@ mod tests {
             ),
             format!(
                 "{:?}",
-                rustls::Error::InvalidCertificate(CertificateError::Other(Arc::new(mbedtls::Error::X509InvalidSerial)))
+                rustls::Error::InvalidCertificate(CertificateError::Other(OtherError(Arc::new(
+                    mbedtls::Error::X509InvalidSerial
+                ))))
             )
         );
     }

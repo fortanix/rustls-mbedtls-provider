@@ -22,6 +22,7 @@ use pki_types::{CertificateDer, PrivateKeyDer};
 
 use rustls::client::Resumption;
 use rustls::crypto::ring::{cipher_suite, Ticketer};
+use rustls::crypto::CryptoProvider;
 use rustls::server::{NoServerSessionStorage, ServerSessionMemoryCache, WebPkiClientVerifier};
 use rustls::RootCertStore;
 use rustls::{ClientConfig, ClientConnection};
@@ -298,9 +299,7 @@ fn make_server_config(
         ClientAuth::No => WebPkiClientVerifier::no_client_auth(),
     };
 
-    let mut cfg = ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
-        .with_safe_default_cipher_suites()
-        .with_safe_default_kx_groups()
+    let mut cfg = ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::mbedtls_crypto_provider().into())
         .with_protocol_versions(&[params.version])
         .unwrap()
         .with_client_cert_verifier(client_auth)
@@ -324,12 +323,16 @@ fn make_client_config(params: &BenchmarkParam, clientauth: ClientAuth, resume: R
     let mut rootbuf = io::BufReader::new(fs::File::open(params.key_type.path_for("ca.cert")).unwrap());
     root_store.add_parsable_certificates(rustls_pemfile::certs(&mut rootbuf).map(|result| result.unwrap()));
 
-    let cfg = ClientConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS)
-        .with_cipher_suites(&[params.ciphersuite])
-        .with_safe_default_kx_groups()
-        .with_protocol_versions(&[params.version])
-        .unwrap()
-        .with_root_certificates(root_store);
+    let cfg = ClientConfig::builder_with_provider(
+        CryptoProvider {
+            cipher_suites: vec![params.ciphersuite],
+            ..rustls_mbedcrypto_provider::mbedtls_crypto_provider()
+        }
+        .into(),
+    )
+    .with_protocol_versions(&[params.version])
+    .unwrap()
+    .with_root_certificates(root_store);
 
     let mut cfg = if clientauth == ClientAuth::Yes {
         cfg.with_client_auth_cert(params.key_type.get_client_chain(), params.key_type.get_client_key())

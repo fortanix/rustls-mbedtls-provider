@@ -9,7 +9,7 @@ use std::io::{stdout, Read, Write};
 use std::net::TcpStream;
 use std::sync::Arc;
 
-use rustls_mbedcrypto_provider::MBEDTLS;
+use rustls_mbedcrypto_provider::mbedtls_crypto_provider;
 
 fn main() {
     env_logger::init();
@@ -21,8 +21,9 @@ fn main() {
             .cloned(),
     );
 
-    let config = rustls::ClientConfig::builder_with_provider(MBEDTLS)
-        .with_safe_defaults()
+    let config = rustls::ClientConfig::builder_with_provider(mbedtls_crypto_provider().into())
+        .with_safe_default_protocol_versions()
+        .unwrap()
         .with_root_certificates(root_store)
         .with_no_client_auth();
 

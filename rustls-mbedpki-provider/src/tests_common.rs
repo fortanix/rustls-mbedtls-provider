@@ -12,14 +12,13 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, UnixTime};
+use pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, ServerName, UnixTime};
 use rustls::{client::danger::ServerCertVerifier, ClientConnection, ConnectionCommon, ServerConnection, SideData};
 
 /// Get a certificate chain from the contents of a pem file
 pub(crate) fn get_chain(bytes: &[u8]) -> Vec<CertificateDer> {
     rustls_pemfile::certs(&mut io::BufReader::new(bytes))
-        .unwrap()
-        .into_iter()
+        .map(Result::unwrap)
         .map(CertificateDer::from)
         .collect()
 }
@@ -27,9 +26,8 @@ pub(crate) fn get_chain(bytes: &[u8]) -> Vec<CertificateDer> {
 /// Get a private key from the contents of a pem file
 pub(crate) fn get_key(bytes: &[u8]) -> PrivateKeyDer {
     let value = rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(bytes))
-        .unwrap()
-        .into_iter()
         .next()
+        .unwrap()
         .unwrap();
     PrivateKeyDer::from(PrivatePkcs8KeyDer::from(value))
 }
@@ -98,7 +96,7 @@ impl<V: ServerCertVerifier> ServerCertVerifier for VerifierWithSupportedVerifySc
         &self,
         end_entity: &CertificateDer,
         intermediates: &[CertificateDer],
-        server_name: &rustls::ServerName,
+        server_name: &ServerName,
         ocsp_response: &[u8],
         now: UnixTime,
     ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {

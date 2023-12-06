@@ -11,11 +11,9 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use chrono::NaiveDateTime;
+use pki_types::ServerName;
 use pki_types::{CertificateDer, UnixTime};
-use rustls::{
-    client::danger::{ServerCertVerified, ServerCertVerifier},
-    ServerName,
-};
+use rustls::client::danger::{ServerCertVerified, ServerCertVerifier};
 use utils::error::mbedtls_err_into_rustls_err_with_error_msg;
 
 use crate::{
@@ -99,10 +97,10 @@ impl MbedTlsServerCertVerifier {
     }
 }
 
-fn server_name_to_str(server_name: &ServerName) -> String {
+fn server_name_to_str(server_name: &ServerName) -> Option<String> {
     match server_name {
-        ServerName::DnsName(name) => name.as_ref().to_string(),
-        ServerName::IpAddress(addr) => addr.to_string(),
+        ServerName::DnsName(name) => Some(name.as_ref().to_string()),
+        ServerName::IpAddress(_) => None,
         // We have this case because rustls::ServerName is marked as non-exhaustive.
         _ => {
             panic!("unknown server name: {server_name:?}")
@@ -152,7 +150,7 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
                     move |cert: &mbedtls::x509::Certificate, depth: i32, flags: &mut mbedtls::x509::VerifyError| {
                         callback(cert, depth, flags)
                     },
-                    Some(&server_name_str),
+                    server_name_str.as_deref(),
                 )
                 .map_err(|e| mbedtls_err_into_rustls_err_with_error_msg(e, &error_msg))?;
             }
@@ -161,7 +159,7 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
                 &self.trusted_cas,
                 None,
                 Some(&mut error_msg),
-                Some(&server_name_str),
+                server_name_str.as_deref(),
             )
             .map_err(|e| mbedtls_err_into_rustls_err_with_error_msg(e, &error_msg))?,
         };
@@ -214,10 +212,6 @@ mod tests {
 
     fn client_config_with_verifier<V: ServerCertVerifier + 'static>(server_cert_verifier: V) -> ClientConfig {
         ClientConfig::builder()
-            .with_safe_default_cipher_suites()
-            .with_safe_default_kx_groups()
-            .with_safe_default_protocol_versions()
-            .unwrap()
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(server_cert_verifier))
             .with_no_client_auth()
@@ -242,7 +236,6 @@ mod tests {
 
         let client_config = client_config_with_verifier(MbedTlsServerCertVerifier::new(&[root_ca]).unwrap());
         let server_config = ServerConfig::builder()
-            .with_safe_defaults()
             .with_no_client_auth()
             .with_single_cert(invalid_cert_chain, get_key(include_bytes!("../test-data/rsa/end.key")))
             .unwrap();
@@ -269,11 +262,7 @@ mod tests {
             supported_verify_schemes,
         };
         let client_config = client_config_with_verifier(verifier);
-        let server_config = ServerConfig::builder()
-            .with_safe_default_cipher_suites()
-            .with_safe_default_kx_groups()
-            .with_protocol_versions(protocol_versions)
-            .unwrap()
+        let server_config = ServerConfig::builder_with_protocol_versions(protocol_versions)
             .with_no_client_auth()
             .with_single_cert(cert_chain, get_key(include_bytes!("../test-data/rsa/end.key")))
             .unwrap();

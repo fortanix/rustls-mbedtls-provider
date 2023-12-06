@@ -15,13 +15,11 @@ use rustls::crypto::cipher::{
     PlainMessage, Tls12AeadAlgorithm, UnsupportedOperationError, NONCE_LEN,
 };
 use rustls::crypto::tls12::PrfUsingHmac;
-use rustls::crypto::KeyExchangeAlgorithm;
+use rustls::crypto::{CipherSuiteCommon, KeyExchangeAlgorithm};
 
 use super::aead::{self, Algorithm, AES128_GCM, AES256_GCM};
 use alloc::string::String;
-use rustls::{
-    CipherSuite, CipherSuiteCommon, ConnectionTrafficSecrets, Error, SignatureScheme, SupportedCipherSuite, Tls12CipherSuite,
-};
+use rustls::{CipherSuite, ConnectionTrafficSecrets, Error, SignatureScheme, SupportedCipherSuite, Tls12CipherSuite};
 
 pub(crate) const GCM_FIXED_IV_LEN: usize = 4;
 pub(crate) const GCM_EXPLICIT_NONCE_LEN: usize = 8;
@@ -34,6 +32,8 @@ pub static TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256: SupportedCipherSuite =
         common: CipherSuiteCommon {
             suite: CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
             hash_provider: &super::hash::SHA256,
+            confidentiality_limit: u64::MAX,
+            integrity_limit: 1 << 36,
         },
         kx: KeyExchangeAlgorithm::ECDHE,
         sign: TLS12_ECDSA_SCHEMES,
@@ -46,6 +46,8 @@ pub static TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256: SupportedCipherSuite = S
     common: CipherSuiteCommon {
         suite: CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
         hash_provider: &super::hash::SHA256,
+        confidentiality_limit: u64::MAX,
+        integrity_limit: 1 << 36,
     },
     kx: KeyExchangeAlgorithm::ECDHE,
     sign: TLS12_RSA_SCHEMES,
@@ -58,6 +60,8 @@ pub static TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256: SupportedCipherSuite = Support
     common: CipherSuiteCommon {
         suite: CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
         hash_provider: &super::hash::SHA256,
+        confidentiality_limit: 1 << 23,
+        integrity_limit: 1 << 52,
     },
     kx: KeyExchangeAlgorithm::ECDHE,
     sign: TLS12_RSA_SCHEMES,
@@ -70,6 +74,8 @@ pub static TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384: SupportedCipherSuite = Support
     common: CipherSuiteCommon {
         suite: CipherSuite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
         hash_provider: &super::hash::SHA384,
+        confidentiality_limit: 1 << 23,
+        integrity_limit: 1 << 52,
     },
     kx: KeyExchangeAlgorithm::ECDHE,
     sign: TLS12_RSA_SCHEMES,
@@ -82,6 +88,8 @@ pub static TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256: SupportedCipherSuite = Suppo
     common: CipherSuiteCommon {
         suite: CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
         hash_provider: &super::hash::SHA256,
+        confidentiality_limit: 1 << 23,
+        integrity_limit: 1 << 52,
     },
     kx: KeyExchangeAlgorithm::ECDHE,
     sign: TLS12_ECDSA_SCHEMES,
@@ -94,6 +102,8 @@ pub static TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384: SupportedCipherSuite = Suppo
     common: CipherSuiteCommon {
         suite: CipherSuite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
         hash_provider: &super::hash::SHA384,
+        confidentiality_limit: 1 << 23,
+        integrity_limit: 1 << 52,
     },
     kx: KeyExchangeAlgorithm::ECDHE,
     sign: TLS12_ECDSA_SCHEMES,
@@ -192,7 +202,7 @@ struct GcmMessageDecrypter {
 }
 
 impl MessageDecrypter for GcmMessageDecrypter {
-    fn decrypt(&self, msg: OpaqueMessage, seq: u64) -> Result<PlainMessage, Error> {
+    fn decrypt(&mut self, msg: OpaqueMessage, seq: u64) -> Result<PlainMessage, Error> {
         let payload = msg.payload();
         if payload.len() < GCM_OVERHEAD {
             return Err(Error::DecryptError);
@@ -242,7 +252,7 @@ impl MessageDecrypter for GcmMessageDecrypter {
 }
 
 impl MessageEncrypter for GcmMessageEncrypter {
-    fn encrypt(&self, msg: BorrowedPlainMessage, seq: u64) -> Result<OpaqueMessage, Error> {
+    fn encrypt(&mut self, msg: BorrowedPlainMessage, seq: u64) -> Result<OpaqueMessage, Error> {
         let nonce = Nonce::new(&self.iv, seq).0;
         let aad = make_tls12_aad(seq, msg.typ, msg.version, msg.payload.len());
         let mut tag = [0u8; aead::TAG_LEN];
@@ -271,6 +281,11 @@ impl MessageEncrypter for GcmMessageEncrypter {
 
         Ok(OpaqueMessage::new(msg.typ, msg.version, payload))
     }
+
+    fn encrypted_payload_len(&self, payload_len: usize) -> usize {
+        const TAG_LEN: usize = 16;
+        payload_len + GCM_EXPLICIT_NONCE_LEN + TAG_LEN
+    }
 }
 
 /// The RFC7905/RFC7539 ChaCha20Poly1305 construction.
@@ -292,7 +307,7 @@ struct ChaCha20Poly1305MessageDecrypter {
 const CHACHAPOLY1305_OVERHEAD: usize = 16;
 
 impl MessageDecrypter for ChaCha20Poly1305MessageDecrypter {
-    fn decrypt(&self, mut msg: OpaqueMessage, seq: u64) -> Result<PlainMessage, Error> {
+    fn decrypt(&mut self, mut msg: OpaqueMessage, seq: u64) -> Result<PlainMessage, Error> {
         let payload = msg.payload();
 
         if payload.len() < CHACHAPOLY1305_OVERHEAD {
@@ -343,7 +358,7 @@ impl MessageDecrypter for ChaCha20Poly1305MessageDecrypter {
 }
 
 impl MessageEncrypter for ChaCha20Poly1305MessageEncrypter {
-    fn encrypt(&self, msg: BorrowedPlainMessage, seq: u64) -> Result<OpaqueMessage, Error> {
+    fn encrypt(&mut self, msg: BorrowedPlainMessage, seq: u64) -> Result<OpaqueMessage, Error> {
         let nonce = Nonce::new(&self.enc_offset, seq).0;
         let aad = make_tls12_aad(seq, msg.typ, msg.version, msg.payload.len());
         let mut tag = [0u8; aead::TAG_LEN];
@@ -375,6 +390,10 @@ impl MessageEncrypter for ChaCha20Poly1305MessageEncrypter {
         payload.extend(tag);
 
         Ok(OpaqueMessage::new(msg.typ, msg.version, payload))
+    }
+
+    fn encrypted_payload_len(&self, payload_len: usize) -> usize {
+        payload_len + aead::TAG_LEN
     }
 }
 

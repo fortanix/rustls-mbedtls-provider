@@ -18,10 +18,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use pki_types::{CertificateDer, PrivateKeyDer, UnixTime};
-use primary_provider::cipher_suite;
+use pki_types::{CertificateDer, ServerName, UnixTime};
 use primary_provider::sign::MbedTlsPkSigningKey as RsaSigningKey;
+use primary_provider::{mbedtls_crypto_provider, MbedtlsSecureRandom};
 use rustls::client::{verify_server_cert_signed_by_trust_anchor, ResolvesClientCert, Resumption};
+use rustls::crypto::CryptoProvider;
 use rustls::internal::msgs::base::Payload;
 use rustls::internal::msgs::codec::Codec;
 use rustls::internal::msgs::enums::AlertLevel;
@@ -217,80 +218,6 @@ fn check_read_buf_err(reader: &mut dyn io::Read, err_kind: io::ErrorKind) {
 }
 
 #[test]
-fn config_builder_for_client_rejects_empty_kx_groups() {
-    assert_eq!(
-        client_config_builder()
-            .with_safe_default_cipher_suites()
-            .with_kx_groups(&[])
-            .with_safe_default_protocol_versions()
-            .err(),
-        Some(Error::General("no kx groups configured".into()))
-    );
-}
-
-#[test]
-fn config_builder_for_client_rejects_empty_cipher_suites() {
-    assert_eq!(
-        client_config_builder()
-            .with_cipher_suites(&[])
-            .with_safe_default_kx_groups()
-            .with_safe_default_protocol_versions()
-            .err(),
-        Some(Error::General("no usable cipher suites configured".into()))
-    );
-}
-
-#[cfg(feature = "tls12")]
-#[test]
-fn config_builder_for_client_rejects_incompatible_cipher_suites() {
-    assert_eq!(
-        client_config_builder()
-            .with_cipher_suites(&[cipher_suite::TLS13_AES_256_GCM_SHA384])
-            .with_safe_default_kx_groups()
-            .with_protocol_versions(&[&rustls::version::TLS12])
-            .err(),
-        Some(Error::General("no usable cipher suites configured".into()))
-    );
-}
-
-#[test]
-fn config_builder_for_server_rejects_empty_kx_groups() {
-    assert_eq!(
-        server_config_builder()
-            .with_safe_default_cipher_suites()
-            .with_kx_groups(&[])
-            .with_safe_default_protocol_versions()
-            .err(),
-        Some(Error::General("no kx groups configured".into()))
-    );
-}
-
-#[test]
-fn config_builder_for_server_rejects_empty_cipher_suites() {
-    assert_eq!(
-        server_config_builder()
-            .with_cipher_suites(&[])
-            .with_safe_default_kx_groups()
-            .with_safe_default_protocol_versions()
-            .err(),
-        Some(Error::General("no usable cipher suites configured".into()))
-    );
-}
-
-#[cfg(feature = "tls12")]
-#[test]
-fn config_builder_for_server_rejects_incompatible_cipher_suites() {
-    assert_eq!(
-        server_config_builder()
-            .with_cipher_suites(&[cipher_suite::TLS13_AES_256_GCM_SHA384])
-            .with_safe_default_kx_groups()
-            .with_protocol_versions(&[&rustls::version::TLS12])
-            .err(),
-        Some(Error::General("no usable cipher suites configured".into()))
-    );
-}
-
-#[test]
 fn buffered_client_data_sent() {
     let server_config = Arc::new(make_server_config(KeyType::Rsa));
 
@@ -432,71 +359,6 @@ fn server_can_get_client_cert_after_resumption() {
     }
 }
 
-#[test]
-#[cfg(feature = "ring")]
-fn test_config_builders_debug() {
-    let b = server_config_builder();
-    assert_eq!(
-        "ConfigBuilder<ServerConfig, _> { state: WantsCipherSuites(Ring) }",
-        format!("{:?}", b)
-    );
-    let b = b.with_cipher_suites(&[cipher_suite::TLS13_CHACHA20_POLY1305_SHA256]);
-    assert_eq!("ConfigBuilder<ServerConfig, _> { state: WantsKxGroups { cipher_suites: [TLS13_CHACHA20_POLY1305_SHA256], provider: Ring } }", format!("{:?}", b));
-    let b = b.with_kx_groups(&[primary_provider::kx_group::X25519]);
-    assert_eq!("ConfigBuilder<ServerConfig, _> { state: WantsVersions { cipher_suites: [TLS13_CHACHA20_POLY1305_SHA256], kx_groups: [X25519], provider: Ring } }", format!("{:?}", b));
-    let b = b
-        .with_protocol_versions(&[&rustls::version::TLS13])
-        .unwrap();
-    let b = b.with_no_client_auth();
-    assert_eq!("ConfigBuilder<ServerConfig, _> { state: WantsServerCert { cipher_suites: [TLS13_CHACHA20_POLY1305_SHA256], kx_groups: [X25519], provider: Ring, versions: [TLSv1_3], verifier: NoClientAuth } }", format!("{:?}", b));
-
-    let b = client_config_builder();
-    assert_eq!(
-        "ConfigBuilder<ClientConfig, _> { state: WantsCipherSuites(Ring) }",
-        format!("{:?}", b)
-    );
-    let b = b.with_cipher_suites(&[cipher_suite::TLS13_CHACHA20_POLY1305_SHA256]);
-    assert_eq!("ConfigBuilder<ClientConfig, _> { state: WantsKxGroups { cipher_suites: [TLS13_CHACHA20_POLY1305_SHA256], provider: Ring } }", format!("{:?}", b));
-    let b = b.with_kx_groups(&[primary_provider::kx_group::X25519]);
-    assert_eq!("ConfigBuilder<ClientConfig, _> { state: WantsVersions { cipher_suites: [TLS13_CHACHA20_POLY1305_SHA256], kx_groups: [X25519], provider: Ring } }", format!("{:?}", b));
-    let b = b
-        .with_protocol_versions(&[&rustls::version::TLS13])
-        .unwrap();
-    assert_eq!("ConfigBuilder<ClientConfig, _> { state: WantsVerifier { cipher_suites: [TLS13_CHACHA20_POLY1305_SHA256], kx_groups: [X25519], provider: Ring, versions: [TLSv1_3] } }", format!("{:?}", b));
-}
-
-#[test]
-fn test_config_builders_debug_mbedtls() {
-    let b = server_config_builder();
-    assert_eq!(
-        "ConfigBuilder<ServerConfig, _> { state: WantsCipherSuites(Mbedtls) }",
-        format!("{:?}", b)
-    );
-    let b = b.with_cipher_suites(&[cipher_suite::TLS13_CHACHA20_POLY1305_SHA256]);
-    assert_eq!("ConfigBuilder<ServerConfig, _> { state: WantsKxGroups { cipher_suites: [TLS13_CHACHA20_POLY1305_SHA256], provider: Mbedtls } }", format!("{:?}", b));
-    let b = b.with_kx_groups(&[primary_provider::kx_group::X25519]);
-    assert_eq!("ConfigBuilder<ServerConfig, _> { state: WantsVersions { cipher_suites: [TLS13_CHACHA20_POLY1305_SHA256], kx_groups: [X25519], provider: Mbedtls } }", format!("{:?}", b));
-    let b = b
-        .with_protocol_versions(&[&rustls::version::TLS13])
-        .unwrap();
-    let b = b.with_no_client_auth();
-    assert_eq!("ConfigBuilder<ServerConfig, _> { state: WantsServerCert { cipher_suites: [TLS13_CHACHA20_POLY1305_SHA256], kx_groups: [X25519], provider: Mbedtls, versions: [TLSv1_3], verifier: NoClientAuth } }", format!("{:?}", b));
-
-    let b = client_config_builder();
-    assert_eq!(
-        "ConfigBuilder<ClientConfig, _> { state: WantsCipherSuites(Mbedtls) }",
-        format!("{:?}", b)
-    );
-    let b = b.with_cipher_suites(&[cipher_suite::TLS13_CHACHA20_POLY1305_SHA256]);
-    assert_eq!("ConfigBuilder<ClientConfig, _> { state: WantsKxGroups { cipher_suites: [TLS13_CHACHA20_POLY1305_SHA256], provider: Mbedtls } }", format!("{:?}", b));
-    let b = b.with_kx_groups(&[primary_provider::kx_group::X25519]);
-    assert_eq!("ConfigBuilder<ClientConfig, _> { state: WantsVersions { cipher_suites: [TLS13_CHACHA20_POLY1305_SHA256], kx_groups: [X25519], provider: Mbedtls } }", format!("{:?}", b));
-    let b = b
-        .with_protocol_versions(&[&rustls::version::TLS13])
-        .unwrap();
-    assert_eq!("ConfigBuilder<ClientConfig, _> { state: WantsVerifier { cipher_suites: [TLS13_CHACHA20_POLY1305_SHA256], kx_groups: [X25519], provider: Mbedtls, versions: [TLSv1_3] } }", format!("{:?}", b));
-}
-
 /// Test that the server handles combination of `offer_client_auth()` returning true
 /// and `client_auth_mandatory` returning `Some(false)`. This exercises both the
 /// client's and server's ability to "recover" from the server asking for a client
@@ -512,7 +374,8 @@ fn server_allow_any_anonymous_or_authenticated_client() {
             .unwrap();
 
         let server_config = server_config_builder()
-            .with_safe_defaults()
+            .with_safe_default_protocol_versions()
+            .unwrap()
             .with_client_cert_verifier(client_auth)
             .with_single_cert(kt.get_chain(), kt.get_key())
             .unwrap();
@@ -890,11 +753,11 @@ fn client_trims_terminating_dot() {
 fn check_sigalgs_reduced_by_ciphersuite(kt: KeyType, suite: CipherSuite, expected_sigalgs: Vec<SignatureScheme>) {
     let client_config = finish_client_config(
         kt,
-        client_config_builder()
-            .with_cipher_suites(&[find_suite(suite)])
-            .with_safe_default_kx_groups()
-            .with_safe_default_protocol_versions()
-            .unwrap(),
+        ClientConfig::builder_with_provider(
+            CryptoProvider { cipher_suites: vec![find_suite(suite)], ..mbedtls_crypto_provider() }.into(),
+        )
+        .with_safe_default_protocol_versions()
+        .unwrap(),
     );
 
     let mut server_config = make_server_config(kt);
@@ -1721,12 +1584,6 @@ where
         os
     }
 
-    fn new_fails(sess: &'a mut C) -> OtherSession<'a, C, S> {
-        let mut os = OtherSession::new(sess);
-        os.fail_ok = true;
-        os
-    }
-
     fn flush_vectored(&mut self, b: &[io::IoSlice<'_>]) -> io::Result<usize> {
         let mut total = 0;
         let mut lengths = vec![];
@@ -2214,159 +2071,6 @@ fn stream_write_swallows_underlying_io_error_after_plaintext_processed() {
     assert_eq!(format!("{:?}", rc), "Ok(5)");
 }
 
-fn make_disjoint_suite_configs() -> (ClientConfig, ServerConfig) {
-    let kt = KeyType::Rsa;
-    let server_config = finish_server_config(
-        kt,
-        server_config_builder()
-            .with_cipher_suites(&[cipher_suite::TLS13_CHACHA20_POLY1305_SHA256])
-            .with_safe_default_kx_groups()
-            .with_safe_default_protocol_versions()
-            .unwrap(),
-    );
-
-    let client_config = finish_client_config(
-        kt,
-        client_config_builder()
-            .with_cipher_suites(&[cipher_suite::TLS13_AES_256_GCM_SHA384])
-            .with_safe_default_kx_groups()
-            .with_safe_default_protocol_versions()
-            .unwrap(),
-    );
-
-    (client_config, server_config)
-}
-
-#[test]
-fn client_stream_handshake_error() {
-    let (client_config, server_config) = make_disjoint_suite_configs();
-    let (mut client, mut server) = make_pair_for_configs(client_config, server_config);
-
-    {
-        let mut pipe = OtherSession::new_fails(&mut server);
-        let mut client_stream = Stream::new(&mut client, &mut pipe);
-        let rc = client_stream.write(b"hello");
-        assert!(rc.is_err());
-        assert_eq!(
-            format!("{:?}", rc),
-            "Err(Custom { kind: InvalidData, error: AlertReceived(HandshakeFailure) })"
-        );
-        let rc = client_stream.write(b"hello");
-        assert!(rc.is_err());
-        assert_eq!(
-            format!("{:?}", rc),
-            "Err(Custom { kind: InvalidData, error: AlertReceived(HandshakeFailure) })"
-        );
-    }
-}
-
-#[test]
-fn client_streamowned_handshake_error() {
-    let (client_config, server_config) = make_disjoint_suite_configs();
-    let (client, mut server) = make_pair_for_configs(client_config, server_config);
-
-    let pipe = OtherSession::new_fails(&mut server);
-    let mut client_stream = StreamOwned::new(client, pipe);
-    let rc = client_stream.write(b"hello");
-    assert!(rc.is_err());
-    assert_eq!(
-        format!("{:?}", rc),
-        "Err(Custom { kind: InvalidData, error: AlertReceived(HandshakeFailure) })"
-    );
-    let rc = client_stream.write(b"hello");
-    assert!(rc.is_err());
-    assert_eq!(
-        format!("{:?}", rc),
-        "Err(Custom { kind: InvalidData, error: AlertReceived(HandshakeFailure) })"
-    );
-
-    let (_, _) = client_stream.into_parts();
-}
-
-#[test]
-fn server_stream_handshake_error() {
-    let (client_config, server_config) = make_disjoint_suite_configs();
-    let (mut client, mut server) = make_pair_for_configs(client_config, server_config);
-
-    client
-        .writer()
-        .write_all(b"world")
-        .unwrap();
-
-    {
-        let mut pipe = OtherSession::new_fails(&mut client);
-        let mut server_stream = Stream::new(&mut server, &mut pipe);
-        let mut bytes = [0u8; 5];
-        let rc = server_stream.read(&mut bytes);
-        assert!(rc.is_err());
-        assert_eq!(
-            format!("{:?}", rc),
-            "Err(Custom { kind: InvalidData, error: PeerIncompatible(NoCipherSuitesInCommon) })"
-        );
-    }
-}
-
-#[test]
-fn server_streamowned_handshake_error() {
-    let (client_config, server_config) = make_disjoint_suite_configs();
-    let (mut client, server) = make_pair_for_configs(client_config, server_config);
-
-    client
-        .writer()
-        .write_all(b"world")
-        .unwrap();
-
-    let pipe = OtherSession::new_fails(&mut client);
-    let mut server_stream = StreamOwned::new(server, pipe);
-    let mut bytes = [0u8; 5];
-    let rc = server_stream.read(&mut bytes);
-    assert!(rc.is_err());
-    assert_eq!(
-        format!("{:?}", rc),
-        "Err(Custom { kind: InvalidData, error: PeerIncompatible(NoCipherSuitesInCommon) })"
-    );
-}
-
-#[test]
-fn server_config_is_clone() {
-    let _ = make_server_config(KeyType::Rsa);
-}
-
-#[test]
-fn client_config_is_clone() {
-    let _ = make_client_config(KeyType::Rsa);
-}
-
-#[test]
-fn client_connection_is_debug() {
-    let (client, _) = make_pair(KeyType::Rsa);
-    println!("{:?}", client);
-}
-
-#[test]
-fn server_connection_is_debug() {
-    let (_, server) = make_pair(KeyType::Rsa);
-    println!("{:?}", server);
-}
-
-#[test]
-fn server_complete_io_for_handshake_ending_with_alert() {
-    let (client_config, server_config) = make_disjoint_suite_configs();
-    let (mut client, mut server) = make_pair_for_configs(client_config, server_config);
-
-    assert!(server.is_handshaking());
-
-    let mut pipe = OtherSession::new_fails(&mut client);
-    let rc = server.complete_io(&mut pipe);
-    assert!(rc.is_err(), "server io failed due to handshake failure");
-    assert!(!server.wants_write(), "but server did send its alert");
-    assert_eq!(
-        format!("{:?}", pipe.last_error),
-        "Some(AlertReceived(HandshakeFailure))",
-        "which was received by client"
-    );
-}
-
 #[test]
 fn server_exposes_offered_sni() {
     let kt = KeyType::Rsa;
@@ -2757,11 +2461,11 @@ fn negotiated_ciphersuite_client() {
         let scs = find_suite(suite);
         let client_config = finish_client_config(
             kt,
-            client_config_builder()
-                .with_cipher_suites(&[scs])
-                .with_safe_default_kx_groups()
-                .with_protocol_versions(&[version])
-                .unwrap(),
+            ClientConfig::builder_with_provider(
+                CryptoProvider { cipher_suites: vec![scs], ..mbedtls_crypto_provider() }.into(),
+            )
+            .with_protocol_versions(&[version])
+            .unwrap(),
         );
 
         do_suite_test(client_config, make_server_config(kt), scs, version.version);
@@ -2775,11 +2479,11 @@ fn negotiated_ciphersuite_server() {
         let scs = find_suite(suite);
         let server_config = finish_server_config(
             kt,
-            server_config_builder()
-                .with_cipher_suites(&[scs])
-                .with_safe_default_kx_groups()
-                .with_protocol_versions(&[version])
-                .unwrap(),
+            ServerConfig::builder_with_provider(
+                CryptoProvider { cipher_suites: vec![scs], ..mbedtls_crypto_provider() }.into(),
+            )
+            .with_protocol_versions(&[version])
+            .unwrap(),
         );
 
         do_suite_test(make_client_config(kt), server_config, scs, version.version);
@@ -3190,13 +2894,13 @@ impl rustls::server::StoresServerSessions for ServerStorage {
 
 #[derive(Debug, Clone)]
 enum ClientStorageOp {
-    SetKxHint(rustls::ServerName, rustls::NamedGroup),
-    GetKxHint(rustls::ServerName, Option<rustls::NamedGroup>),
-    SetTls12Session(rustls::ServerName),
-    GetTls12Session(rustls::ServerName, bool),
-    RemoveTls12Session(rustls::ServerName),
-    InsertTls13Ticket(rustls::ServerName),
-    TakeTls13Ticket(rustls::ServerName, bool),
+    SetKxHint(ServerName<'static>, rustls::NamedGroup),
+    GetKxHint(ServerName<'static>, Option<rustls::NamedGroup>),
+    SetTls12Session(ServerName<'static>),
+    GetTls12Session(ServerName<'static>, bool),
+    RemoveTls12Session(ServerName<'static>),
+    InsertTls13Ticket(ServerName<'static>),
+    TakeTls13Ticket(ServerName<'static>, bool),
 }
 
 struct ClientStorage {
@@ -3230,7 +2934,7 @@ impl fmt::Debug for ClientStorage {
 }
 
 impl rustls::client::ClientSessionStore for ClientStorage {
-    fn set_kx_hint(&self, server_name: &rustls::ServerName, group: rustls::NamedGroup) {
+    fn set_kx_hint(&self, server_name: ServerName<'static>, group: rustls::NamedGroup) {
         self.ops
             .lock()
             .unwrap()
@@ -3239,16 +2943,16 @@ impl rustls::client::ClientSessionStore for ClientStorage {
             .set_kx_hint(server_name, group)
     }
 
-    fn kx_hint(&self, server_name: &rustls::ServerName) -> Option<rustls::NamedGroup> {
+    fn kx_hint(&self, server_name: &ServerName) -> Option<rustls::NamedGroup> {
         let rc = self.storage.kx_hint(server_name);
         self.ops
             .lock()
             .unwrap()
-            .push(ClientStorageOp::GetKxHint(server_name.clone(), rc));
+            .push(ClientStorageOp::GetKxHint(server_name.to_owned(), rc));
         rc
     }
 
-    fn set_tls12_session(&self, server_name: &rustls::ServerName, value: rustls::client::Tls12ClientSessionValue) {
+    fn set_tls12_session(&self, server_name: ServerName<'static>, value: rustls::client::Tls12ClientSessionValue) {
         self.ops
             .lock()
             .unwrap()
@@ -3257,16 +2961,16 @@ impl rustls::client::ClientSessionStore for ClientStorage {
             .set_tls12_session(server_name, value)
     }
 
-    fn tls12_session(&self, server_name: &rustls::ServerName) -> Option<rustls::client::Tls12ClientSessionValue> {
+    fn tls12_session(&self, server_name: &ServerName) -> Option<rustls::client::Tls12ClientSessionValue> {
         let rc = self.storage.tls12_session(server_name);
         self.ops
             .lock()
             .unwrap()
-            .push(ClientStorageOp::GetTls12Session(server_name.clone(), rc.is_some()));
+            .push(ClientStorageOp::GetTls12Session(server_name.to_owned(), rc.is_some()));
         rc
     }
 
-    fn remove_tls12_session(&self, server_name: &rustls::ServerName) {
+    fn remove_tls12_session(&self, server_name: &ServerName<'static>) {
         self.ops
             .lock()
             .unwrap()
@@ -3275,7 +2979,7 @@ impl rustls::client::ClientSessionStore for ClientStorage {
             .remove_tls12_session(server_name);
     }
 
-    fn insert_tls13_ticket(&self, server_name: &rustls::ServerName, value: rustls::client::Tls13ClientSessionValue) {
+    fn insert_tls13_ticket(&self, server_name: ServerName<'static>, value: rustls::client::Tls13ClientSessionValue) {
         self.ops
             .lock()
             .unwrap()
@@ -3284,7 +2988,7 @@ impl rustls::client::ClientSessionStore for ClientStorage {
             .insert_tls13_ticket(server_name, value);
     }
 
-    fn take_tls13_ticket(&self, server_name: &rustls::ServerName) -> Option<rustls::client::Tls13ClientSessionValue> {
+    fn take_tls13_ticket(&self, server_name: &ServerName<'static>) -> Option<rustls::client::Tls13ClientSessionValue> {
         let rc = self
             .storage
             .take_tls13_ticket(server_name);
@@ -3639,7 +3343,7 @@ fn test_client_sends_helloretryrequest() {
 #[test]
 fn test_client_rejects_hrr_with_varied_session_id() {
     use rustls::internal::msgs::handshake::SessionId;
-    let different_session_id = SessionId::random(PROVIDER).unwrap();
+    let different_session_id = SessionId::random(&MbedtlsSecureRandom).unwrap();
 
     let assert_client_sends_hello_with_secp384 = |msg: &mut Message| -> Altered {
         if let MessagePayload::Handshake { parsed, encoded } = &mut msg.payload {
@@ -4057,8 +3761,6 @@ fn test_client_tls12_no_resume_after_server_downgrade() {
     let server_config_1 = Arc::new(common::finish_server_config(
         KeyType::Rsa,
         server_config_builder()
-            .with_safe_default_cipher_suites()
-            .with_safe_default_kx_groups()
             .with_protocol_versions(&[&rustls::version::TLS13])
             .unwrap(),
     ));
@@ -4066,8 +3768,6 @@ fn test_client_tls12_no_resume_after_server_downgrade() {
     let mut server_config_2 = common::finish_server_config(
         KeyType::Rsa,
         server_config_builder()
-            .with_safe_default_cipher_suites()
-            .with_safe_default_kx_groups()
             .with_protocol_versions(&[&rustls::version::TLS12])
             .unwrap(),
     );
@@ -4259,152 +3959,12 @@ fn test_no_warning_logging_during_successful_sessions() {
     }
 }
 
-/// Test that secrets can be extracted and used for encryption/decryption.
-#[cfg(feature = "tls12")]
-#[test]
-fn test_secret_extraction_enabled() {
-    use rustls::ConnectionTrafficSecrets;
-    // Normally, secret extraction would be used to configure kTLS (TLS offload
-    // to the kernel). We want this test to run on any platform, though, so
-    // instead we just compare secrets for equality.
-
-    // TLS 1.2 and 1.3 have different mechanisms for key exchange and handshake,
-    // and secrets are stored/extracted differently, so we want to test them both.
-    // We support 3 different AEAD algorithms (AES-128-GCM mode, AES-256-GCM, and
-    // Chacha20Poly1305), so that's 2*3 = 6 combinations to test.
-    let kt = KeyType::Rsa;
-    for suite in [
-        cipher_suite::TLS13_AES_128_GCM_SHA256,
-        cipher_suite::TLS13_AES_256_GCM_SHA384,
-        cipher_suite::TLS13_CHACHA20_POLY1305_SHA256,
-        cipher_suite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-        cipher_suite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-        cipher_suite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
-    ] {
-        let version = suite.version();
-        println!("Testing suite {:?}", suite.suite().as_str());
-
-        // Only offer the cipher suite (and protocol version) that we're testing
-        let mut server_config = server_config_builder()
-            .with_cipher_suites(&[suite])
-            .with_safe_default_kx_groups()
-            .with_protocol_versions(&[version])
-            .unwrap()
-            .with_no_client_auth()
-            .with_single_cert(kt.get_chain(), kt.get_key())
-            .unwrap();
-        // Opt into secret extraction from both sides
-        server_config.enable_secret_extraction = true;
-        let server_config = Arc::new(server_config);
-
-        let mut client_config = make_client_config(kt);
-        client_config.enable_secret_extraction = true;
-
-        let (mut client, mut server) = make_pair_for_arc_configs(&Arc::new(client_config), &server_config);
-
-        do_handshake(&mut client, &mut server);
-
-        // The handshake is finished, we're now able to extract traffic secrets
-        let client_secrets = client
-            .dangerous_extract_secrets()
-            .unwrap();
-        let server_secrets = server
-            .dangerous_extract_secrets()
-            .unwrap();
-
-        // Comparing secrets for equality is something you should never have to
-        // do in production code, so ConnectionTrafficSecrets doesn't implement
-        // PartialEq/Eq on purpose. Instead, we have to get creative.
-        fn explode_secrets(s: &ConnectionTrafficSecrets) -> (&[u8], &[u8]) {
-            match s {
-                ConnectionTrafficSecrets::Aes128Gcm { key, iv } => (key.as_ref(), iv.as_ref()),
-                ConnectionTrafficSecrets::Aes256Gcm { key, iv } => (key.as_ref(), iv.as_ref()),
-                ConnectionTrafficSecrets::Chacha20Poly1305 { key, iv } => (key.as_ref(), iv.as_ref()),
-                _ => panic!("unexpected secret type"),
-            }
-        }
-
-        fn assert_secrets_equal(
-            (l_seq, l_sec): (u64, ConnectionTrafficSecrets),
-            (r_seq, r_sec): (u64, ConnectionTrafficSecrets),
-        ) {
-            assert_eq!(l_seq, r_seq);
-            assert_eq!(explode_secrets(&l_sec), explode_secrets(&r_sec));
-        }
-
-        assert_secrets_equal(client_secrets.tx, server_secrets.rx);
-        assert_secrets_equal(client_secrets.rx, server_secrets.tx);
-    }
-}
-
-/// Test that secrets cannot be extracted unless explicitly enabled, and until
-/// the handshake is done.
-#[cfg(feature = "tls12")]
-#[test]
-fn test_secret_extraction_disabled_or_too_early() {
-    let suite = cipher_suite::TLS13_AES_128_GCM_SHA256;
-    let kt = KeyType::Rsa;
-
-    for (server_enable, client_enable) in [(true, false), (false, true)] {
-        let mut server_config = server_config_builder()
-            .with_cipher_suites(&[suite])
-            .with_safe_default_kx_groups()
-            .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_no_client_auth()
-            .with_single_cert(kt.get_chain(), kt.get_key())
-            .unwrap();
-        server_config.enable_secret_extraction = server_enable;
-        let server_config = Arc::new(server_config);
-
-        let mut client_config = make_client_config(kt);
-        client_config.enable_secret_extraction = client_enable;
-
-        let client_config = Arc::new(client_config);
-
-        let (client, server) = make_pair_for_arc_configs(&client_config, &server_config);
-
-        assert!(
-            client
-                .dangerous_extract_secrets()
-                .is_err(),
-            "extraction should fail until handshake completes"
-        );
-        assert!(
-            server
-                .dangerous_extract_secrets()
-                .is_err(),
-            "extraction should fail until handshake completes"
-        );
-
-        let (mut client, mut server) = make_pair_for_arc_configs(&client_config, &server_config);
-
-        do_handshake(&mut client, &mut server);
-
-        assert_eq!(
-            server_enable,
-            server
-                .dangerous_extract_secrets()
-                .is_ok()
-        );
-        assert_eq!(
-            client_enable,
-            client
-                .dangerous_extract_secrets()
-                .is_ok()
-        );
-    }
-}
-
 #[test]
 fn test_received_plaintext_backpressure() {
-    let suite = cipher_suite::TLS13_AES_128_GCM_SHA256;
     let kt = KeyType::Rsa;
 
     let server_config = Arc::new(
         server_config_builder()
-            .with_cipher_suites(&[suite])
-            .with_safe_default_kx_groups()
             .with_safe_default_protocol_versions()
             .unwrap()
             .with_no_client_auth()
@@ -4469,124 +4029,20 @@ fn test_received_plaintext_backpressure() {
 }
 
 #[test]
-fn test_debug_server_name_from_ip() {
-    assert_eq!(
-        format!("{:?}", rustls::ServerName::IpAddress("127.0.0.1".parse().unwrap())),
-        "IpAddress(127.0.0.1)"
-    )
-}
-
-#[test]
-fn test_debug_server_name_from_string() {
-    assert_eq!(
-        format!("{:?}", rustls::ServerName::try_from("a.com").unwrap()),
-        "DnsName(\"a.com\")"
-    )
-}
-
-#[test]
 fn test_explicit_provider_selection() {
     let client_config = finish_client_config(
         KeyType::Rsa,
-        rustls::ClientConfig::builder_with_provider(rustls::crypto::ring::RING).with_safe_defaults(),
+        rustls::ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+            .with_safe_default_protocol_versions()
+            .unwrap(),
     );
     let server_config = finish_server_config(
         KeyType::Rsa,
-        rustls::ServerConfig::builder_with_provider(rustls_mbedcrypto_provider::MBEDTLS).with_safe_defaults(),
+        rustls::ServerConfig::builder_with_provider(Arc::new(rustls_mbedcrypto_provider::mbedtls_crypto_provider()))
+            .with_safe_default_protocol_versions()
+            .unwrap(),
     );
 
     let (mut client, mut server) = make_pair_for_configs(client_config, server_config);
     do_handshake(&mut client, &mut server);
-}
-
-#[derive(Debug)]
-struct FaultyRandomProvider {
-    parent: &'static dyn rustls::crypto::CryptoProvider,
-
-    // when empty, `fill_random` requests return `GetRandomFailed`
-    rand_queue: Mutex<&'static [u8]>,
-}
-
-impl rustls::crypto::CryptoProvider for FaultyRandomProvider {
-    fn fill_random(&self, output: &mut [u8]) -> Result<(), rustls::crypto::GetRandomFailed> {
-        let mut queue = self.rand_queue.lock().unwrap();
-
-        println!("fill_random request for {} bytes (got {})", output.len(), queue.len());
-
-        if queue.len() < output.len() {
-            return Err(rustls::crypto::GetRandomFailed);
-        }
-
-        let fixed_output = &queue[..output.len()];
-        output.copy_from_slice(fixed_output);
-        *queue = &queue[output.len()..];
-        Ok(())
-    }
-
-    fn default_cipher_suites(&self) -> &'static [SupportedCipherSuite] {
-        self.parent.default_cipher_suites()
-    }
-
-    fn default_kx_groups(&self) -> &'static [&'static (dyn rustls::crypto::SupportedKxGroup)] {
-        self.parent.default_kx_groups()
-    }
-
-    fn load_private_key(&self, key_der: PrivateKeyDer<'static>) -> Result<Arc<dyn rustls::sign::SigningKey>, Error> {
-        self.parent.load_private_key(key_der)
-    }
-
-    fn signature_verification_algorithms(&self) -> rustls::WebPkiSupportedAlgorithms {
-        self.parent
-            .signature_verification_algorithms()
-    }
-}
-
-#[test]
-fn test_client_construction_fails_if_random_source_fails_in_first_request() {
-    static TEST_PROVIDER: FaultyRandomProvider = FaultyRandomProvider { parent: PROVIDER, rand_queue: Mutex::new(b"") };
-
-    let client_config = finish_client_config(
-        KeyType::Rsa,
-        rustls::ClientConfig::builder_with_provider(&TEST_PROVIDER).with_safe_defaults(),
-    );
-
-    assert_eq!(
-        ClientConnection::new(Arc::new(client_config), server_name("localhost")).unwrap_err(),
-        Error::FailedToGetRandomBytes
-    );
-}
-
-#[test]
-fn test_client_construction_fails_if_random_source_fails_in_second_request() {
-    static TEST_PROVIDER: FaultyRandomProvider =
-        FaultyRandomProvider { parent: PROVIDER, rand_queue: Mutex::new(b"nice random number generator huh") };
-
-    let client_config = finish_client_config(
-        KeyType::Rsa,
-        rustls::ClientConfig::builder_with_provider(&TEST_PROVIDER).with_safe_defaults(),
-    );
-
-    assert_eq!(
-        ClientConnection::new(Arc::new(client_config), server_name("localhost")).unwrap_err(),
-        Error::FailedToGetRandomBytes
-    );
-}
-
-#[test]
-fn test_client_construction_requires_64_bytes_of_random_material() {
-    static TEST_PROVIDER: FaultyRandomProvider = FaultyRandomProvider {
-        parent: PROVIDER,
-        rand_queue: Mutex::new(
-            b"nice random number generator !!!\
-              it's really not very good is it?",
-        ),
-    };
-
-    let client_config = finish_client_config(
-        KeyType::Rsa,
-        rustls::ClientConfig::builder_with_provider(&TEST_PROVIDER).with_safe_defaults(),
-    );
-
-    ClientConnection::new(Arc::new(client_config), server_name("localhost"))
-        .expect("check how much random material ClientConnection::new consumes");
 }

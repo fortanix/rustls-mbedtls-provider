@@ -202,7 +202,6 @@ mod tests {
 
     fn server_config_with_verifier(client_cert_verifier: MbedTlsClientCertVerifier) -> ServerConfig {
         ServerConfig::builder()
-            .with_safe_defaults()
             .with_client_cert_verifier(Arc::new(client_cert_verifier))
             .with_single_cert(
                 get_chain(include_bytes!("../test-data/rsa/end.fullchain")),
@@ -223,7 +222,7 @@ mod tests {
 
     #[test]
     fn connection_client_cert_verifier() {
-        let client_config = ClientConfig::builder().with_safe_defaults();
+        let client_config = ClientConfig::builder();
         let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());
         let mut root_store = RootCertStore::empty();
         root_store.add(root_ca.clone()).unwrap();
@@ -245,7 +244,7 @@ mod tests {
     }
 
     fn test_connection_client_cert_verifier_with_invalid_certs(invalid_cert_chain: Vec<CertificateDer<'static>>) {
-        let client_config = ClientConfig::builder().with_safe_defaults();
+        let client_config = ClientConfig::builder();
         let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());
         let mut root_store = RootCertStore::empty();
         root_store.add(root_ca.clone()).unwrap();
