@@ -155,3 +155,47 @@ pub(crate) fn hash(hash_algo: &'static Algorithm, data: &[u8]) -> Vec<u8> {
         }
     }
 }
+
+#[cfg(bench)]
+mod benchmarks {
+
+    #[bench]
+    fn bench_sha_256_hash(b: &mut test::Bencher) {
+        bench_hash(b, &super::SHA256);
+    }
+
+    #[bench]
+    fn bench_sha_384_hash(b: &mut test::Bencher) {
+        bench_hash(b, &super::SHA384);
+    }
+
+    #[bench]
+    fn bench_sha_256_hash_multi_parts(b: &mut test::Bencher) {
+        bench_hash_multi_parts(b, &super::SHA256);
+    }
+
+    #[bench]
+    fn bench_sha_384_hash_multi_parts(b: &mut test::Bencher) {
+        bench_hash_multi_parts(b, &super::SHA384);
+    }
+
+    fn bench_hash(b: &mut test::Bencher, hash: &super::Hash) {
+        use super::hash::Hash;
+        let input = [123u8; 1024 * 16];
+        b.iter(|| {
+            test::black_box(hash.hash(&input));
+        });
+    }
+
+    fn bench_hash_multi_parts(b: &mut test::Bencher, hash: &super::Hash) {
+        use super::hash::Hash;
+        let input = [123u8; 1024 * 16];
+        b.iter(|| {
+            let mut ctx = hash.start();
+            for i in 0..16 {
+                test::black_box(ctx.update(&input[i * 1024..(i + 1) * 1024]));
+            }
+            test::black_box(ctx.finish())
+        });
+    }
+}
