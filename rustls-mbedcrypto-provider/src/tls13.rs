@@ -17,10 +17,10 @@ use rustls::crypto::cipher::{
     Tls13AeadAlgorithm, UnsupportedOperationError,
 };
 use rustls::crypto::tls13::HkdfUsingHmac;
+use rustls::crypto::CipherSuiteCommon;
 use rustls::internal::msgs::codec::Codec;
 use rustls::{
-    CipherSuite, CipherSuiteCommon, ConnectionTrafficSecrets, ContentType, Error, ProtocolVersion, SupportedCipherSuite,
-    Tls13CipherSuite,
+    CipherSuite, ConnectionTrafficSecrets, ContentType, Error, ProtocolVersion, SupportedCipherSuite, Tls13CipherSuite,
 };
 
 /// The TLS1.3 ciphersuite TLS_CHACHA20_POLY1305_SHA256
@@ -31,9 +31,12 @@ pub(crate) static TLS13_CHACHA20_POLY1305_SHA256_INTERNAL: &Tls13CipherSuite = &
     common: CipherSuiteCommon {
         suite: CipherSuite::TLS13_CHACHA20_POLY1305_SHA256,
         hash_provider: &super::hash::SHA256,
+        confidentiality_limit: u64::MAX,
+        integrity_limit: 1 << 36,
     },
     hkdf_provider: &HkdfUsingHmac(&super::hmac::HMAC_SHA256),
     aead_alg: &AeadAlgorithm(&aead::CHACHA20_POLY1305),
+    quic: None,
 };
 
 /// The TLS1.3 ciphersuite TLS_AES_256_GCM_SHA384
@@ -41,9 +44,12 @@ pub static TLS13_AES_256_GCM_SHA384: SupportedCipherSuite = SupportedCipherSuite
     common: CipherSuiteCommon {
         suite: CipherSuite::TLS13_AES_256_GCM_SHA384,
         hash_provider: &super::hash::SHA384,
+        confidentiality_limit: 1 << 23,
+        integrity_limit: 1 << 52,
     },
     hkdf_provider: &HkdfUsingHmac(&super::hmac::HMAC_SHA384),
     aead_alg: &AeadAlgorithm(&aead::AES256_GCM),
+    quic: None,
 });
 
 /// The TLS1.3 ciphersuite TLS_AES_128_GCM_SHA256
@@ -51,9 +57,12 @@ pub static TLS13_AES_128_GCM_SHA256: SupportedCipherSuite = SupportedCipherSuite
     common: CipherSuiteCommon {
         suite: CipherSuite::TLS13_AES_128_GCM_SHA256,
         hash_provider: &super::hash::SHA256,
+        confidentiality_limit: 1 << 23,
+        integrity_limit: 1 << 52,
     },
     hkdf_provider: &HkdfUsingHmac(&super::hmac::HMAC_SHA256),
     aead_alg: &AeadAlgorithm(&aead::AES128_GCM),
+    quic: None,
 });
 
 // common encrypter/decrypter/key_len items for above Tls13AeadAlgorithm impls
@@ -95,7 +104,7 @@ struct Tls13MessageDecrypter {
 }
 
 impl MessageEncrypter for Tls13MessageEncrypter {
-    fn encrypt(&self, msg: BorrowedPlainMessage, seq: u64) -> Result<OpaqueMessage, Error> {
+    fn encrypt(&mut self, msg: BorrowedPlainMessage, seq: u64) -> Result<OpaqueMessage, Error> {
         let total_len = msg.payload.len() + 1 + aead::TAG_LEN;
         let mut payload = Vec::with_capacity(total_len);
         payload.extend_from_slice(msg.payload);
@@ -134,10 +143,14 @@ impl MessageEncrypter for Tls13MessageEncrypter {
             payload,
         ))
     }
+
+    fn encrypted_payload_len(&self, payload_len: usize) -> usize {
+        payload_len + 1 + aead::TAG_LEN
+    }
 }
 
 impl MessageDecrypter for Tls13MessageDecrypter {
-    fn decrypt(&self, mut msg: OpaqueMessage, seq: u64) -> Result<PlainMessage, Error> {
+    fn decrypt(&mut self, mut msg: OpaqueMessage, seq: u64) -> Result<PlainMessage, Error> {
         let payload = msg.payload_mut();
         if payload.len() < aead::TAG_LEN {
             return Err(Error::DecryptError);

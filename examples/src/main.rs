@@ -9,7 +9,7 @@ use std::io::{stderr, stdout, Read, Write};
 use std::net::TcpStream;
 use std::sync::Arc;
 
-use rustls_mbedcrypto_provider::MBEDTLS;
+use rustls_mbedcrypto_provider::mbedtls_crypto_provider;
 use rustls_mbedpki_provider::MbedTlsServerCertVerifier;
 
 fn main() {
@@ -21,9 +21,7 @@ fn main() {
         .map(|cert| cert.0.into())
         .collect();
     let server_cert_verifier = MbedTlsServerCertVerifier::new(&root_certs).unwrap();
-    let config = rustls::ClientConfig::builder_with_provider(MBEDTLS)
-        .with_safe_default_cipher_suites()
-        .with_safe_default_kx_groups()
+    let config = rustls::ClientConfig::builder_with_provider(mbedtls_crypto_provider().into())
         .with_safe_default_protocol_versions()
         .unwrap()
         .dangerous()

@@ -91,7 +91,10 @@ pub(crate) mod tls12;
 pub(crate) mod tls13;
 
 use mbedtls::rng::Random;
-use rustls::{SignatureScheme, SupportedCipherSuite, WebPkiSupportedAlgorithms};
+use rustls::{
+    crypto::{CryptoProvider, KeyProvider, SecureRandom, WebPkiSupportedAlgorithms},
+    SignatureScheme, SupportedCipherSuite,
+};
 
 /// RNG supported by *mbedtls*
 pub mod rng {
@@ -115,42 +118,42 @@ pub mod rng {
     }
 }
 
-/// A `CryptoProvider` backed by the [*mbedtls*] crate.
+/// returns a `CryptoProvider` backed by the [*mbedtls*] crate.
 ///
 /// [*mbedtls*]: https://github.com/fortanix/rust-mbedtls
-pub static MBEDTLS: &'static dyn rustls::crypto::CryptoProvider = &Mbedtls;
+pub fn mbedtls_crypto_provider() -> CryptoProvider {
+    CryptoProvider {
+        cipher_suites: ALL_CIPHER_SUITES.to_vec(),
+        kx_groups: ALL_KX_GROUPS.to_vec(),
+        signature_verification_algorithms: SUPPORTED_SIG_ALGS,
+        secure_random: &MbedtlsSecureRandom,
+        key_provider: &MbedtlsKeyProvider,
+    }
+}
 
-/// Crypto provider based on the [*mbedtls*] crate.
-///
-/// [*mbedtls*]: https://github.com/fortanix/rust-mbedtls
 #[derive(Debug)]
-struct Mbedtls;
+/// Implements `SecureRandom` using `mbedtls`
+pub struct MbedtlsSecureRandom;
 
-impl rustls::crypto::CryptoProvider for Mbedtls {
-    fn fill_random(&self, bytes: &mut [u8]) -> Result<(), rustls::crypto::GetRandomFailed> {
+impl SecureRandom for MbedtlsSecureRandom {
+    fn fill(&self, buf: &mut [u8]) -> Result<(), rustls::crypto::GetRandomFailed> {
         rng::rng_new()
             .ok_or(rustls::crypto::GetRandomFailed)?
-            .random(bytes)
+            .random(buf)
             .map_err(|_| rustls::crypto::GetRandomFailed)
     }
+}
 
-    fn default_cipher_suites(&self) -> &'static [SupportedCipherSuite] {
-        ALL_CIPHER_SUITES
-    }
+#[derive(Debug)]
+/// Implements `KeyProvider` using `mbedtls`
+pub struct MbedtlsKeyProvider;
 
-    fn default_kx_groups(&self) -> &'static [&'static dyn rustls::crypto::SupportedKxGroup] {
-        ALL_KX_GROUPS
-    }
-
+impl KeyProvider for MbedtlsKeyProvider {
     fn load_private_key(
         &self,
-        key_der: pki_types::PrivateKeyDer<'static>,
+        key_der: webpki::types::PrivateKeyDer<'static>,
     ) -> Result<alloc::sync::Arc<dyn rustls::sign::SigningKey>, rustls::Error> {
         Ok(alloc::sync::Arc::new(sign::MbedTlsPkSigningKey::new(&key_der)?))
-    }
-
-    fn signature_verification_algorithms(&self) -> WebPkiSupportedAlgorithms {
-        SUPPORTED_SIG_ALGS
     }
 }
 
