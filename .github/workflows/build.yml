@@ -117,6 +117,9 @@ jobs:
 
       - name: Smoke-test benchmark program
         run: cargo run -p rustls-mbedcrypto-provider --release --locked --example bench
+        env:
+          # Ensure benchmark does not take too long time
+          BENCH_MULTIPLIER: 0.3
 
       - name: Run micro-benchmarks
         run: cargo bench --locked --all-features
