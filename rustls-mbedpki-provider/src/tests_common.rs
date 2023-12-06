@@ -12,7 +12,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, ServerName, UnixTime};
+use pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime};
 use rustls::{client::danger::ServerCertVerifier, ClientConnection, ConnectionCommon, ServerConnection, SideData};
 
 /// Get a certificate chain from the contents of a pem file
@@ -29,7 +29,7 @@ pub(crate) fn get_key(bytes: &[u8]) -> PrivateKeyDer {
         .next()
         .unwrap()
         .unwrap();
-    PrivateKeyDer::from(PrivatePkcs8KeyDer::from(value))
+    PrivateKeyDer::from(value)
 }
 
 // Copied from rustls repo

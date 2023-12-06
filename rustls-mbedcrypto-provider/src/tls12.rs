@@ -283,8 +283,7 @@ impl MessageEncrypter for GcmMessageEncrypter {
     }
 
     fn encrypted_payload_len(&self, payload_len: usize) -> usize {
-        const TAG_LEN: usize = 16;
-        payload_len + GCM_EXPLICIT_NONCE_LEN + TAG_LEN
+        payload_len + GCM_EXPLICIT_NONCE_LEN + aead::TAG_LEN
     }
 }
 
