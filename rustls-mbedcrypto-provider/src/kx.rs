@@ -5,17 +5,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::sync::OnceLock;
+
 use super::agreement;
-use crate::error::mbedtls_err_to_rustls_general_error;
+use crate::error::mbedtls_err_to_rustls_error;
 
 use alloc::boxed::Box;
 use alloc::fmt;
 use alloc::format;
-use alloc::vec;
 use alloc::vec::Vec;
 use crypto::SupportedKxGroup;
 use mbedtls::{
-    bignum::Mpi,
     ecp::EcPoint,
     pk::{EcGroup, Pk as PkMbed},
 };
@@ -42,35 +42,25 @@ impl fmt::Debug for KxGroup {
 
 impl SupportedKxGroup for KxGroup {
     fn start(&self) -> Result<Box<dyn crypto::ActiveKeyExchange>, Error> {
-        let mut pk = PkMbed::generate_ec(
-            &mut super::rng::rng_new().ok_or(rustls::crypto::GetRandomFailed)?,
-            self.agreement_algorithm.group_id,
-        )
-        .map_err(|err| rustls::Error::General(format!("Encountered error when generating ec key, mbedtls error: {}", err)))?;
+        let priv_key = generate_ec_key(self.agreement_algorithm.group_id)?;
 
-        fn get_key_pair(pk: &mut PkMbed, kx_group: &KxGroup) -> Result<KeyExchange, mbedtls::Error> {
-            let group = EcGroup::new(kx_group.agreement_algorithm.group_id)?;
-            let pub_key = pk
-                .ec_public()?
-                .to_binary(&group, false)?;
-            let priv_key = pk.ec_private()?.to_binary()?;
-            Ok(KeyExchange {
-                name: kx_group.name,
-                agreement_algorithm: kx_group.agreement_algorithm,
-                priv_key,
-                pub_key,
-            })
-        }
-
-        match get_key_pair(&mut pk, self) {
-            Ok(group) => Ok(Box::new(group)),
-            Err(err) => Err(rustls::Error::General(format!("Unexpected mbedtls error: {}", err))),
-        }
+        Ok(Box::new(KeyExchange {
+            name: self.name,
+            agreement_algorithm: self.agreement_algorithm,
+            priv_key,
+            pub_key: OnceLock::new(),
+        }))
     }
 
     fn name(&self) -> NamedGroup {
         self.name
     }
+}
+
+#[inline]
+fn generate_ec_key(group_id: mbedtls::pk::EcGroupId) -> Result<PkMbed, Error> {
+    PkMbed::generate_ec(&mut super::rng::rng_new().ok_or(rustls::crypto::GetRandomFailed)?, group_id)
+        .map_err(|err| rustls::Error::General(format!("Got error when generating ec key, mbedtls error: {}", err)))
 }
 
 /// Ephemeral ECDH on curve25519 (see RFC7748)
@@ -97,54 +87,119 @@ struct KeyExchange {
     name: NamedGroup,
     /// The corresponding [`agreement::Algorithm`]
     agreement_algorithm: &'static agreement::Algorithm,
-    /// Binary format [`Mpi`]
-    priv_key: Vec<u8>,
-    /// Binary format [`EcPoint`] without compression
-    pub_key: Vec<u8>,
+    /// Private key
+    priv_key: PkMbed,
+    /// Public key in binary format [`EcPoint`] without compression
+    pub_key: OnceLock<Vec<u8>>,
+}
+
+impl KeyExchange {
+    fn get_pub_key(&self) -> mbedtls::Result<Vec<u8>> {
+        let group = EcGroup::new(self.agreement_algorithm.group_id)?;
+        self.priv_key
+            .ec_public()?
+            .to_binary(&group, false)
+    }
 }
 
 impl crypto::ActiveKeyExchange for KeyExchange {
     /// Completes the key exchange, given the peer's public key.
-    fn complete(self: Box<Self>, peer_public_key: &[u8]) -> Result<crypto::SharedSecret, Error> {
-        // Get private key from self data
+    fn complete(mut self: Box<Self>, peer_public_key: &[u8]) -> Result<crypto::SharedSecret, Error> {
         let group_id = self.agreement_algorithm.group_id;
-        let ec_group = EcGroup::new(group_id).map_err(mbedtls_err_to_rustls_general_error)?;
-        let private_key = Mpi::from_binary(&self.priv_key).map_err(mbedtls_err_to_rustls_general_error)?;
 
-        let mut sk =
-            PkMbed::private_from_ec_components(ec_group.clone(), private_key).map_err(mbedtls_err_to_rustls_general_error)?;
         if peer_public_key.len() != self.agreement_algorithm.public_key_len {
-            return Err(Error::General(format!(
-                "Failed to validate {:?} comping peer public key, invalid length",
-                group_id
-            )));
+            return Err(rustls::PeerMisbehaved::InvalidKeyShare.into());
         }
-        let public_point =
-            EcPoint::from_binary_no_compress(&ec_group, peer_public_key).map_err(mbedtls_err_to_rustls_general_error)?;
-        let peer_pk = PkMbed::public_from_ec_components(ec_group, public_point).map_err(mbedtls_err_to_rustls_general_error)?;
 
-        let mut shared_secret = vec![
-            0u8;
-            self.agreement_algorithm
-                .max_signature_len
-        ];
-        let len = sk
+        let peer_pk = parse_peer_public_key(group_id, peer_public_key).map_err(mbedtls_err_to_rustls_error)?;
+
+        let mut shared_key = [0u8; mbedtls::pk::ECDSA_MAX_LEN];
+        let shared_key = &mut shared_key[..self
+            .agreement_algorithm
+            .max_signature_len];
+        let len = self
+            .priv_key
             .agree(
                 &peer_pk,
-                &mut shared_secret,
+                shared_key,
                 &mut super::rng::rng_new().ok_or(rustls::crypto::GetRandomFailed)?,
             )
-            .map_err(mbedtls_err_to_rustls_general_error)?;
-        Ok(crypto::SharedSecret::from(&shared_secret[..len]))
-    }
-
-    /// Return the group being used.
-    fn pub_key(&self) -> &[u8] {
-        &self.pub_key
+            .map_err(mbedtls_err_to_rustls_error)?;
+        Ok(crypto::SharedSecret::from(&shared_key[..len]))
     }
 
     /// Return the public key being used.
+    fn pub_key(&self) -> &[u8] {
+        self.pub_key
+            .get_or_init(|| self.get_pub_key().unwrap_or_default())
+    }
+
+    /// Return the group being used.
     fn group(&self) -> NamedGroup {
         self.name
+    }
+}
+
+#[inline]
+fn parse_peer_public_key(group_id: mbedtls::pk::EcGroupId, peer_public_key: &[u8]) -> Result<PkMbed, mbedtls::Error> {
+    let ec_group = EcGroup::new(group_id)?;
+    let public_point = EcPoint::from_binary_no_compress(&ec_group, peer_public_key)?;
+    PkMbed::public_from_ec_components(ec_group, public_point)
+}
+
+#[cfg(bench)]
+mod benchmarks {
+
+    #[bench]
+    fn bench_ecdh_p256(b: &mut test::Bencher) {
+        bench_any(b, super::SECP256R1);
+    }
+
+    #[bench]
+    fn bench_ecdh_p384(b: &mut test::Bencher) {
+        bench_any(b, super::SECP384R1);
+    }
+
+    #[bench]
+    fn bench_ecdh_p521(b: &mut test::Bencher) {
+        bench_any(b, super::SECP521R1);
+    }
+
+    #[bench]
+    fn bench_x25519(b: &mut test::Bencher) {
+        bench_any(b, super::X25519);
+    }
+
+    fn bench_any(b: &mut test::Bencher, kxg: &dyn super::SupportedKxGroup) {
+        b.iter(|| {
+            let akx = kxg.start().unwrap();
+            let pub_key = akx.pub_key().to_vec();
+            test::black_box(akx.complete(&pub_key).unwrap());
+        });
+    }
+
+    #[bench]
+    fn bench_ecdh_p256_start(b: &mut test::Bencher) {
+        let kxg = super::SECP256R1;
+        b.iter(|| {
+            test::black_box(kxg.start().unwrap());
+        });
+    }
+
+    #[bench]
+    fn bench_ecdh_p256_gen_private_key(b: &mut test::Bencher) {
+        b.iter(|| {
+            test::black_box(super::generate_ec_key(mbedtls::pk::EcGroupId::SecP256R1).unwrap());
+        });
+    }
+
+    #[bench]
+    fn bench_ecdh_p256_parse_peer_pub_key(b: &mut test::Bencher) {
+        let kxg = super::SECP256R1;
+        let akx = kxg.start().unwrap();
+        let pub_key = akx.pub_key().to_vec();
+        b.iter(|| {
+            test::black_box(super::parse_peer_public_key(mbedtls::pk::EcGroupId::SecP256R1, &pub_key).unwrap());
+        });
     }
 }

@@ -5,9 +5,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use alloc::format;
+use alloc::sync::Arc;
 
-/// Convert a [`mbedtls::Error`] to a [`rustls::Error::General`] error.
-pub(crate) fn mbedtls_err_to_rustls_general_error(err: mbedtls::Error) -> rustls::Error {
-    rustls::Error::General(format!("Got mbedtls error: {}", err))
+use rustls::OtherError;
+
+/// Convert a [`mbedtls::Error`] to a [`rustls::Error::Other`] error.
+pub(crate) fn mbedtls_err_to_rustls_error(err: mbedtls::Error) -> rustls::Error {
+    OtherError(Arc::new(err)).into()
 }

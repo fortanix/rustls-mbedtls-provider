@@ -6,7 +6,7 @@
  */
 
 use super::aead;
-use crate::error::mbedtls_err_to_rustls_general_error;
+use crate::error::mbedtls_err_to_rustls_error;
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -120,11 +120,11 @@ impl MessageEncrypter for Tls13MessageEncrypter {
             self.aead_algorithm.cipher_mode,
             (enc_key.len() * 8) as _,
         )
-        .map_err(mbedtls_err_to_rustls_general_error)?;
+        .map_err(mbedtls_err_to_rustls_error)?;
 
         let cipher = cipher
             .set_key_iv(enc_key, &nonce)
-            .map_err(mbedtls_err_to_rustls_general_error)?;
+            .map_err(mbedtls_err_to_rustls_error)?;
 
         cipher
             .encrypt_auth_inplace(&aad, &mut payload, &mut tag)
@@ -133,7 +133,7 @@ impl MessageEncrypter for Tls13MessageEncrypter {
                 | mbedtls::Error::ChachapolyAuthFailed
                 | mbedtls::Error::CipherAuthFailed
                 | mbedtls::Error::GcmAuthFailed => rustls::Error::EncryptError,
-                _ => mbedtls_err_to_rustls_general_error(err),
+                _ => mbedtls_err_to_rustls_error(err),
             })?;
         payload.extend(tag);
 
@@ -165,11 +165,11 @@ impl MessageDecrypter for Tls13MessageDecrypter {
             self.aead_algorithm.cipher_mode,
             (dec_key.len() * 8) as _,
         )
-        .map_err(mbedtls_err_to_rustls_general_error)?;
+        .map_err(mbedtls_err_to_rustls_error)?;
 
         let cipher = cipher
             .set_key_iv(dec_key, &nonce)
-            .map_err(mbedtls_err_to_rustls_general_error)?;
+            .map_err(mbedtls_err_to_rustls_error)?;
 
         let tag_offset = payload
             .len()
@@ -185,7 +185,7 @@ impl MessageDecrypter for Tls13MessageDecrypter {
                 | mbedtls::Error::ChachapolyAuthFailed
                 | mbedtls::Error::CipherAuthFailed
                 | mbedtls::Error::GcmAuthFailed => rustls::Error::DecryptError,
-                _ => mbedtls_err_to_rustls_general_error(err),
+                _ => mbedtls_err_to_rustls_error(err),
             })?;
         payload.truncate(plain_len);
         msg.into_tls13_unpadded_message()

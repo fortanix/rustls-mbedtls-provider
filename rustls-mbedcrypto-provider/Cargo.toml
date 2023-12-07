@@ -43,6 +43,7 @@ webpki-roots = "0.26.0"
 rustls-pemfile = "2"
 env_logger = "0.10"
 log = { version = "0.4.4" }
+bencher = "0.1.5"
 
 [features]
 default = ["logging", "tls12"]
@@ -57,3 +58,10 @@ path = "examples/client.rs"
 [[example]]
 name = "bench"
 path = "examples/internal/bench.rs"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.cargo_check_external_types]
+allowed_external_types = ["rustls_pki_types::*"]
