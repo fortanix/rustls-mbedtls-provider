@@ -5,5 +5,12 @@ members = [
     "rustls-mbedpki-provider",
     "rustls-mbedtls-provider-utils",
 ]
-default-members = ["rustls-mbedcrypto-provider", "rustls-mbedpki-provider", "rustls-mbedtls-provider-utils"]
+default-members = [
+    "rustls-mbedcrypto-provider",
+    "rustls-mbedpki-provider",
+    "rustls-mbedtls-provider-utils",
+]
 resolver = "2"
+
+[patch.crates-io]
+mbedtls = { path = "/home/yuxiang.cao/test_ws/fortanix/rust-mbedtls/mbedtls" }
