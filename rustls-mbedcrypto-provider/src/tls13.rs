@@ -255,12 +255,11 @@ impl HkdfExpander for MbedHkdfHmacExpander {
             .flat_map(|&slice| slice)
             .cloned()
             .collect();
-        let _ = mbedtls::hash::Hkdf::hkdf_expand(self.hash_alg.hash_type, self.prf.as_ref(), &info, tag.as_mut()).map_err(
-            |_err| {
+        let _ =
+            mbedtls::hash::Hkdf::hkdf_expand(self.hash_alg.hash_type, self.prf.as_ref(), &info, tag.as_mut()).map_err(|_err| {
                 error!("MbedHkdfExpander::expand_slice got mbedtls error: {:?}", _err);
                 OutputLengthError
-            },
-        );
+            });
         OkmBlock::new(tag.as_ref())
     }
 
