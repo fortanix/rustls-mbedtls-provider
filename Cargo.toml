@@ -13,4 +13,4 @@ default-members = [
 resolver = "2"
 
 [patch.crates-io]
-mbedtls = { path = "/home/yuxiang.cao/test_ws/fortanix/rust-mbedtls/mbedtls" }
+mbedtls = { git = "https://github.com/fortanix/rust-mbedtls", branch = "yx/add-hkdf" }
