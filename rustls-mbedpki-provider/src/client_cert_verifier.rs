@@ -136,25 +136,29 @@ impl ClientCertVerifier for MbedTlsClientCertVerifier {
             .into_iter()
             .collect();
 
-        verify_certificates_active(chain.iter().map(|c| &**c), now, &self.cert_active_check)?;
+        let self_verify_callback = self.verify_callback.clone();
+        let callback = move |cert: &mbedtls::x509::Certificate, depth: i32, flags: &mut mbedtls::x509::VerifyError| {
+            // When the "time" feature is enabled for mbedtls, it checks cert expiration. We undo that here,
+            // since this check is done in `verify_certificates_active()` (subject to self.cert_active_check)
+            flags.remove(mbedtls::x509::VerifyError::CERT_EXPIRED | mbedtls::x509::VerifyError::CERT_FUTURE);
+            if let Some(cb) = self_verify_callback.as_ref() {
+                cb(cert, depth, flags)
+            } else {
+                Ok(())
+            }
+        };
 
         let mut error_msg = String::default();
-        match &self.verify_callback {
-            Some(callback) => {
-                let callback = Arc::clone(callback);
-                mbedtls::x509::Certificate::verify_with_callback(
-                    &chain,
-                    &self.trusted_cas,
-                    None,
-                    Some(&mut error_msg),
-                    move |cert: &mbedtls::x509::Certificate, depth: i32, flags: &mut mbedtls::x509::VerifyError| {
-                        callback(cert, depth, flags)
-                    },
-                )
-            }
-            None => mbedtls::x509::Certificate::verify(&chain, &self.trusted_cas, None, Some(&mut error_msg)),
-        }
+        mbedtls::x509::Certificate::verify_with_callback(
+            &chain,
+            &self.trusted_cas,
+            None,
+            Some(&mut error_msg),
+            callback
+        )
         .map_err(|e| mbedtls_err_into_rustls_err_with_error_msg(e, &error_msg))?;
+
+        verify_certificates_active(chain.iter().map(|c| &**c), now, &self.cert_active_check)?;
 
         Ok(ClientCertVerified::assertion())
     }
@@ -342,10 +346,13 @@ mod tests {
 
     #[test]
     fn client_cert_verifier_active_check() {
-        let cert_chain = get_chain(include_bytes!("../test-data/rsa/client.fullchain"));
+        // This cert is valid from: Tue Nov 20 16:25:56 PST 2018 until: Mon Feb 18 16:25:56 PST 2019
+        let cert_chain = get_chain(include_bytes!("../test-data/rsa/expired-cert.pem"));
         let trusted_cas = [CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec())];
 
         let mut verifier = MbedTlsClientCertVerifier::new(trusted_cas.iter()).unwrap();
+
+        // Test that we reject expired certs
         let now = SystemTime::from(DateTime::parse_from_rfc3339("2052-11-26T12:00:00+00:00").unwrap());
         let now = UnixTime::since_unix_epoch(
             now.duration_since(SystemTime::UNIX_EPOCH)
@@ -358,12 +365,15 @@ mod tests {
                 .unwrap_err(),
             rustls::Error::InvalidCertificate(CertificateError::Expired)
         );
+
+        // Test that we accept expired certs when `ignore_expired` is true
         verifier.set_cert_active_check(crate::CertActiveCheck { ignore_expired: true, ignore_not_active_yet: false });
 
         assert!(verifier
             .verify_client_cert(&cert_chain[0], &cert_chain[1..], now)
             .is_ok());
 
+        // Test that we reject certs that are not valid yet
         let now = SystemTime::from(DateTime::parse_from_rfc3339("2002-11-26T12:00:00+00:00").unwrap());
         let now = UnixTime::since_unix_epoch(
             now.duration_since(SystemTime::UNIX_EPOCH)
@@ -375,6 +385,8 @@ mod tests {
                 .unwrap_err(),
             rustls::Error::InvalidCertificate(CertificateError::NotValidYet)
         );
+
+        // Test that we accept certs that are not valid yet when `ignore_not_active_yet` is true
         verifier.set_cert_active_check(crate::CertActiveCheck { ignore_expired: false, ignore_not_active_yet: true });
 
         assert!(verifier
