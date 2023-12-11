@@ -44,7 +44,7 @@ extern crate alloc;
 extern crate std;
 
 use chrono::NaiveDateTime;
-use pki_types::CertificateDer;
+use rustls::pki_types::CertificateDer;
 use rustls::SignatureScheme;
 
 #[cfg(test)]

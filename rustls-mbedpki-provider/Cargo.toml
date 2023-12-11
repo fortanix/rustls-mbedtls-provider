@@ -20,9 +20,6 @@ mbedtls = { version = "0.12.0-alpha.2", features = [
 
 x509-parser = "0.15"
 chrono = "0.4"
-pki-types = { package = "rustls-pki-types", version = "1", features = [
-    "std",
-] }
 utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-provider-utils", version = "0.1.0-alpha.1" }
 
 [target.'cfg(target_env = "msvc")'.dependencies]

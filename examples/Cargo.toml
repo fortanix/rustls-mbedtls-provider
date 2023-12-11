@@ -12,5 +12,4 @@ rustls-mbedpki-provider = { path = "../rustls-mbedpki-provider" }
 env_logger = "0.10"
 rustls = { version = "0.22.1", default-features = false }
 rustls-native-certs = "0.7.0"
-rustls-pki-types = "1"
 rustls-pemfile = "2"

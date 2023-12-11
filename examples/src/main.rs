@@ -18,7 +18,7 @@ fn main() {
     let root_certs: Vec<_> = rustls_native_certs::load_native_certs()
         .expect("could not load platform certs")
         .into_iter()
-        .map(|cert| cert.0.into())
+        .map(|cert| cert.into())
         .collect();
     let server_cert_verifier = MbedTlsServerCertVerifier::new(&root_certs).unwrap();
     let config = rustls::ClientConfig::builder_with_provider(mbedtls_crypto_provider().into())

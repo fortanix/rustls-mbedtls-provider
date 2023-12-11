@@ -11,7 +11,7 @@ use std::io;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
-use pki_types::{CertificateDer, CertificateRevocationListDer, PrivateKeyDer, ServerName};
+use rustls::pki_types::{CertificateDer, CertificateRevocationListDer, PrivateKeyDer, ServerName};
 
 use primary_provider::mbedtls_crypto_provider;
 use rustls::client::{ServerCertVerifierBuilder, WebPkiServerVerifier};

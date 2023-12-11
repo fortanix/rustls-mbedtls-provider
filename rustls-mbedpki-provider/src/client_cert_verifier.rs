@@ -10,7 +10,7 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use chrono::NaiveDateTime;
-use pki_types::{CertificateDer, UnixTime};
+use rustls::pki_types::{CertificateDer, UnixTime};
 use rustls::{
     server::danger::{ClientCertVerified, ClientCertVerifier},
     DistinguishedName,
@@ -190,7 +190,7 @@ impl ClientCertVerifier for MbedTlsClientCertVerifier {
 mod tests {
 
     use chrono::DateTime;
-    use pki_types::{CertificateDer, UnixTime};
+    use rustls::pki_types::{CertificateDer, UnixTime};
     use rustls::{
         server::danger::ClientCertVerifier, CertificateError, ClientConfig, ClientConnection, RootCertStore, ServerConfig,
         ServerConnection,
