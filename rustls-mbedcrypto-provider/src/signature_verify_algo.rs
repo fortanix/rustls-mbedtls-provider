@@ -1,7 +1,7 @@
 use super::hash::Algorithm as HashAlgorithm;
 use alloc::vec;
 use mbedtls::pk::{EcGroupId, Pk};
-use pki_types::{AlgorithmIdentifier, InvalidSignature, SignatureVerificationAlgorithm};
+use rustls::pki_types::{AlgorithmIdentifier, InvalidSignature, SignatureVerificationAlgorithm};
 use rustls::SignatureScheme;
 use webpki::alg_id;
 

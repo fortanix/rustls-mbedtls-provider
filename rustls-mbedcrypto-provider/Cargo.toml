@@ -12,14 +12,11 @@ categories = ["network-programming", "cryptography"]
 resolver = "2"
 
 [dependencies]
-rustls = { version = "0.22.0", default-features = false }
+rustls = { version = "0.22.1", default-features = false }
 mbedtls = { version = "0.12.0-alpha.2", default-features = false, features = [
     "std",
 ] }
 log = { version = "0.4.4", optional = true }
-pki-types = { package = "rustls-pki-types", version = "1", features = [
-    "std",
-] }
 webpki = { package = "rustls-webpki", version = "0.102.0", features = [
     "alloc",
     "std",
@@ -36,7 +33,7 @@ mbedtls = { version = "0.12.0-alpha.2", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-rustls = { version = "0.22.0", default-features = false, features = [
+rustls = { version = "0.22.1", default-features = false, features = [
     "ring",
 ] }
 webpki-roots = "0.26.0"

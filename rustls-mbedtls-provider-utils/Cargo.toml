@@ -12,11 +12,8 @@ categories = ["network-programming", "cryptography"]
 resolver = "2"
 
 [dependencies]
-rustls = { version = "0.22.0", default-features = false }
+rustls = { version = "0.22.1", default-features = false }
 mbedtls = { version = "0.12.0-alpha.2", default-features = false, features = [
-    "std",
-] }
-pki-types = { package = "rustls-pki-types", version = "1", features = [
     "std",
 ] }
 
