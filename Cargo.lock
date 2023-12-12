@@ -1175,3 +1175,8 @@ name = "zeroize"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a0956f1ba7c7909bfb66c2e9e4124ab6f6482560f6628b5aaeba39207c9aad9"
+
+[[patch.unused]]
+name = "mbedtls"
+version = "0.12.1"
+source = "git+https://github.com/fortanix/rust-mbedtls?branch=yx/fix-windows-build#96deb191034d8674c27cf914d0474f5122e1bbe5"
