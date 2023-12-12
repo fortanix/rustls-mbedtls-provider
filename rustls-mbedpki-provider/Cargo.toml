@@ -12,7 +12,7 @@ resolver = "2"
 
 [dependencies]
 rustls = { version = "0.22.1", default_features = false }
-mbedtls = { version = "0.12.0-alpha.2", features = [
+mbedtls = { version = "0.12.0", features = [
     "x509",
     "chrono",
     "std",
@@ -22,16 +22,6 @@ x509-parser = "0.15"
 chrono = "0.4"
 utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-provider-utils", version = "0.1.0-alpha.1" }
 
-[target.'cfg(target_env = "msvc")'.dependencies]
-# mbedtls need feature `time` to build when targeting msvc
-mbedtls = { version = "0.12.0-alpha.2", default-features = false, features = [
-    "x509",
-    "chrono",
-    "std",
-    "time",
-] }
-
 [dev-dependencies]
 rustls-pemfile = "2"
 rustls = { version = "0.22.1" }
-

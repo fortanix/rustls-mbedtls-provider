@@ -13,9 +13,7 @@ resolver = "2"
 
 [dependencies]
 rustls = { version = "0.22.1", default-features = false }
-mbedtls = { version = "0.12.0-alpha.2", default-features = false, features = [
-    "std",
-] }
+mbedtls = { version = "0.12.0", default-features = false, features = ["std"] }
 log = { version = "0.4.4", optional = true }
 webpki = { package = "rustls-webpki", version = "0.102.0", features = [
     "alloc",
@@ -25,17 +23,9 @@ utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-p
 yasna = { version = "0.3", default-features = false, features = ["bit-vec"] }
 bit-vec = "0.6.3"
 
-[target.'cfg(target_env = "msvc")'.dependencies]
-# mbedtls need feature `time` to build when targeting msvc
-mbedtls = { version = "0.12.0-alpha.2", default-features = false, features = [
-    "std",
-    "time",
-] }
 
 [dev-dependencies]
-rustls = { version = "0.22.1", default-features = false, features = [
-    "ring",
-] }
+rustls = { version = "0.22.1", default-features = false, features = ["ring"] }
 webpki-roots = "0.26.0"
 rustls-pemfile = "2"
 env_logger = "0.10"

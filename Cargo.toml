@@ -11,6 +11,3 @@ default-members = [
     "rustls-mbedtls-provider-utils",
 ]
 resolver = "2"
-
-[patch.crates-io]
-mbedtls = { git = "https://github.com/fortanix/rust-mbedtls", branch = "yx/add-hkdf" }
