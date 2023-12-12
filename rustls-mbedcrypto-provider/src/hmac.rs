@@ -78,12 +78,12 @@ struct MbedHmacContext {
 impl MbedHmacContext {
     /// Since the trait does not provider a way to return error, empty vector is returned when getting error from `mbedtls`.
     pub(crate) fn finish(self) -> Tag {
-        let mut out = Tag::with_capacity(self.hmac_algo.output_len);
+        let mut out = Tag::with_len(self.hmac_algo.output_len);
         match self.ctx.finish(out.as_mut()) {
             Ok(_) => out,
             Err(_err) => {
                 error!("Failed to finish hmac, mbedtls error: {:?}", _err);
-                Tag::with_capacity(0)
+                Tag::with_len(0)
             }
         }
     }
@@ -118,8 +118,8 @@ impl Tag {
     /// Build a tag with given capacity.
     ///
     /// The slice can be up to [`Tag::MAX_LEN`] bytes in length.
-    pub(crate) fn with_capacity(capacity: usize) -> Self {
-        Self { buf: [0u8; Self::MAX_LEN], used: capacity }
+    pub(crate) fn with_len(len: usize) -> Self {
+        Self { buf: [0u8; Self::MAX_LEN], used: len }
     }
 
     /// Maximum supported HMAC tag size: supports up to SHA512.

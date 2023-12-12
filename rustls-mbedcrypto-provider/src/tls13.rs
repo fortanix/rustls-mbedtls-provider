@@ -202,20 +202,20 @@ impl<'a> Hkdf for MbedHkdfUsingHmac<'a> {
     fn extract_from_zero_ikm(&self, salt: Option<&[u8]>) -> Box<dyn HkdfExpander> {
         let md = self.0.hash_algorithm().hash_type;
         let capacity = self.0.hash_algorithm().output_len;
-        let mut prf = crate::hmac::Tag::with_capacity(capacity);
+        let mut prf = crate::hmac::Tag::with_len(capacity);
         let prf_res = mbedtls::hash::Hkdf::hkdf_extract(md, salt, &ZERO_IKM[..capacity], prf.as_mut()).map(|_| prf);
         Box::new(MbedHkdfHmacExpander { hash_alg: self.0.hash_algorithm(), prf_res })
     }
 
     fn extract_from_secret(&self, salt: Option<&[u8]>, secret: &[u8]) -> Box<dyn HkdfExpander> {
         let md = self.0.hash_algorithm().hash_type;
-        let mut prf = crate::hmac::Tag::with_capacity(self.0.hash_algorithm().output_len);
+        let mut prf = crate::hmac::Tag::with_len(self.0.hash_algorithm().output_len);
         let prf_res = mbedtls::hash::Hkdf::hkdf_extract(md, salt, secret, prf.as_mut()).map(|_| prf);
         Box::new(MbedHkdfHmacExpander { hash_alg: self.0.hash_algorithm(), prf_res })
     }
 
     fn expander_for_okm(&self, okm: &OkmBlock) -> Box<dyn HkdfExpander> {
-        let mut prf = crate::hmac::Tag::with_capacity(okm.as_ref().len());
+        let mut prf = crate::hmac::Tag::with_len(okm.as_ref().len());
         prf.as_mut()
             .copy_from_slice(okm.as_ref());
         Box::new(MbedHkdfHmacExpander { hash_alg: self.0.hash_algorithm(), prf_res: Ok(prf) })
@@ -265,7 +265,7 @@ impl HkdfExpander for MbedHkdfHmacExpander {
             .prf_res
             .as_ref()
             .expect("validated");
-        let mut tag = crate::hmac::Tag::with_capacity(self.hash_alg.output_len);
+        let mut tag = crate::hmac::Tag::with_len(self.hash_alg.output_len);
         let info: Vec<u8> = info
             .iter()
             .flat_map(|&slice| slice)
