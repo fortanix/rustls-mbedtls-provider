@@ -203,24 +203,22 @@ impl<'a> Hkdf for MbedHkdfUsingHmac<'a> {
         let md = self.0.hash_algorithm().hash_type;
         let capacity = self.0.hash_algorithm().output_len;
         let mut prf = crate::hmac::Tag::with_capacity(capacity);
-        let _ = mbedtls::hash::Hkdf::hkdf_extract(md, salt, &ZERO_IKM[..capacity], prf.as_mut())
-            .map_err(|_err| error!("MbedHkdf::extract_from_zero_ikm got mbedtls error: {:?}", _err));
-        Box::new(MbedHkdfHmacExpander { hash_alg: self.0.hash_algorithm(), prf })
+        let prf_res = mbedtls::hash::Hkdf::hkdf_extract(md, salt, &ZERO_IKM[..capacity], prf.as_mut()).map(|_| prf);
+        Box::new(MbedHkdfHmacExpander { hash_alg: self.0.hash_algorithm(), prf_res })
     }
 
     fn extract_from_secret(&self, salt: Option<&[u8]>, secret: &[u8]) -> Box<dyn HkdfExpander> {
         let md = self.0.hash_algorithm().hash_type;
         let mut prf = crate::hmac::Tag::with_capacity(self.0.hash_algorithm().output_len);
-        let _ = mbedtls::hash::Hkdf::hkdf_extract(md, salt, secret, prf.as_mut())
-            .map_err(|_err| error!("MbedHkdf::extract_from_zero_ikm got mbedtls error: {:?}", _err));
-        Box::new(MbedHkdfHmacExpander { hash_alg: self.0.hash_algorithm(), prf })
+        let prf_res = mbedtls::hash::Hkdf::hkdf_extract(md, salt, secret, prf.as_mut()).map(|_| prf);
+        Box::new(MbedHkdfHmacExpander { hash_alg: self.0.hash_algorithm(), prf_res })
     }
 
     fn expander_for_okm(&self, okm: &OkmBlock) -> Box<dyn HkdfExpander> {
         let mut prf = crate::hmac::Tag::with_capacity(okm.as_ref().len());
         prf.as_mut()
             .copy_from_slice(okm.as_ref());
-        Box::new(MbedHkdfHmacExpander { hash_alg: self.0.hash_algorithm(), prf })
+        Box::new(MbedHkdfHmacExpander { hash_alg: self.0.hash_algorithm(), prf_res: Ok(prf) })
     }
 
     fn hmac_sign(&self, key: &OkmBlock, message: &[u8]) -> rustls::crypto::hmac::Tag {
@@ -232,34 +230,49 @@ impl<'a> Hkdf for MbedHkdfUsingHmac<'a> {
 
 struct MbedHkdfHmacExpander {
     hash_alg: &'static super::hash::Algorithm,
-    prf: crate::hmac::Tag,
+    prf_res: Result<crate::hmac::Tag, mbedtls::Error>,
 }
 
 impl HkdfExpander for MbedHkdfHmacExpander {
     fn expand_slice(&self, info: &[&[u8]], output: &mut [u8]) -> Result<(), OutputLengthError> {
+        let prf = self.prf_res.as_ref().map_err(|_err| {
+            error!(
+                "MbedHkdfExpander::expand_slice got mbedtls error from creation call in Hkdf trait: {:?}",
+                _err
+            );
+            OutputLengthError
+        })?;
         let info: Vec<u8> = info
             .iter()
             .flat_map(|&slice| slice)
             .cloned()
             .collect();
-        mbedtls::hash::Hkdf::hkdf_expand(self.hash_alg.hash_type, self.prf.as_ref(), &info, output).map_err(|_err| {
+        mbedtls::hash::Hkdf::hkdf_expand(self.hash_alg.hash_type, prf.as_ref(), &info, output).map_err(|_err| {
             error!("MbedHkdfExpander::expand_slice got mbedtls error: {:?}", _err);
             OutputLengthError
         })
     }
 
     fn expand_block(&self, info: &[&[u8]]) -> OkmBlock {
+        if let Err(_err) = self.prf_res.as_ref() {
+            error!(
+                "MbedHkdfExpander::expand_block got mbedtls error from creation call in Hkdf trait: {:?}",
+                _err
+            );
+            return OkmBlock::new(&[]);
+        }
+        let prf = self
+            .prf_res
+            .as_ref()
+            .expect("validated");
         let mut tag = crate::hmac::Tag::with_capacity(self.hash_alg.output_len);
         let info: Vec<u8> = info
             .iter()
             .flat_map(|&slice| slice)
             .cloned()
             .collect();
-        let _ =
-            mbedtls::hash::Hkdf::hkdf_expand(self.hash_alg.hash_type, self.prf.as_ref(), &info, tag.as_mut()).map_err(|_err| {
-                error!("MbedHkdfExpander::expand_slice got mbedtls error: {:?}", _err);
-                OutputLengthError
-            });
+        let _ = mbedtls::hash::Hkdf::hkdf_expand(self.hash_alg.hash_type, prf.as_ref(), &info, tag.as_mut())
+            .map_err(|_err| error!("MbedHkdfExpander::expand_block got mbedtls error: {:?}", _err));
         OkmBlock::new(tag.as_ref())
     }
 

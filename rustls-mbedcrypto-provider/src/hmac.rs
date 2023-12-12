@@ -111,7 +111,7 @@ impl Tag {
     /// The slice can be up to [`Tag::MAX_LEN`] bytes in length.
     pub(crate) fn new(bytes: &[u8]) -> Self {
         let mut tag = Self { buf: [0u8; Self::MAX_LEN], used: bytes.len() };
-        tag.buf[..bytes.len()].copy_from_slice(bytes);
+        tag.buf[..tag.used].copy_from_slice(bytes);
         tag
     }
 
