@@ -11,7 +11,7 @@ use std::ops::DerefMut;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 
 use rustls::client::Resumption;
 use rustls::crypto::ring::Ticketer;

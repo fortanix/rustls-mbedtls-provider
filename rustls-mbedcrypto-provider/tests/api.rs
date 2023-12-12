@@ -18,7 +18,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use pki_types::{CertificateDer, ServerName, UnixTime};
 use primary_provider::sign::MbedTlsPkSigningKey as RsaSigningKey;
 use primary_provider::{mbedtls_crypto_provider, MbedtlsSecureRandom};
 use rustls::client::{verify_server_cert_signed_by_trust_anchor, ResolvesClientCert, Resumption};
@@ -28,6 +27,7 @@ use rustls::internal::msgs::codec::Codec;
 use rustls::internal::msgs::enums::AlertLevel;
 use rustls::internal::msgs::handshake::{ClientExtension, HandshakePayload};
 use rustls::internal::msgs::message::{Message, MessagePayload, PlainMessage};
+use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::server::{ClientHello, ParsedCertificate, ResolvesServerCert};
 use rustls::DistinguishedName;
 use rustls::SupportedCipherSuite;

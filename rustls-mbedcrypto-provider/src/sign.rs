@@ -3,7 +3,7 @@ use alloc::vec;
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::fmt::Debug;
 use mbedtls::pk::{EcGroupId, ECDSA_MAX_LEN};
-use rustls::SignatureScheme;
+use rustls::{pki_types, SignatureScheme};
 use std::sync::Mutex;
 use utils::error::mbedtls_err_into_rustls_err;
 use utils::hash::{buffer_for_hash_type, rustls_signature_scheme_to_mbedtls_hash_type};

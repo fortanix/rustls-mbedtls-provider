@@ -11,9 +11,9 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use chrono::NaiveDateTime;
-use pki_types::ServerName;
-use pki_types::{CertificateDer, UnixTime};
 use rustls::client::danger::{ServerCertVerified, ServerCertVerifier};
+use rustls::pki_types::ServerName;
+use rustls::pki_types::{CertificateDer, UnixTime};
 use utils::error::mbedtls_err_into_rustls_err_with_error_msg;
 
 use crate::{
@@ -198,7 +198,7 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
 mod tests {
     use std::{sync::Arc, time::SystemTime};
 
-    use pki_types::{CertificateDer, UnixTime};
+    use rustls::pki_types::{CertificateDer, UnixTime};
     use rustls::{
         client::danger::ServerCertVerifier,
         version::{TLS12, TLS13},

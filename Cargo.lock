@@ -202,9 +202,9 @@ dependencies = [
 
 [[package]]
 name = "core-foundation"
-version = "0.9.3"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "194a7a9e6de53fa55116934067c844d9d749312f75c6f6d0980e8c252f8c2146"
+checksum = "91e195e091a93c46f7102ec7818a2aa394e1e1771c3ab4825963fa03e45afb8f"
 dependencies = [
  "core-foundation-sys",
  "libc",
@@ -212,9 +212,9 @@ dependencies = [
 
 [[package]]
 name = "core-foundation-sys"
-version = "0.8.4"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e496a50fda8aacccc86d7529e2c1e0892dbd0f898a6b5645b5561b89c3210efa"
+checksum = "06ea2b9bc92be3c2baa9334a323ebca2d6f074ff852cd1d7b11064035cd3868f"
 
 [[package]]
 name = "data-encoding"
@@ -663,9 +663,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.22.0"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bc238b76c51bbc449c55ffbc39d03772a057cc8cf783c49d4af4c2537b74a8b"
+checksum = "fe6b63262c9fcac8659abfaa96cac103d28166d3ff3eaf8f412e19f3ae9e5a48"
 dependencies = [
  "log",
  "ring",
@@ -686,8 +686,7 @@ dependencies = [
  "mbedtls",
  "rustls",
  "rustls-mbedtls-provider-utils",
- "rustls-pemfile 2.0.0",
- "rustls-pki-types",
+ "rustls-pemfile",
  "rustls-webpki",
  "webpki-roots",
  "yasna 0.3.2",
@@ -701,8 +700,7 @@ dependencies = [
  "mbedtls",
  "rustls",
  "rustls-mbedtls-provider-utils",
- "rustls-pemfile 2.0.0",
- "rustls-pki-types",
+ "rustls-pemfile",
  "x509-parser",
 ]
 
@@ -715,8 +713,7 @@ dependencies = [
  "rustls-mbedcrypto-provider",
  "rustls-mbedpki-provider",
  "rustls-native-certs",
- "rustls-pemfile 2.0.0",
- "rustls-pki-types",
+ "rustls-pemfile",
 ]
 
 [[package]]
@@ -725,28 +722,19 @@ version = "0.1.0-alpha.1"
 dependencies = [
  "mbedtls",
  "rustls",
- "rustls-pki-types",
 ]
 
 [[package]]
 name = "rustls-native-certs"
-version = "0.6.3"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9aace74cb666635c918e9c12bc0d348266037aa8eb599b5cba565709a8dff00"
+checksum = "8f1fb85efa936c42c6d5fc28d2629bb51e4b2f4b8a5211e297d599cc5a093792"
 dependencies = [
  "openssl-probe",
- "rustls-pemfile 1.0.3",
+ "rustls-pemfile",
+ "rustls-pki-types",
  "schannel",
  "security-framework",
-]
-
-[[package]]
-name = "rustls-pemfile"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d3987094b1d07b653b7dfdc3f70ce9a1da9c51ac18c1b06b662e4f9a0e9f4b2"
-dependencies = [
- "base64",
 ]
 
 [[package]]
