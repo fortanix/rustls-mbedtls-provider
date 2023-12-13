@@ -99,7 +99,7 @@ impl MbedHmacContext {
 }
 
 /// A HMAC tag, stored as a value.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub(crate) struct Tag {
     buf: [u8; Self::MAX_LEN],
     used: usize,
@@ -147,5 +147,47 @@ impl AsMut<[u8]> for Tag {
 impl From<Tag> for rustls::crypto::hmac::Tag {
     fn from(val: Tag) -> Self {
         Self::new(&val.buf[..val.used])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rustls::crypto::hmac::Hmac;
+
+    use super::*;
+
+    #[test]
+    fn test_hmac_sha256_tag_length() {
+        let hmac = &HMAC_SHA256;
+        let key_len = 256 / 8;
+        let key = vec![0u8; key_len];
+        test_hmac_tag_length_helper(hmac, &key, key_len);
+    }
+
+    #[test]
+    fn test_hmac_sha384_tag_length() {
+        let hmac = &HMAC_SHA384;
+        let key_len = 384 / 8;
+        let key = vec![0u8; key_len];
+        test_hmac_tag_length_helper(hmac, &key, key_len);
+    }
+
+    fn test_hmac_tag_length_helper(hmac: &super::Hmac, key: &[u8], key_len: usize) {
+        let hmac_key = hmac.with_key(key);
+        assert_eq!(hmac.hash_output_len(), hmac_key.tag_len());
+        assert_eq!(hmac.hash_output_len(), key_len);
+    }
+
+    #[test]
+    fn test_mbed_hmac_context_error() {
+        let key_len = 256 / 8;
+        let key = vec![0u8; key_len];
+        let mut bad_ctx = MbedHmacContext {
+            hmac_algo: &crate::hash::MBED_SHA_256,
+            ctx: mbedtls::hash::Hmac::new(crate::hash::MBED_SHA_384.hash_type, &key).unwrap(),
+        };
+        bad_ctx.update(&[]);
+        let tag = bad_ctx.finish();
+        assert_eq!(tag, Tag::with_len(0));
     }
 }

@@ -281,6 +281,67 @@ impl HkdfExpander for MbedHkdfHmacExpander {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::aead::Algorithm;
+
+    use super::*;
+    const NONCE_LEN: usize = 12;
+    const MAX_LEN: usize = 32;
+
+    static UNSUPPORTED_ALGORITHM: Algorithm = Algorithm {
+        key_length: 256 / 8,
+        cipher_type: CipherType::Aes256Cbc,
+        cipher_id: mbedtls::cipher::raw::CipherId::Aes,
+        cipher_mode: mbedtls::cipher::raw::CipherMode::CBC,
+    };
+
+    #[test]
+    fn test_extract_keys() {
+        let algorithm = AeadAlgorithm(&aead::AES128_GCM);
+        let key_bytes: [u8; MAX_LEN] = [1; MAX_LEN];
+        let key = key_bytes.into();
+        let iv_bytes: [u8; NONCE_LEN] = [2; NONCE_LEN];
+        let iv = Iv::new(iv_bytes);
+        let _result = algorithm.extract_keys(key, iv).unwrap();
+
+        let algorithm = AeadAlgorithm(&aead::AES256_GCM);
+        let key_bytes: [u8; MAX_LEN] = [3; MAX_LEN];
+        let key = key_bytes.into();
+        let iv_bytes: [u8; NONCE_LEN] = [4; NONCE_LEN];
+        let iv = Iv::new(iv_bytes);
+        let _result = algorithm.extract_keys(key, iv).unwrap();
+
+        let algorithm = AeadAlgorithm(&aead::CHACHA20_POLY1305);
+        let key_bytes: [u8; MAX_LEN] = [5; MAX_LEN];
+        let key = key_bytes.into();
+        let iv_bytes: [u8; NONCE_LEN] = [6; NONCE_LEN];
+        let iv = Iv::new(iv_bytes);
+        let _result = algorithm.extract_keys(key, iv).unwrap();
+
+        let algorithm = AeadAlgorithm(&UNSUPPORTED_ALGORITHM);
+        let key_bytes: [u8; MAX_LEN] = [7; MAX_LEN];
+        let key = key_bytes.into();
+        let iv_bytes: [u8; NONCE_LEN] = [8; NONCE_LEN];
+        let iv = Iv::new(iv_bytes);
+        let result = algorithm.extract_keys(key, iv).is_err();
+        assert!(result);
+    }
+
+    #[test]
+    fn test_expander_error() {
+        let hash_alg = &crate::hash::MBED_SHA_256;
+        let expander = MbedHkdfHmacExpander { hash_alg, prf_res: Err(mbedtls::Error::AesBadInputData) };
+        assert!(expander
+            .expand_slice(&[&[]], &mut [])
+            .is_err());
+        let okm_block = &OkmBlock::new(&[]);
+        let expected: &[u8] = okm_block.as_ref();
+        assert_eq!(expander.expand_block(&[&[]]).as_ref(), expected);
+        assert_eq!(expander.hash_len(), hash_alg.output_len);
+    }
+}
+
 #[cfg(bench)]
 mod benchmarks {
     use rustls::crypto::tls13::{expand, Hkdf};
