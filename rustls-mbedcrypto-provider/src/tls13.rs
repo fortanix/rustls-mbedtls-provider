@@ -7,6 +7,7 @@
 
 use super::aead;
 use crate::error::mbedtls_err_to_rustls_error;
+use crate::log::error;
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -16,7 +17,8 @@ use rustls::crypto::cipher::{
     make_tls13_aad, AeadKey, BorrowedPlainMessage, Iv, MessageDecrypter, MessageEncrypter, Nonce, OpaqueMessage, PlainMessage,
     Tls13AeadAlgorithm, UnsupportedOperationError,
 };
-use rustls::crypto::tls13::HkdfUsingHmac;
+use rustls::crypto::hmac::Hmac;
+use rustls::crypto::tls13::{Hkdf, HkdfExpander, OkmBlock, OutputLengthError};
 use rustls::crypto::CipherSuiteCommon;
 use rustls::internal::msgs::codec::Codec;
 use rustls::{
@@ -34,7 +36,7 @@ pub(crate) static TLS13_CHACHA20_POLY1305_SHA256_INTERNAL: &Tls13CipherSuite = &
         confidentiality_limit: u64::MAX,
         integrity_limit: 1 << 36,
     },
-    hkdf_provider: &HkdfUsingHmac(&super::hmac::HMAC_SHA256),
+    hkdf_provider: &MbedHkdfUsingHmac(&super::hmac::HMAC_SHA256),
     aead_alg: &AeadAlgorithm(&aead::CHACHA20_POLY1305),
     quic: None,
 };
@@ -47,7 +49,7 @@ pub static TLS13_AES_256_GCM_SHA384: SupportedCipherSuite = SupportedCipherSuite
         confidentiality_limit: 1 << 23,
         integrity_limit: 1 << 52,
     },
-    hkdf_provider: &HkdfUsingHmac(&super::hmac::HMAC_SHA384),
+    hkdf_provider: &MbedHkdfUsingHmac(&super::hmac::HMAC_SHA384),
     aead_alg: &AeadAlgorithm(&aead::AES256_GCM),
     quic: None,
 });
@@ -60,7 +62,7 @@ pub static TLS13_AES_128_GCM_SHA256: SupportedCipherSuite = SupportedCipherSuite
         confidentiality_limit: 1 << 23,
         integrity_limit: 1 << 52,
     },
-    hkdf_provider: &HkdfUsingHmac(&super::hmac::HMAC_SHA256),
+    hkdf_provider: &MbedHkdfUsingHmac(&super::hmac::HMAC_SHA256),
     aead_alg: &AeadAlgorithm(&aead::AES128_GCM),
     quic: None,
 });
@@ -189,5 +191,199 @@ impl MessageDecrypter for Tls13MessageDecrypter {
             })?;
         payload.truncate(plain_len);
         msg.into_tls13_unpadded_message()
+    }
+}
+
+struct MbedHkdfUsingHmac<'a>(&'a super::hmac::Hmac);
+
+const ZERO_IKM: [u8; crate::hmac::Tag::MAX_LEN] = [0u8; crate::hmac::Tag::MAX_LEN];
+
+impl<'a> Hkdf for MbedHkdfUsingHmac<'a> {
+    fn extract_from_zero_ikm(&self, salt: Option<&[u8]>) -> Box<dyn HkdfExpander> {
+        let md = self.0.hash_algorithm().hash_type;
+        let capacity = self.0.hash_algorithm().output_len;
+        let mut prf = crate::hmac::Tag::with_len(capacity);
+        let prf_res = mbedtls::hash::Hkdf::hkdf_extract(md, salt, &ZERO_IKM[..capacity], prf.as_mut()).map(|_| prf);
+        Box::new(MbedHkdfHmacExpander { hash_alg: self.0.hash_algorithm(), prf_res })
+    }
+
+    fn extract_from_secret(&self, salt: Option<&[u8]>, secret: &[u8]) -> Box<dyn HkdfExpander> {
+        let md = self.0.hash_algorithm().hash_type;
+        let mut prf = crate::hmac::Tag::with_len(self.0.hash_algorithm().output_len);
+        let prf_res = mbedtls::hash::Hkdf::hkdf_extract(md, salt, secret, prf.as_mut()).map(|_| prf);
+        Box::new(MbedHkdfHmacExpander { hash_alg: self.0.hash_algorithm(), prf_res })
+    }
+
+    fn expander_for_okm(&self, okm: &OkmBlock) -> Box<dyn HkdfExpander> {
+        let mut prf = crate::hmac::Tag::with_len(okm.as_ref().len());
+        prf.as_mut()
+            .copy_from_slice(okm.as_ref());
+        Box::new(MbedHkdfHmacExpander { hash_alg: self.0.hash_algorithm(), prf_res: Ok(prf) })
+    }
+
+    fn hmac_sign(&self, key: &OkmBlock, message: &[u8]) -> rustls::crypto::hmac::Tag {
+        self.0
+            .with_key(key.as_ref())
+            .sign(&[message])
+    }
+}
+
+struct MbedHkdfHmacExpander {
+    hash_alg: &'static super::hash::Algorithm,
+    prf_res: Result<crate::hmac::Tag, mbedtls::Error>,
+}
+
+impl HkdfExpander for MbedHkdfHmacExpander {
+    fn expand_slice(&self, info: &[&[u8]], output: &mut [u8]) -> Result<(), OutputLengthError> {
+        let prf = self.prf_res.as_ref().map_err(|_err| {
+            error!(
+                "MbedHkdfExpander::expand_slice got mbedtls error from creation call in Hkdf trait: {:?}",
+                _err
+            );
+            OutputLengthError
+        })?;
+        let info: Vec<u8> = info
+            .iter()
+            .flat_map(|&slice| slice)
+            .cloned()
+            .collect();
+        mbedtls::hash::Hkdf::hkdf_expand(self.hash_alg.hash_type, prf.as_ref(), &info, output).map_err(|_err| {
+            error!("MbedHkdfExpander::expand_slice got mbedtls error: {:?}", _err);
+            OutputLengthError
+        })
+    }
+
+    fn expand_block(&self, info: &[&[u8]]) -> OkmBlock {
+        if let Err(_err) = self.prf_res.as_ref() {
+            error!(
+                "MbedHkdfExpander::expand_block got mbedtls error from creation call in Hkdf trait: {:?}",
+                _err
+            );
+            return OkmBlock::new(&[]);
+        }
+        let prf = self
+            .prf_res
+            .as_ref()
+            .expect("validated");
+        let mut tag = crate::hmac::Tag::with_len(self.hash_alg.output_len);
+        let info: Vec<u8> = info
+            .iter()
+            .flat_map(|&slice| slice)
+            .cloned()
+            .collect();
+        let _ = mbedtls::hash::Hkdf::hkdf_expand(self.hash_alg.hash_type, prf.as_ref(), &info, tag.as_mut())
+            .map_err(|_err| error!("MbedHkdfExpander::expand_block got mbedtls error: {:?}", _err));
+        OkmBlock::new(tag.as_ref())
+    }
+
+    fn hash_len(&self) -> usize {
+        self.hash_alg.output_len
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::aead::Algorithm;
+
+    use super::*;
+    const NONCE_LEN: usize = 12;
+    const MAX_LEN: usize = 32;
+
+    static UNSUPPORTED_ALGORITHM: Algorithm = Algorithm {
+        key_length: 256 / 8,
+        cipher_type: CipherType::Aes256Cbc,
+        cipher_id: mbedtls::cipher::raw::CipherId::Aes,
+        cipher_mode: mbedtls::cipher::raw::CipherMode::CBC,
+    };
+
+    #[test]
+    fn test_extract_keys() {
+        let algorithm = AeadAlgorithm(&aead::AES128_GCM);
+        let key_bytes: [u8; MAX_LEN] = [1; MAX_LEN];
+        let key = key_bytes.into();
+        let iv_bytes: [u8; NONCE_LEN] = [2; NONCE_LEN];
+        let iv = Iv::new(iv_bytes);
+        let _result = algorithm.extract_keys(key, iv).unwrap();
+
+        let algorithm = AeadAlgorithm(&aead::AES256_GCM);
+        let key_bytes: [u8; MAX_LEN] = [3; MAX_LEN];
+        let key = key_bytes.into();
+        let iv_bytes: [u8; NONCE_LEN] = [4; NONCE_LEN];
+        let iv = Iv::new(iv_bytes);
+        let _result = algorithm.extract_keys(key, iv).unwrap();
+
+        let algorithm = AeadAlgorithm(&aead::CHACHA20_POLY1305);
+        let key_bytes: [u8; MAX_LEN] = [5; MAX_LEN];
+        let key = key_bytes.into();
+        let iv_bytes: [u8; NONCE_LEN] = [6; NONCE_LEN];
+        let iv = Iv::new(iv_bytes);
+        let _result = algorithm.extract_keys(key, iv).unwrap();
+
+        let algorithm = AeadAlgorithm(&UNSUPPORTED_ALGORITHM);
+        let key_bytes: [u8; MAX_LEN] = [7; MAX_LEN];
+        let key = key_bytes.into();
+        let iv_bytes: [u8; NONCE_LEN] = [8; NONCE_LEN];
+        let iv = Iv::new(iv_bytes);
+        let result = algorithm.extract_keys(key, iv).is_err();
+        assert!(result);
+    }
+
+    #[test]
+    fn test_expander_error() {
+        let hash_alg = &crate::hash::MBED_SHA_256;
+        let expander = MbedHkdfHmacExpander { hash_alg, prf_res: Err(mbedtls::Error::AesBadInputData) };
+        assert!(expander
+            .expand_slice(&[&[]], &mut [])
+            .is_err());
+        let okm_block = &OkmBlock::new(&[]);
+        let expected: &[u8] = okm_block.as_ref();
+        assert_eq!(expander.expand_block(&[&[]]).as_ref(), expected);
+        assert_eq!(expander.hash_len(), hash_alg.output_len);
+    }
+}
+
+#[cfg(bench)]
+mod benchmarks {
+    use rustls::crypto::tls13::{expand, Hkdf};
+
+    use crate::hmac::HMAC_SHA256;
+
+    struct ByteArray<const N: usize>([u8; N]);
+
+    impl<const N: usize> From<[u8; N]> for ByteArray<N> {
+        fn from(array: [u8; N]) -> Self {
+            Self(array)
+        }
+    }
+
+    #[bench]
+    fn bench_mbedtls_hkdf(b: &mut test::Bencher) {
+        bench_hkdf(b, &rustls::crypto::tls13::HkdfUsingHmac(&HMAC_SHA256));
+    }
+
+    #[bench]
+    fn bench_rustls_hkdf_mbedtls_hmac(b: &mut test::Bencher) {
+        bench_hkdf(b, &super::MbedHkdfUsingHmac(&HMAC_SHA256));
+    }
+
+    fn bench_hkdf(b: &mut test::Bencher, hkdf: &dyn Hkdf) {
+        let ikm = &[0x0b; 22];
+        let salt = &[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c];
+        let info: &[&[u8]] = &[&[0xf0, 0xf1, 0xf2], &[0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9]];
+        b.iter(|| {
+            let output: ByteArray<42> = expand(
+                hkdf.extract_from_secret(Some(salt), ikm)
+                    .as_ref(),
+                info,
+            );
+            assert_eq!(
+                &output.0,
+                &[
+                    0x3c, 0xb2, 0x5f, 0x25, 0xfa, 0xac, 0xd5, 0x7a, 0x90, 0x43, 0x4f, 0x64, 0xd0, 0x36, 0x2f, 0x2a, 0x2d, 0x2d,
+                    0x0a, 0x90, 0xcf, 0x1a, 0x5a, 0x4c, 0x5d, 0xb0, 0x2d, 0x56, 0xec, 0xc4, 0xc5, 0xbf, 0x34, 0x00, 0x72, 0x08,
+                    0xd5, 0xb8, 0x87, 0x18, 0x58, 0x65
+                ]
+            );
+        });
     }
 }

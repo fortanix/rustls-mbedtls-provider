@@ -1,6 +1,6 @@
 [package]
 name = "rustls-mbedcrypto-provider"
-version = "0.0.1-alpha.1"
+version = "0.0.1"
 edition = "2021"
 license = "MPL-2.0"
 description = "Mbedtls based crypto provider for rustls."
@@ -13,29 +13,19 @@ resolver = "2"
 
 [dependencies]
 rustls = { version = "0.22.1", default-features = false }
-mbedtls = { version = "0.12.0-alpha.2", default-features = false, features = [
-    "std",
-] }
+mbedtls = { version = "0.12.1", default-features = false, features = ["std"] }
 log = { version = "0.4.4", optional = true }
 webpki = { package = "rustls-webpki", version = "0.102.0", features = [
     "alloc",
     "std",
 ], default-features = false }
-utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-provider-utils", version = "0.1.0-alpha.1" }
+utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-provider-utils", version = "0.1.0" }
 yasna = { version = "0.3", default-features = false, features = ["bit-vec"] }
 bit-vec = "0.6.3"
 
-[target.'cfg(target_env = "msvc")'.dependencies]
-# mbedtls need feature `time` to build when targeting msvc
-mbedtls = { version = "0.12.0-alpha.2", default-features = false, features = [
-    "std",
-    "time",
-] }
 
 [dev-dependencies]
-rustls = { version = "0.22.1", default-features = false, features = [
-    "ring",
-] }
+rustls = { version = "0.22.1", default-features = false, features = ["ring"] }
 webpki-roots = "0.26.0"
 rustls-pemfile = "2"
 env_logger = "0.10"
@@ -59,6 +49,3 @@ path = "examples/internal/bench.rs"
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
-
-[package.metadata.cargo_check_external_types]
-allowed_external_types = ["rustls_pki_types::*"]
