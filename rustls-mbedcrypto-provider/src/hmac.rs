@@ -54,19 +54,25 @@ impl crypto::hmac::Key for HmacKey {
 
 struct MbedHmacKey {
     hmac_algo: &'static super::hash::Algorithm,
-    key: Tag,
+    key: Vec<u8>,
 }
 
 impl MbedHmacKey {
     pub(crate) fn new(hmac_algo: &'static super::hash::Algorithm, key: &[u8]) -> Self {
-        Self { hmac_algo, key: Tag::new(key) }
+        Self { hmac_algo, key: key.to_vec() }
     }
 
     pub(crate) fn starts(&self) -> MbedHmacContext {
         MbedHmacContext {
             hmac_algo: self.hmac_algo,
-            ctx: mbedtls::hash::Hmac::new(self.hmac_algo.hash_type, self.key.as_ref()).expect("input validated"),
+            ctx: mbedtls::hash::Hmac::new(self.hmac_algo.hash_type, &self.key).expect("input validated"),
         }
+    }
+}
+
+impl Drop for MbedHmacKey {
+    fn drop(&mut self) {
+        mbedtls::zeroize(&mut self.key)
     }
 }
 
@@ -106,15 +112,6 @@ pub(crate) struct Tag {
 }
 
 impl Tag {
-    /// Build a tag by copying a byte slice.
-    ///
-    /// The slice can be up to [`Tag::MAX_LEN`] bytes in length.
-    pub(crate) fn new(bytes: &[u8]) -> Self {
-        let mut tag = Self { buf: [0u8; Self::MAX_LEN], used: bytes.len() };
-        tag.buf[..tag.used].copy_from_slice(bytes);
-        tag
-    }
-
     /// Build a tag with given capacity.
     ///
     /// The slice can be up to [`Tag::MAX_LEN`] bytes in length.
