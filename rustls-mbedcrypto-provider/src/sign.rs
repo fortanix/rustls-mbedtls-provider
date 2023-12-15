@@ -91,7 +91,8 @@ impl MbedTlsPkSigningKey {
     /// Make a new [`MbedTlsPkSigningKey`] from a [`mbedtls::pk::Pk`].
     pub fn from_pk(pk: mbedtls::pk::Pk) -> Result<Self, rustls::Error> {
         let pk_type = pk.pk_type();
-        let signature_algorithm = pk_type_to_signature_algo(pk_type);
+        let signature_algorithm = pk_type_to_signature_algo(pk_type)
+            .ok_or(rustls::Error::General(String::from("MbedTlsPkSigningKey: invalid pk type")))?;
         let ec_signature_scheme = if signature_algorithm == rustls::SignatureAlgorithm::ECDSA {
             Some(
                 match pk
@@ -211,25 +212,31 @@ mod tests {
 
     #[test]
     fn test_pk_type_to_signature_algo() {
-        assert_eq!(pk_type_to_signature_algo(mbedtls::pk::Type::Rsa), SignatureAlgorithm::RSA);
-        assert_eq!(pk_type_to_signature_algo(mbedtls::pk::Type::Ecdsa), SignatureAlgorithm::ECDSA);
+        assert_eq!(
+            pk_type_to_signature_algo(mbedtls::pk::Type::Rsa),
+            Some(SignatureAlgorithm::RSA)
+        );
+        assert_eq!(
+            pk_type_to_signature_algo(mbedtls::pk::Type::Ecdsa),
+            Some(SignatureAlgorithm::ECDSA)
+        );
         assert_eq!(
             pk_type_to_signature_algo(mbedtls::pk::Type::RsassaPss),
-            SignatureAlgorithm::RSA
+            Some(SignatureAlgorithm::RSA)
         );
-        assert_eq!(pk_type_to_signature_algo(mbedtls::pk::Type::RsaAlt), SignatureAlgorithm::RSA);
-        assert_eq!(pk_type_to_signature_algo(mbedtls::pk::Type::Eckey), SignatureAlgorithm::ECDSA);
+        assert_eq!(
+            pk_type_to_signature_algo(mbedtls::pk::Type::RsaAlt),
+            Some(SignatureAlgorithm::RSA)
+        );
+        assert_eq!(
+            pk_type_to_signature_algo(mbedtls::pk::Type::Eckey),
+            Some(SignatureAlgorithm::ECDSA)
+        );
         assert_eq!(
             pk_type_to_signature_algo(mbedtls::pk::Type::EckeyDh),
-            SignatureAlgorithm::Unknown(255)
+            Some(SignatureAlgorithm::ECDSA)
         );
-        assert_eq!(
-            pk_type_to_signature_algo(mbedtls::pk::Type::Custom),
-            SignatureAlgorithm::Unknown(255)
-        );
-        assert_eq!(
-            pk_type_to_signature_algo(mbedtls::pk::Type::None),
-            SignatureAlgorithm::Unknown(255)
-        );
+        assert_eq!(pk_type_to_signature_algo(mbedtls::pk::Type::Custom), None);
+        assert_eq!(pk_type_to_signature_algo(mbedtls::pk::Type::None), None);
     }
 }

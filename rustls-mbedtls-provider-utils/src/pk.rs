@@ -76,17 +76,12 @@ pub fn rustls_signature_scheme_to_mbedtls_curve_id(signature_scheme: SignatureSc
 }
 
 /// Helper function to get [`rustls::SignatureAlgorithm`] from mbedtls [`mbedtls::pk::Type`]
-pub fn pk_type_to_signature_algo(pk_type: Type) -> rustls::SignatureAlgorithm {
+pub fn pk_type_to_signature_algo(pk_type: Type) -> Option<rustls::SignatureAlgorithm> {
     use rustls::SignatureAlgorithm;
     match pk_type {
-        Type::Rsa => SignatureAlgorithm::RSA,
-        Type::Ecdsa => SignatureAlgorithm::ECDSA,
-        Type::RsassaPss => SignatureAlgorithm::RSA,
-        Type::RsaAlt => SignatureAlgorithm::RSA,
-        Type::Eckey => SignatureAlgorithm::ECDSA,
-        Type::EckeyDh => SignatureAlgorithm::Unknown(u8::MAX),
-        Type::Custom => SignatureAlgorithm::Unknown(u8::MAX),
-        Type::None => SignatureAlgorithm::Unknown(u8::MAX),
+        Type::Rsa | Type::RsassaPss | Type::RsaAlt => Some(SignatureAlgorithm::RSA),
+        Type::Ecdsa | Type::Eckey | Type::EckeyDh => Some(SignatureAlgorithm::ECDSA),
+        Type::Custom | Type::None => None,
     }
 }
 
