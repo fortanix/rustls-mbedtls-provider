@@ -10,12 +10,13 @@ use alloc::boxed::Box;
 use rustls::crypto;
 
 /// HMAC using SHA-256.
-pub(crate) static HMAC_SHA256: Hmac = Hmac(&super::hash::MBED_SHA_256);
+pub static HMAC_SHA256: Hmac = Hmac(&super::hash::MBED_SHA_256);
 
 /// HMAC using SHA-384.
-pub(crate) static HMAC_SHA384: Hmac = Hmac(&super::hash::MBED_SHA_384);
+pub static HMAC_SHA384: Hmac = Hmac(&super::hash::MBED_SHA_384);
 
-pub(crate) struct Hmac(pub(crate) &'static super::hash::Algorithm);
+/// A HMAC algorithm implemented [`crypto::hmac::Hmac`].
+pub struct Hmac(pub(crate) &'static super::hash::Algorithm);
 
 impl crypto::hmac::Hmac for Hmac {
     fn with_key(&self, key: &[u8]) -> Box<dyn crypto::hmac::Key> {
