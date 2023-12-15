@@ -75,13 +75,55 @@ pub fn rustls_signature_scheme_to_mbedtls_curve_id(signature_scheme: SignatureSc
     }
 }
 
-/// Helper function to get [`rustls::SignatureAlgorithm`] from mbedtls [`mbedtls::pk::Type`]
+/// Helper function to get [`rustls::SignatureAlgorithm`] from mbedtls [`Type`]
 pub fn pk_type_to_signature_algo(pk_type: Type) -> Option<rustls::SignatureAlgorithm> {
     use rustls::SignatureAlgorithm;
     match pk_type {
         Type::Rsa | Type::RsassaPss | Type::RsaAlt => Some(SignatureAlgorithm::RSA),
         Type::Ecdsa | Type::Eckey | Type::EckeyDh => Some(SignatureAlgorithm::ECDSA),
         Type::Custom | Type::None => None,
+    }
+}
+
+/// Helper function to choose proper `SignatureScheme` based on given inputs
+///
+/// # Arguments
+///
+/// * `pk_type` - The type of [`Pk`][1] used currently.
+/// * `offered` - The list of offered signature schemes
+/// * `ec_signature_scheme` - If current [`Pk`][1] is EC key, corresponding ec signature scheme should be provided
+/// * `rsa_scheme_prefer_order_list` - Order list of preferred RSA signature schemes
+///
+/// # Returns
+///
+/// The chosen `SignatureScheme` if found, otherwise `None`
+///
+/// [1]: mbedtls::pk::Pk
+pub fn get_signature_schema_from_offered(
+    pk_type: Type,
+    offered: &[SignatureScheme],
+    ec_signature_scheme: Option<SignatureScheme>,
+    rsa_scheme_prefer_order_list: &[SignatureScheme],
+) -> Option<SignatureScheme> {
+    match pk_type {
+        Type::Rsa | Type::RsaAlt | Type::RsassaPss => {
+            // choose a rsa schema
+            for scheme in rsa_scheme_prefer_order_list {
+                if offered.contains(scheme) {
+                    return Some(*scheme);
+                }
+            }
+            None
+        }
+        Type::Eckey | Type::EckeyDh | Type::Ecdsa => {
+            let scheme = ec_signature_scheme.expect("EC Pk should provides a valid ec_signature_scheme");
+            if offered.contains(&scheme) {
+                Some(scheme)
+            } else {
+                None
+            }
+        }
+        _ => None,
     }
 }
 
