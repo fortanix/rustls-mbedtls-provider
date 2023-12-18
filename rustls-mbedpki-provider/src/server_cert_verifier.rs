@@ -286,7 +286,7 @@ mod tests {
             (SignatureScheme::RSA_PSS_SHA256, &TLS13),
         ];
         for (scheme, protocol) in test_cases {
-            test_connection_server_cert_verifier(vec![scheme], &[&protocol]);
+            test_connection_server_cert_verifier(vec![scheme], &[protocol]);
         }
     }
 

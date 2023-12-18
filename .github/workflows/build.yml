@@ -8,8 +8,6 @@ on:
     paths-ignore:
       - '*.md'
       - 'LICENSE'
-    branches:
-      - master
   merge_group:
   schedule:
     - cron: '30 13 * * *'

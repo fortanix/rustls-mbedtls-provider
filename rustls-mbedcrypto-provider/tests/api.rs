@@ -2435,6 +2435,24 @@ static TEST_CIPHERSUITES: &[(&rustls::SupportedProtocolVersion, KeyType, CipherS
         KeyType::Rsa,
         CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
     ),
+    #[cfg(feature = "tls12")]
+    (
+        &rustls::version::TLS12,
+        KeyType::Rsa,
+        CipherSuite::TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
+    ),
+    #[cfg(feature = "tls12")]
+    (
+        &rustls::version::TLS12,
+        KeyType::Rsa,
+        CipherSuite::TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
+    ),
+    #[cfg(feature = "tls12")]
+    (
+        &rustls::version::TLS12,
+        KeyType::Rsa,
+        CipherSuite::TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+    ),
 ];
 
 #[test]
