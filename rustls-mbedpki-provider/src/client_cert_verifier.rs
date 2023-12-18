@@ -136,6 +136,8 @@ impl ClientCertVerifier for MbedTlsClientCertVerifier {
             .into_iter()
             .collect();
 
+        verify_certificates_active(chain.iter().map(|c| &**c), now, &self.cert_active_check)?;
+
         let self_verify_callback = self.verify_callback.clone();
         let callback = move |cert: &mbedtls::x509::Certificate, depth: i32, flags: &mut mbedtls::x509::VerifyError| {
             // When the "time" feature is enabled for mbedtls, it checks cert expiration. We undo that here,
@@ -151,8 +153,6 @@ impl ClientCertVerifier for MbedTlsClientCertVerifier {
         let mut error_msg = String::default();
         mbedtls::x509::Certificate::verify_with_callback(&chain, &self.trusted_cas, None, Some(&mut error_msg), callback)
             .map_err(|e| mbedtls_err_into_rustls_err_with_error_msg(e, &error_msg))?;
-
-        verify_certificates_active(chain.iter().map(|c| &**c), now, &self.cert_active_check)?;
 
         Ok(ClientCertVerified::assertion())
     }

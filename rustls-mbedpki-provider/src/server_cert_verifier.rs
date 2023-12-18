@@ -137,6 +137,8 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
 
         let server_name_str = server_name_to_str(server_name);
 
+        verify_certificates_active(chain.iter().map(|c| &**c), now, &self.cert_active_check)?;
+
         let self_verify_callback = self.verify_callback.clone();
         let callback = move |cert: &mbedtls::x509::Certificate, depth: i32, flags: &mut mbedtls::x509::VerifyError| {
             // When the "time" feature is enabled for mbedtls, it checks cert expiration. We undo that here,
@@ -159,8 +161,6 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
             server_name_str.as_deref(),
         )
         .map_err(|e| mbedtls_err_into_rustls_err_with_error_msg(e, &error_msg))?;
-
-        verify_certificates_active(chain.iter().map(|c| &**c), now, &self.cert_active_check)?;
 
         Ok(ServerCertVerified::assertion())
     }
