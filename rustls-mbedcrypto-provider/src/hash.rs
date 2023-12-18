@@ -19,7 +19,7 @@ pub(crate) struct Hash(&'static Algorithm);
 
 /// A digest algorithm.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Algorithm {
+pub struct Algorithm {
     pub(crate) hash_algorithm: HashAlgorithm,
     pub(crate) hash_type: mbedtls::hash::Type,
     pub(crate) output_len: usize,
@@ -28,7 +28,7 @@ pub(crate) struct Algorithm {
 /// SHA-256 as specified in [FIPS 180-4].
 ///
 /// [FIPS 180-4]: http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf
-pub(crate) static MBED_SHA_256: Algorithm = Algorithm {
+pub static MBED_SHA_256: Algorithm = Algorithm {
     hash_algorithm: HashAlgorithm::SHA256,
     hash_type: mbedtls::hash::Type::Sha256,
     output_len: 256 / 8,
@@ -37,7 +37,7 @@ pub(crate) static MBED_SHA_256: Algorithm = Algorithm {
 /// SHA-384 as specified in [FIPS 180-4].
 ///
 /// [FIPS 180-4]: http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf
-pub(crate) static MBED_SHA_384: Algorithm = Algorithm {
+pub static MBED_SHA_384: Algorithm = Algorithm {
     hash_algorithm: HashAlgorithm::SHA384,
     hash_type: mbedtls::hash::Type::Sha384,
     output_len: 384 / 8,
@@ -46,7 +46,7 @@ pub(crate) static MBED_SHA_384: Algorithm = Algorithm {
 /// SHA-512 as specified in [FIPS 180-4].
 ///
 /// [FIPS 180-4]: http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf
-pub(crate) static MBED_SHA_512: Algorithm = Algorithm {
+pub static MBED_SHA_512: Algorithm = Algorithm {
     hash_algorithm: HashAlgorithm::SHA512,
     hash_type: mbedtls::hash::Type::Sha512,
     output_len: 512 / 8,
