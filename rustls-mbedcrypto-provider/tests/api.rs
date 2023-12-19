@@ -2435,6 +2435,24 @@ static TEST_CIPHERSUITES: &[(&rustls::SupportedProtocolVersion, KeyType, CipherS
         KeyType::Rsa,
         CipherSuite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
     ),
+    #[cfg(feature = "tls12")]
+    (
+        &rustls::version::TLS12,
+        KeyType::Rsa,
+        CipherSuite::TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
+    ),
+    #[cfg(feature = "tls12")]
+    (
+        &rustls::version::TLS12,
+        KeyType::Rsa,
+        CipherSuite::TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
+    ),
+    #[cfg(feature = "tls12")]
+    (
+        &rustls::version::TLS12,
+        KeyType::Rsa,
+        CipherSuite::TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+    ),
 ];
 
 #[test]
@@ -4045,4 +4063,66 @@ fn test_explicit_provider_selection() {
 
     let (mut client, mut server) = make_pair_for_configs(client_config, server_config);
     do_handshake(&mut client, &mut server);
+}
+
+#[cfg(feature = "tls12")]
+#[test]
+fn test_ffdhe_bad_pub_key_is_rejected() {
+    use primary_provider::cipher_suite;
+    use rustls::crypto::{ActiveKeyExchange, SupportedKxGroup};
+
+    #[derive(Debug, Clone)]
+    struct BadFfdheKx(&'static [u8]);
+    impl SupportedKxGroup for BadFfdheKx {
+        fn start(&self) -> Result<Box<dyn rustls::crypto::ActiveKeyExchange>, Error> {
+            Ok(Box::new(self.clone()))
+        }
+        fn name(&self) -> rustls::NamedGroup {
+            rustls::NamedGroup::FFDHE2048
+        }
+    }
+    impl ActiveKeyExchange for BadFfdheKx {
+        fn complete(self: Box<Self>, _peer_pub_key: &[u8]) -> Result<rustls::crypto::SharedSecret, Error> {
+            unimplemented!()
+        }
+        fn pub_key(&self) -> &[u8] {
+            self.0
+        }
+        fn group(&self) -> rustls::NamedGroup {
+            rustls::NamedGroup::FFDHE2048
+        }
+    }
+
+    const TEST_CASES: [BadFfdheKx; 2] = [BadFfdheKx(&[1]), BadFfdheKx(rustls::ffdhe_groups::FFDHE2048.p)];
+
+    for bad_ffdhe_kx in &TEST_CASES {
+        println!("bad ffdhe pub key: {:?}", bad_ffdhe_kx.0);
+        let client_config = finish_client_config(
+            KeyType::Rsa,
+            rustls::ClientConfig::builder_with_provider(mbedtls_crypto_provider().into())
+                .with_safe_default_protocol_versions()
+                .unwrap(),
+        );
+        let server_config = finish_server_config(
+            KeyType::Rsa,
+            rustls::ServerConfig::builder_with_provider(
+                CryptoProvider {
+                    cipher_suites: vec![cipher_suite::TLS_DHE_RSA_WITH_AES_128_GCM_SHA256],
+                    kx_groups: vec![bad_ffdhe_kx],
+                    ..mbedtls_crypto_provider()
+                }
+                .into(),
+            )
+            .with_safe_default_protocol_versions()
+            .unwrap(),
+        );
+
+        let (mut client, mut server) = make_pair_for_configs(client_config, server_config);
+        let handshake_res = do_handshake_until_error(&mut client, &mut server);
+
+        let ErrorFromPeer::Client(client_err) = handshake_res.as_ref().unwrap_err() else {
+            panic!("Unexpected error from server: {:?}", handshake_res)
+        };
+        assert!(dbg!(client_err.to_string()).contains("pub key must be in range (1, p-1)"));
+    }
 }
