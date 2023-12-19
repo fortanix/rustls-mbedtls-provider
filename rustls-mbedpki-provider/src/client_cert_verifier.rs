@@ -84,6 +84,11 @@ impl MbedTlsClientCertVerifier {
         ))))
     }
 
+    /// Set the mapping of [`VerifyError`] to [`rustls::Error`].
+    pub fn set_mbedtls_verify_error_mapping(&mut self, mapping: fn(VerifyError) -> rustls::Error) {
+        self.mbedtls_verify_error_mapping = mapping;
+    }
+
     /// The certificate authority certificates used to construct this object
     pub fn trusted_cas(&self) -> &mbedtls::alloc::List<mbedtls::x509::Certificate> {
         &self.trusted_cas
