@@ -12,5 +12,5 @@ categories = ["network-programming", "cryptography"]
 resolver = "2"
 
 [dependencies]
-rustls = { version = "0.22.1", default-features = false }
+rustls = { git = "https://github.com/fortanix/rustls", branch = "ffdhe", default-features = false }
 mbedtls = { version = "0.12.1", default-features = false, features = ["std"] }

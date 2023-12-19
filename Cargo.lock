@@ -666,9 +666,8 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.22.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe6b63262c9fcac8659abfaa96cac103d28166d3ff3eaf8f412e19f3ae9e5a48"
+version = "0.23.0-alpha.0"
+source = "git+https://github.com/fortanix/rustls?branch=ffdhe#67453664d21310470348e2d8874d54bfd0e9fe03"
 dependencies = [
  "log",
  "ring",
@@ -717,6 +716,7 @@ dependencies = [
  "rustls-mbedpki-provider",
  "rustls-native-certs",
  "rustls-pemfile",
+ "rustls-pki-types",
 ]
 
 [[package]]
