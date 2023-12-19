@@ -170,16 +170,11 @@ impl ActiveKeyExchange for KeyExchange {
     }
 }
 
+#[derive(Debug)]
 struct DheKxGroup {
     name: NamedGroup,
     group: ffdhe_groups::FfdheGroup<'static>,
     priv_key_len: usize,
-}
-
-impl fmt::Debug for DheKxGroup {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{:?}", self.name)
-    }
 }
 
 impl SupportedKxGroup for DheKxGroup {

@@ -667,7 +667,7 @@ dependencies = [
 [[package]]
 name = "rustls"
 version = "0.23.0-alpha.0"
-source = "git+https://github.com/fortanix/rustls?branch=ffdhe#b575fc15a3b7805e83437267254eb8ce928b60fb"
+source = "git+https://github.com/fortanix/rustls?branch=ffdhe#67453664d21310470348e2d8874d54bfd0e9fe03"
 dependencies = [
  "log",
  "ring",
