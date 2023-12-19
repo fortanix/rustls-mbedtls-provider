@@ -11,11 +11,13 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use chrono::NaiveDateTime;
+use mbedtls::x509::VerifyError;
 use rustls::client::danger::{ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::ServerName;
 use rustls::pki_types::{CertificateDer, UnixTime};
-use utils::error::mbedtls_err_into_rustls_err_with_error_msg;
 
+use crate::merge_verify_result;
+use crate::VerifyErrorWrapper;
 use crate::{
     mbedtls_err_into_rustls_err, rustls_cert_to_mbedtls_cert, verify_certificates_active, verify_tls_signature, CertActiveCheck,
 };
@@ -26,6 +28,7 @@ pub struct MbedTlsServerCertVerifier {
     trusted_cas: mbedtls::alloc::List<mbedtls::x509::Certificate>,
     verify_callback: Option<Arc<dyn mbedtls::x509::VerifyCallback + 'static>>,
     cert_active_check: CertActiveCheck,
+    mbedtls_verify_error_mapping: fn(VerifyError) -> rustls::Error,
 }
 
 impl core::fmt::Debug for MbedTlsServerCertVerifier {
@@ -66,7 +69,15 @@ impl MbedTlsServerCertVerifier {
             trusted_cas,
             verify_callback: None,
             cert_active_check: CertActiveCheck::default(),
+            mbedtls_verify_error_mapping: Self::default_mbedtls_verify_error_mapping,
         })
+    }
+
+    /// The default mapping of [`VerifyError`] to [`rustls::Error`].
+    pub fn default_mbedtls_verify_error_mapping(verify_err: VerifyError) -> rustls::Error {
+        rustls::Error::InvalidCertificate(rustls::CertificateError::Other(rustls::OtherError(Arc::new(
+            VerifyErrorWrapper(verify_err),
+        ))))
     }
 
     /// The certificate authority certificates used to construct this object
@@ -137,30 +148,30 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
 
         let server_name_str = server_name_to_str(server_name);
 
-        verify_certificates_active(chain.iter().map(|c| &**c), now, &self.cert_active_check)?;
-
         let self_verify_callback = self.verify_callback.clone();
-        let callback = move |cert: &mbedtls::x509::Certificate, depth: i32, flags: &mut mbedtls::x509::VerifyError| {
+        let callback = move |cert: &mbedtls::x509::Certificate, depth: i32, flags: &mut VerifyError| {
             // When the "time" feature is enabled for mbedtls, it checks cert expiration. We undo that here,
             // since this check is done in `verify_certificates_active()` (subject to self.cert_active_check)
-            flags.remove(mbedtls::x509::VerifyError::CERT_EXPIRED | mbedtls::x509::VerifyError::CERT_FUTURE);
+            flags.remove(VerifyError::CERT_EXPIRED | VerifyError::CERT_FUTURE);
             if let Some(cb) = self_verify_callback.as_ref() {
                 cb(cert, depth, flags)
             } else {
                 Ok(())
             }
         };
-
-        let mut error_msg = String::default();
-        mbedtls::x509::Certificate::verify_with_callback_expected_common_name(
+        let cert_verify_res = mbedtls::x509::Certificate::verify_with_callback_expected_common_name_return_verify_err(
             &chain,
             &self.trusted_cas,
             None,
-            Some(&mut error_msg),
+            None,
             callback,
             server_name_str.as_deref(),
         )
-        .map_err(|e| mbedtls_err_into_rustls_err_with_error_msg(e, &error_msg))?;
+        .map_err(|e| e.1);
+
+        let validity_verify_res = verify_certificates_active(chain.iter().map(|c| &**c), now, &self.cert_active_check)?;
+
+        merge_verify_result(&validity_verify_res, &cert_verify_res).map_err(self.mbedtls_verify_error_mapping)?;
 
         Ok(ServerCertVerified::assertion())
     }
@@ -196,6 +207,7 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
 mod tests {
     use std::{sync::Arc, time::SystemTime};
 
+    use mbedtls::x509::VerifyError;
     use rustls::pki_types::{CertificateDer, UnixTime};
     use rustls::{
         client::danger::ServerCertVerifier,
@@ -340,10 +352,15 @@ mod tests {
                 .unwrap(),
         );
         let verify_res = verifier.verify_server_cert(&cert_chain[0], &cert_chain[1..], &server_name, &[], now);
-        assert_eq!(
-            verify_res.unwrap_err(),
-            rustls::Error::InvalidCertificate(rustls::CertificateError::Expired)
-        );
+        if let Err(rustls::Error::InvalidCertificate(rustls::CertificateError::Other(other_err))) = verify_res {
+            let verify_err = other_err
+                .0
+                .downcast_ref::<crate::VerifyErrorWrapper>()
+                .unwrap();
+            assert_eq!(verify_err.0, VerifyError::CERT_EXPIRED);
+        } else {
+            panic!("should get an error with type: `rustls::Error::InvalidCertificate(rustls::CertificateError::Other(..))`")
+        }
     }
 
     #[test]
@@ -362,10 +379,15 @@ mod tests {
 
         // Test that we reject expired certs
         let verify_res = verifier.verify_server_cert(&cert_chain[0], &cert_chain[1..], &server_name, &[], now);
-        assert_eq!(
-            verify_res.unwrap_err(),
-            rustls::Error::InvalidCertificate(rustls::CertificateError::Expired)
-        );
+        if let Err(rustls::Error::InvalidCertificate(rustls::CertificateError::Other(other_err))) = verify_res {
+            let verify_err = other_err
+                .0
+                .downcast_ref::<crate::VerifyErrorWrapper>()
+                .unwrap();
+            assert_eq!(verify_err.0, VerifyError::CERT_EXPIRED);
+        } else {
+            panic!("should get an error with type: `rustls::Error::InvalidCertificate(rustls::CertificateError::Other(..))`")
+        }
 
         // Test that we accept expired certs when `ignore_expired` is true
         verifier.set_cert_active_check(crate::CertActiveCheck { ignore_expired: true, ignore_not_active_yet: false });
@@ -380,10 +402,16 @@ mod tests {
 
         // Test that we reject certs that are not valid yet
         let verify_res = verifier.verify_server_cert(&cert_chain[0], &cert_chain[1..], &server_name, &[], now);
-        assert_eq!(
-            verify_res.unwrap_err(),
-            rustls::Error::InvalidCertificate(rustls::CertificateError::NotValidYet)
-        );
+
+        if let Err(rustls::Error::InvalidCertificate(rustls::CertificateError::Other(other_err))) = verify_res {
+            let verify_err = other_err
+                .0
+                .downcast_ref::<crate::VerifyErrorWrapper>()
+                .unwrap();
+            assert_eq!(verify_err.0, VerifyError::CERT_FUTURE);
+        } else {
+            panic!("should get an error with type: `rustls::Error::InvalidCertificate(rustls::CertificateError::Other(..))`")
+        }
 
         // Test that we accept certs that are not valid yet when `ignore_not_active_yet` is true
         verifier.set_cert_active_check(crate::CertActiveCheck { ignore_expired: false, ignore_not_active_yet: true });
@@ -427,8 +455,8 @@ mod tests {
         assert!(matches!(verify_res, Err(rustls::Error::InvalidCertificate(_))));
 
         verifier.set_verify_callback(Some(Arc::new(
-            move |_cert: &mbedtls::x509::Certificate, _depth: i32, flags: &mut mbedtls::x509::VerifyError| {
-                flags.remove(mbedtls::x509::VerifyError::CERT_CN_MISMATCH);
+            move |_cert: &mbedtls::x509::Certificate, _depth: i32, flags: &mut VerifyError| {
+                flags.remove(VerifyError::CERT_CN_MISMATCH);
                 Ok(())
             },
         )));

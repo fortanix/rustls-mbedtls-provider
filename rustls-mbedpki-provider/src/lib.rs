@@ -43,7 +43,10 @@ extern crate alloc;
 #[cfg(not(test))]
 extern crate std;
 
+use core::fmt::Display;
+
 use chrono::NaiveDateTime;
+use mbedtls::x509::VerifyError;
 use rustls::pki_types::CertificateDer;
 use rustls::SignatureScheme;
 
@@ -91,9 +94,9 @@ fn verify_certificates_active<'a>(
     chain: impl IntoIterator<Item = &'a mbedtls::x509::Certificate>,
     now: NaiveDateTime,
     active_check: &CertActiveCheck,
-) -> Result<(), rustls::Error> {
+) -> Result<Result<(), VerifyError>, rustls::Error> {
     if active_check.ignore_expired && active_check.ignore_not_active_yet {
-        return Ok(());
+        return Ok(Ok(()));
     }
 
     fn time_err_to_err(_time_err: mbedtls::x509::InvalidTimeError) -> rustls::Error {
@@ -108,7 +111,7 @@ fn verify_certificates_active<'a>(
                 .try_into()
                 .map_err(time_err_to_err)?;
             if now > not_after {
-                return Err(rustls::Error::InvalidCertificate(rustls::CertificateError::Expired));
+                return Ok(Err(VerifyError::CERT_EXPIRED));
             }
         }
         if !active_check.ignore_not_active_yet {
@@ -118,11 +121,11 @@ fn verify_certificates_active<'a>(
                 .try_into()
                 .map_err(time_err_to_err)?;
             if now < not_before {
-                return Err(rustls::Error::InvalidCertificate(rustls::CertificateError::NotValidYet));
+                return Ok(Err(VerifyError::CERT_FUTURE));
             }
         }
     }
-    Ok(())
+    Ok(Ok(()))
 }
 
 /// Verifies the tls signature, matches verify functions in rustls `ClientCertVerifier` and
@@ -173,3 +176,28 @@ pub fn rustls_cert_to_mbedtls_cert(cert: &CertificateDer) -> mbedtls::Result<mbe
     let cert = mbedtls::x509::Certificate::from_der(cert)?;
     Ok(cert)
 }
+
+pub(crate) fn merge_verify_result(
+    first: &Result<(), VerifyError>,
+    second: &Result<(), VerifyError>,
+) -> Result<(), VerifyError> {
+    match (first, second) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Ok(()), Err(second_err)) => Err(*second_err),
+        (Err(first_err), Ok(())) => Err(*first_err),
+        (Err(first_err), Err(second_err)) => Err(*first_err | *second_err),
+    }
+}
+
+/// A wrapper on [`mbedtls::x509::VerifyError`] to impl [`std::error::Error`] for it.
+#[derive(Debug)]
+pub struct VerifyErrorWrapper(pub VerifyError);
+
+impl Display for VerifyErrorWrapper {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        use core::fmt::Debug;
+        self.0.fmt(f)
+    }
+}
+
+impl std::error::Error for VerifyErrorWrapper {}
