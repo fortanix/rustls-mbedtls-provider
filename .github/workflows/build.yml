@@ -8,6 +8,9 @@ on:
     paths-ignore:
       - '*.md'
       - 'LICENSE'
+    branches:
+        - master
+        - ffdhe
   merge_group:
   schedule:
     - cron: '30 13 * * *'

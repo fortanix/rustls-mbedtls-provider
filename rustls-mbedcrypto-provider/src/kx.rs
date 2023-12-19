@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::sync::Mutex;
 use std::sync::OnceLock;
 
 use super::agreement;
@@ -199,9 +200,8 @@ impl SupportedKxGroup for DheKxGroup {
 
         Ok(Box::new(DheActiveKeyExchange {
             name: self.name,
-            group: self.group,
-            x: x.to_binary()
-                .map_err(mbedtls_err_to_rustls_error)?,
+            p: Mutex::new(p),
+            x: Mutex::new(x),
             x_pub: x_pub
                 .to_binary()
                 .map_err(mbedtls_err_to_rustls_error)?,
@@ -215,8 +215,10 @@ impl SupportedKxGroup for DheKxGroup {
 
 struct DheActiveKeyExchange {
     name: NamedGroup,
-    group: ffdhe_groups::FfdheGroup<'static>,
-    x: Vec<u8>,
+    // Using Mutex just because `Mpi` is not currently `Sync`
+    // TODO remove the Mutex once we switch to a version of mbedtls where `Mpi` is `Sync`
+    p: Mutex<Mpi>,
+    x: Mutex<Mpi>,
     x_pub: Vec<u8>,
 }
 
@@ -224,8 +226,14 @@ impl ActiveKeyExchange for DheActiveKeyExchange {
     fn complete(self: Box<Self>, peer_pub_key: &[u8]) -> Result<crypto::SharedSecret, Error> {
         let y_pub = Mpi::from_binary(peer_pub_key).map_err(mbedtls_err_to_rustls_error)?;
 
-        let x = Mpi::from_binary(&self.x).map_err(mbedtls_err_to_rustls_error)?;
-        let p = Mpi::from_binary(self.group.p).map_err(mbedtls_err_to_rustls_error)?;
+        let x = self
+            .x
+            .into_inner()
+            .expect("Mpi Mutex poisoned");
+        let p = self
+            .p
+            .into_inner()
+            .expect("Mpi Mutex poisoned");
 
         let one = Mpi::new(1).map_err(mbedtls_err_to_rustls_error)?;
 
