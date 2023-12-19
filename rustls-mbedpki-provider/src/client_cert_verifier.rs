@@ -89,6 +89,11 @@ impl MbedTlsClientCertVerifier {
         self.mbedtls_verify_error_mapping = mapping;
     }
 
+    /// Get the current mapping of [`VerifyError`] to [`rustls::Error`].
+    pub fn mbedtls_verify_error_mapping(&self) -> fn(VerifyError) -> rustls::Error {
+        self.mbedtls_verify_error_mapping
+    }
+
     /// The certificate authority certificates used to construct this object
     pub fn trusted_cas(&self) -> &mbedtls::alloc::List<mbedtls::x509::Certificate> {
         &self.trusted_cas
@@ -238,6 +243,24 @@ mod tests {
         assert_eq!(
             r#"MbedTlsClientCertVerifier { trusted_cas: "..", root_subjects: [DistinguishedName(301a3118301606035504030c0f706f6e79746f776e20525341204341)], verify_callback: "..", cert_active_check: CertActiveCheck { ignore_expired: false, ignore_not_active_yet: false } }"#,
             format!("{:?}", client_cert_verifier)
+        );
+    }
+
+    #[test]
+    fn client_cert_verifier_setter_getter() {
+        let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());
+        let mut client_cert_verifier = MbedTlsClientCertVerifier::new([&root_ca]).unwrap();
+        assert!(!client_cert_verifier
+            .trusted_cas()
+            .is_empty());
+        const RETURN_ERR: rustls::Error = rustls::Error::BadMaxFragmentSize;
+        fn test_mbedtls_verify_error_mapping(_verify_err: VerifyError) -> rustls::Error {
+            RETURN_ERR
+        }
+        client_cert_verifier.set_mbedtls_verify_error_mapping(test_mbedtls_verify_error_mapping);
+        assert_eq!(
+            client_cert_verifier.mbedtls_verify_error_mapping()(VerifyError::empty()),
+            RETURN_ERR
         );
     }
 
@@ -415,7 +438,10 @@ mod tests {
         }
         // Test that we accept certs that are not valid yet when `ignore_not_active_yet` is true
         verifier.set_cert_active_check(crate::CertActiveCheck { ignore_expired: false, ignore_not_active_yet: true });
-
+        assert!(verifier
+            .verify_client_cert(&cert_chain[0], &cert_chain[1..], now)
+            .is_ok());
+        verifier.set_cert_active_check(crate::CertActiveCheck { ignore_expired: true, ignore_not_active_yet: true });
         assert!(verifier
             .verify_client_cert(&cert_chain[0], &cert_chain[1..], now)
             .is_ok());

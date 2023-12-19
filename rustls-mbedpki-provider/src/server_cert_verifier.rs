@@ -85,6 +85,11 @@ impl MbedTlsServerCertVerifier {
         self.mbedtls_verify_error_mapping = mapping;
     }
 
+    /// Get the current mapping of [`VerifyError`] to [`rustls::Error`].
+    pub fn mbedtls_verify_error_mapping(&self) -> fn(VerifyError) -> rustls::Error {
+        self.mbedtls_verify_error_mapping
+    }
+
     /// The certificate authority certificates used to construct this object
     pub fn trusted_cas(&self) -> &mbedtls::alloc::List<mbedtls::x509::Certificate> {
         &self.trusted_cas
@@ -213,7 +218,7 @@ mod tests {
     use std::{sync::Arc, time::SystemTime};
 
     use mbedtls::x509::VerifyError;
-    use rustls::pki_types::{CertificateDer, UnixTime};
+    use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
     use rustls::{
         client::danger::ServerCertVerifier,
         version::{TLS12, TLS13},
@@ -221,6 +226,7 @@ mod tests {
         SupportedProtocolVersion,
     };
 
+    use crate::server_cert_verifier::server_name_to_str;
     use crate::tests_common::{do_handshake_until_error, get_chain, get_key, VerifierWithSupportedVerifySchemes};
 
     use super::MbedTlsServerCertVerifier;
@@ -239,6 +245,24 @@ mod tests {
         assert_eq!(
             "MbedTlsServerCertVerifier { trusted_cas: \"..\", verify_callback: \"..\", cert_active_check: CertActiveCheck { ignore_expired: false, ignore_not_active_yet: false } }",
             format!("{:?}", server_cert_verifier)
+        );
+    }
+
+    #[test]
+    fn server_cert_verifier_setter_getter() {
+        let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());
+        let mut server_cert_verifier = MbedTlsServerCertVerifier::new([&root_ca]).unwrap();
+        assert!(!server_cert_verifier
+            .trusted_cas()
+            .is_empty());
+        const RETURN_ERR: rustls::Error = rustls::Error::BadMaxFragmentSize;
+        fn test_mbedtls_verify_error_mapping(_verify_err: VerifyError) -> rustls::Error {
+            RETURN_ERR
+        }
+        server_cert_verifier.set_mbedtls_verify_error_mapping(test_mbedtls_verify_error_mapping);
+        assert_eq!(
+            server_cert_verifier.mbedtls_verify_error_mapping()(VerifyError::empty()),
+            RETURN_ERR
         );
     }
 
@@ -422,6 +446,9 @@ mod tests {
         verifier.set_cert_active_check(crate::CertActiveCheck { ignore_expired: false, ignore_not_active_yet: true });
         let verify_res = verifier.verify_server_cert(&cert_chain[0], &cert_chain[1..], &server_name, &[], now);
         assert!(verify_res.is_ok());
+        verifier.set_cert_active_check(crate::CertActiveCheck { ignore_expired: true, ignore_not_active_yet: true });
+        let verify_res = verifier.verify_server_cert(&cert_chain[0], &cert_chain[1..], &server_name, &[], now);
+        assert!(verify_res.is_ok());
     }
 
     #[test]
@@ -502,5 +529,13 @@ mod tests {
         for broken_chain in [broken_chain1, broken_chain2, broken_chain3] {
             test_server_cert_verifier_invalid_chain(&broken_chain);
         }
+    }
+
+    #[test]
+    fn test_server_name_to_str() {
+        let server_name = ServerName::DnsName("example.com".try_into().unwrap());
+        assert_eq!(server_name_to_str(&server_name), Some("example.com".to_string()));
+        let server_name = ServerName::IpAddress("127.0.0.1".try_into().unwrap());
+        assert_eq!(server_name_to_str(&server_name), None);
     }
 }
