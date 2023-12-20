@@ -81,11 +81,14 @@ pub(crate) mod log {
     pub(crate) use ignore_log as error;
 }
 
-pub(crate) mod aead;
+/// Aead algorithms
+pub mod aead;
 pub(crate) mod agreement;
 pub(crate) mod error;
-pub(crate) mod hash;
-pub(crate) mod hmac;
+/// Hash algorithms
+pub mod hash;
+/// Hmac algorithms
+pub mod hmac;
 pub(crate) mod kx;
 
 /// Message signing interfaces.
@@ -212,7 +215,7 @@ pub mod cipher_suite {
 
 /// A `WebPkiSupportedAlgorithms` value that reflects pki's capabilities when
 /// compiled against *mbedtls*.
-static SUPPORTED_SIG_ALGS: WebPkiSupportedAlgorithms = WebPkiSupportedAlgorithms {
+pub static SUPPORTED_SIG_ALGS: WebPkiSupportedAlgorithms = WebPkiSupportedAlgorithms {
     all: &[
         signature_verify_algo::ECDSA_P256_SHA256,
         signature_verify_algo::ECDSA_P256_SHA384,
