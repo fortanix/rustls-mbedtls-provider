@@ -11,7 +11,7 @@ categories = ["network-programming", "cryptography"]
 resolver = "2"
 
 [dependencies]
-rustls = { git = "https://github.com/fortanix/rustls", rev = "1f9441aba2fe859e98084c164bacc334a5140689", default_features = false }
+rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r2", default_features = false }
 mbedtls = { version = "0.12.1", features = [
     "x509",
     "chrono",
@@ -24,6 +24,6 @@ utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-p
 
 [dev-dependencies]
 rustls-pemfile = "2"
-rustls = { git = "https://github.com/fortanix/rustls", rev = "1f9441aba2fe859e98084c164bacc334a5140689" }
+rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r2" }
 # We enable the time feature for tests to make sure it does not mess up cert expiration checking
 mbedtls = { version = "0.12.1", features = ["time"], default_features = false }
