@@ -12,10 +12,13 @@ use alloc::vec::Vec;
 use rustls::crypto::hash::{self, HashAlgorithm};
 use std::sync::Mutex;
 
-pub(crate) static SHA256: Hash = Hash(&MBED_SHA_256);
-pub(crate) static SHA384: Hash = Hash(&MBED_SHA_384);
+/// SHA-256
+pub static SHA256: Hash = Hash(&MBED_SHA_256);
+/// SHA-384
+pub static SHA384: Hash = Hash(&MBED_SHA_384);
 
-pub(crate) struct Hash(&'static Algorithm);
+/// A hash algorithm implementing [hash::Hash].
+pub struct Hash(&'static Algorithm);
 
 /// A digest algorithm.
 #[derive(Clone, Debug, PartialEq)]
