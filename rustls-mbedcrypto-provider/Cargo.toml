@@ -12,7 +12,7 @@ categories = ["network-programming", "cryptography"]
 resolver = "2"
 
 [dependencies]
-rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r2", default-features = false }
+rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r3", default-features = false }
 mbedtls = { version = "0.12.1", default-features = false, features = ["std"] }
 log = { version = "0.4.4", optional = true }
 webpki = { package = "rustls-webpki", version = "0.102.0", features = [
@@ -25,7 +25,7 @@ bit-vec = "0.6.3"
 
 
 [dev-dependencies]
-rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r2", default-features = false, features = [
+rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r3", default-features = false, features = [
     "ring",
 ] }
 webpki-roots = "0.26.0"

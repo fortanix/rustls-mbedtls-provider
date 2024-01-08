@@ -25,6 +25,7 @@ use mbedtls::{
 use rustls::crypto;
 use rustls::crypto::ActiveKeyExchange;
 use rustls::ffdhe_groups;
+use rustls::ffdhe_groups::FfdheGroup;
 use rustls::Error;
 use rustls::NamedGroup;
 /// A key-exchange group supported by *mbedtls*.
@@ -84,24 +85,39 @@ pub static SECP521R1: &dyn SupportedKxGroup =
     &KxGroup { name: NamedGroup::secp521r1, agreement_algorithm: &agreement::ECDH_P521 };
 
 /// DHE group [FFDHE2048](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.1)
-pub static FFDHE2048: &dyn SupportedKxGroup =
-    &DheKxGroup { name: NamedGroup::FFDHE2048, group: ffdhe_groups::FFDHE2048, priv_key_len: 36 };
+pub static FFDHE2048: &dyn SupportedKxGroup = &DheKxGroup {
+    named_group: NamedGroup::FFDHE2048,
+    group: ffdhe_groups::FFDHE2048,
+    priv_key_len: 36,
+};
 
 /// DHE group [FFDHE3072](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.2)
-pub static FFDHE3072: &dyn SupportedKxGroup =
-    &DheKxGroup { name: NamedGroup::FFDHE3072, group: ffdhe_groups::FFDHE3072, priv_key_len: 40 };
+pub static FFDHE3072: &dyn SupportedKxGroup = &DheKxGroup {
+    named_group: NamedGroup::FFDHE3072,
+    group: ffdhe_groups::FFDHE3072,
+    priv_key_len: 40,
+};
 
 /// DHE group [FFDHE4096](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.3)
-pub static FFDHE4096: &dyn SupportedKxGroup =
-    &DheKxGroup { name: NamedGroup::FFDHE4096, group: ffdhe_groups::FFDHE4096, priv_key_len: 48 };
+pub static FFDHE4096: &dyn SupportedKxGroup = &DheKxGroup {
+    named_group: NamedGroup::FFDHE4096,
+    group: ffdhe_groups::FFDHE4096,
+    priv_key_len: 48,
+};
 
 /// DHE group [FFDHE6144](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.4)
-pub static FFDHE6144: &dyn SupportedKxGroup =
-    &DheKxGroup { name: NamedGroup::FFDHE6144, group: ffdhe_groups::FFDHE6144, priv_key_len: 56 };
+pub static FFDHE6144: &dyn SupportedKxGroup = &DheKxGroup {
+    named_group: NamedGroup::FFDHE6144,
+    group: ffdhe_groups::FFDHE6144,
+    priv_key_len: 56,
+};
 
 /// DHE group [FFDHE8192](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.5)
-pub static FFDHE8192: &dyn SupportedKxGroup =
-    &DheKxGroup { name: NamedGroup::FFDHE8192, group: ffdhe_groups::FFDHE8192, priv_key_len: 64 };
+pub static FFDHE8192: &dyn SupportedKxGroup = &DheKxGroup {
+    named_group: NamedGroup::FFDHE8192,
+    group: ffdhe_groups::FFDHE8192,
+    priv_key_len: 64,
+};
 
 /// A list of all the key exchange groups supported by mbedtls.
 pub static ALL_KX_GROUPS: &[&dyn SupportedKxGroup] = &[
@@ -172,8 +188,8 @@ impl ActiveKeyExchange for KeyExchange {
 
 #[derive(Debug)]
 struct DheKxGroup {
-    name: NamedGroup,
-    group: ffdhe_groups::FfdheGroup<'static>,
+    named_group: NamedGroup,
+    group: FfdheGroup<'static>,
     priv_key_len: usize,
 }
 
@@ -194,22 +210,24 @@ impl SupportedKxGroup for DheKxGroup {
             .map_err(mbedtls_err_to_rustls_error)?;
 
         Ok(Box::new(DheActiveKeyExchange {
-            name: self.name,
+            named_group: self.named_group,
+            group: self.group,
             p: Mutex::new(p),
             x: Mutex::new(x),
             x_pub: x_pub
-                .to_binary()
+                .to_binary_padded(self.group.p.len())
                 .map_err(mbedtls_err_to_rustls_error)?,
         }))
     }
 
     fn name(&self) -> NamedGroup {
-        self.name
+        self.named_group
     }
 }
 
 struct DheActiveKeyExchange {
-    name: NamedGroup,
+    named_group: NamedGroup,
+    group: FfdheGroup<'static>,
     // Using Mutex just because `Mpi` is not currently `Sync`
     // TODO remove the Mutex once we switch to a version of mbedtls where `Mpi` is `Sync`
     p: Mutex<Mpi>,
@@ -252,7 +270,7 @@ impl ActiveKeyExchange for DheActiveKeyExchange {
 
         Ok(crypto::SharedSecret::from(
             secret
-                .to_binary()
+                .to_binary_padded(self.group.p.len())
                 .map_err(mbedtls_err_to_rustls_error)?
                 .as_ref(),
         ))
@@ -263,7 +281,7 @@ impl ActiveKeyExchange for DheActiveKeyExchange {
     }
 
     fn group(&self) -> NamedGroup {
-        self.name
+        self.named_group
     }
 }
 
