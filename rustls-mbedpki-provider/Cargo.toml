@@ -11,7 +11,7 @@ categories = ["network-programming", "cryptography"]
 resolver = "2"
 
 [dependencies]
-rustls = { version = "0.22.1", default_features = false }
+rustls = { version = "0.22.2", default_features = false }
 mbedtls = { version = "0.12.1", features = [
     "x509",
     "chrono",
@@ -24,6 +24,6 @@ utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-p
 
 [dev-dependencies]
 rustls-pemfile = "2"
-rustls = { version = "0.22.1" }
+rustls = { version = "0.22.2" }
 # We enable the time feature for tests to make sure it does not mess up cert expiration checking
 mbedtls = { version = "0.12.1", features = ["time"], default_features = false }
