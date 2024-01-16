@@ -37,6 +37,8 @@ default = ["logging", "tls12"]
 logging = ["rustls/logging", "log"]
 tls12 = ["rustls/tls12"]
 rdrand = ["mbedtls/rdrand"]
+# enables `self_tests` module
+self_tests = []
 
 [[example]]
 name = "client"
