@@ -98,6 +98,11 @@ jobs:
       - name: cargo test (rustls_mbedcrypto_provider; debug; no default features; tls12, rdrand)
         run: cargo test --locked --no-default-features --features tls12,rdrand --package rustls-mbedcrypto-provider
 
+      - name: cargo test + build (rustls_mbedcrypto_provider; debug; self_tests)
+        run: |
+          cargo build --tests --locked --features self_tests --package rustls-mbedcrypto-provider
+          cargo test --locked --features self_tests --package rustls-mbedcrypto-provider
+
       - name: cargo test (release; no run)
         run: cargo test --locked --release --no-run --workspace
 
