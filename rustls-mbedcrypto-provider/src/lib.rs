@@ -91,6 +91,8 @@ pub mod hash;
 pub mod hmac;
 pub(crate) mod kx;
 
+#[cfg(feature = "self_tests")]
+pub mod self_tests;
 /// Message signing interfaces.
 pub mod sign;
 /// Supported signature verify algorithms
