@@ -9,7 +9,7 @@ publish = false
 [dependencies]
 rustls-mbedcrypto-provider = { path = "../rustls-mbedcrypto-provider", features = ["tls12"] }
 rustls-mbedpki-provider = { path = "../rustls-mbedpki-provider" }
-env_logger = "0.10"
+env_logger = "0.11"
 rustls = { version = "0.22.2", default-features = false }
 rustls-native-certs = "0.7.0"
 rustls-pemfile = "2"
