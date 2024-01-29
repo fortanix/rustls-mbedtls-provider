@@ -13,7 +13,7 @@ resolver = "2"
 
 [dependencies]
 rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r4", default-features = false }
-mbedtls = { version = "0.12.1", default-features = false, features = ["std"] }
+mbedtls = { version = "0.12.2", default-features = false, features = ["std"] }
 log = { version = "0.4.4", optional = true }
 webpki = { package = "rustls-webpki", version = "0.102.0", features = [
     "alloc",
