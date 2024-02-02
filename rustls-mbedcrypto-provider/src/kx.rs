@@ -81,7 +81,7 @@ pub static SECP521R1: &dyn SupportedKxGroup =
 /// A list of all the key exchange groups supported by mbedtls.
 pub static ALL_KX_GROUPS: &[&dyn SupportedKxGroup] = &[X25519, SECP256R1, SECP384R1, SECP521R1];
 
-/// An in-progress key exchange.  This has the algorithm,
+/// An in-progress ECDH key exchange.  This has the algorithm,
 /// our private key, and our public key.
 struct KeyExchange {
     name: NamedGroup,
@@ -112,6 +112,14 @@ impl crypto::ActiveKeyExchange for KeyExchange {
         }
 
         let peer_pk = parse_peer_public_key(group_id, peer_public_key).map_err(mbedtls_err_to_rustls_error)?;
+        // Only run fips check on applied NamedGroups
+        #[cfg(feature = "fips")]
+        match self.name {
+            NamedGroup::secp256r1 | NamedGroup::secp384r1 | NamedGroup::secp521r1 => {
+                crate::fips_utils::fips_check_ec_pub_key(&peer_pk)?
+            }
+            _ => (),
+        }
 
         let mut shared_key = [0u8; mbedtls::pk::ECDSA_MAX_LEN];
         let shared_key = &mut shared_key[..self

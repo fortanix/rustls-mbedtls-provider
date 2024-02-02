@@ -2892,6 +2892,7 @@ impl rustls::server::StoresServerSessions for ServerStorage {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 enum ClientStorageOp {
     SetKxHint(ServerName<'static>, rustls::NamedGroup),
