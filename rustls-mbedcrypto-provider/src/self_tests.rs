@@ -174,7 +174,7 @@ pub fn tls13_kdf_test_case_3() {
 /// > The CAST for a solution complying with path (1) above shall
 /// > consist of verifying the correctness of the computation of the
 /// > shared secret Z in at least two of the schemes listed in Section 6
-/// > of SP 800-56Arev3: one CAST for the Finite Field Cryptography
+/// > of [SP 800-56Arev3]: one CAST for the Finite Field Cryptography
 /// > (FFC) methods and one CAST for the Elliptic Curve Cryptography
 /// > methods, if both the FFC and ECC methods are implemented;
 /// > otherwise, just one. No separate CASTs are required to test
@@ -182,6 +182,7 @@ pub fn tls13_kdf_test_case_3() {
 ///
 /// [FIPS 140-3 IG D.F]:
 ///     https://csrc.nist.gov/projects/cryptographic-module-validation-program/fips-140-3-ig-announcements
+/// [SP 800-56Arev3]: https://csrc.nist.gov/pubs/sp/800/56/a/r3/final
 pub fn ffdhe_crypto_algo_self_test() {
     // known binary variables
     let server_private_key_vec = [
