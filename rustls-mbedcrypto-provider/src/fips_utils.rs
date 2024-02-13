@@ -45,27 +45,27 @@ pub(crate) mod constants {
     /// Defined in [RFC 7919 appendix-A.1].
     ///
     /// [RFC 7919 appendix-A.1]: https://datatracker.ietf.org/doc/html/rfc7919#appendix-A.1
-    pub(crate) static FFDHE2048_Q: OnceLock<Mutex<Mpi>> = OnceLock::new();
+    static FFDHE2048_Q: OnceLock<Mutex<Mpi>> = OnceLock::new();
     /// `q` for FFDHE 3072.
     /// Defined in [RFC 7919 appendix-A.2].
     ///
     /// [RFC 7919 appendix-A.2]: https://datatracker.ietf.org/doc/html/rfc7919#appendix-A.2
-    pub(crate) static FFDHE3072_Q: OnceLock<Mutex<Mpi>> = OnceLock::new();
+    static FFDHE3072_Q: OnceLock<Mutex<Mpi>> = OnceLock::new();
     /// `q` for FFDHE 4096.
     /// Defined in [RFC 7919 appendix-A.3].
     ///
     /// [RFC 7919 appendix-A.3]: https://datatracker.ietf.org/doc/html/rfc7919#appendix-A.3
-    pub(crate) static FFDHE4096_Q: OnceLock<Mutex<Mpi>> = OnceLock::new();
+    static FFDHE4096_Q: OnceLock<Mutex<Mpi>> = OnceLock::new();
     /// `q` for FFDHE 6144.
     /// Defined in [RFC 7919 appendix-A.4].
     ///
     /// [RFC 7919 appendix-A.4]: https://datatracker.ietf.org/doc/html/rfc7919#appendix-A.4
-    pub(crate) static FFDHE6144_Q: OnceLock<Mutex<Mpi>> = OnceLock::new();
+    static FFDHE6144_Q: OnceLock<Mutex<Mpi>> = OnceLock::new();
     /// `q` for FFDHE 8192.
     /// Defined in [RFC 7919 appendix-A.5].
     ///
     /// [RFC 7919 appendix-A.5]: https://datatracker.ietf.org/doc/html/rfc7919#appendix-A.5
-    pub(crate) static FFDHE8192_Q: OnceLock<Mutex<Mpi>> = OnceLock::new();
+    static FFDHE8192_Q: OnceLock<Mutex<Mpi>> = OnceLock::new();
 
     /// Get `q` based on ffdhe group.
     pub(crate) fn get_ffdhe_q(named_group: NamedGroup) -> Option<&'static Mutex<Mpi>> {
@@ -88,7 +88,7 @@ pub(crate) mod constants {
     /// Defined in [RFC 7919 appendix-A.1].
     ///
     /// [RFC 7919 appendix-A.1]: https://datatracker.ietf.org/doc/html/rfc7919#appendix-A.1
-    pub(crate) const FFDHE2048_Q_STR: &str = "0x
+    const FFDHE2048_Q_STR: &str = "0x
     7FFFFFFF FFFFFFFF D6FC2A2C 515DA54D 57EE2B10 139E9E78
     EC5CE2C1 E7169B4A D4F09B20 8A3219FD E649CEE7 124D9F7C
     BE97F1B1 B1863AEC 7B40D901 576230BD 69EF8F6A EAFEB2B0
@@ -105,7 +105,7 @@ pub(crate) mod constants {
     /// Defined in [RFC 7919 appendix-A.2].
     ///
     /// [RFC 7919 appendix-A.2]: https://datatracker.ietf.org/doc/html/rfc7919#appendix-A.2
-    pub(crate) const FFDHE3072_Q_STR: &str = "0x
+    const FFDHE3072_Q_STR: &str = "0x
     7FFFFFFF FFFFFFFF D6FC2A2C 515DA54D 57EE2B10 139E9E78
     EC5CE2C1 E7169B4A D4F09B20 8A3219FD E649CEE7 124D9F7C
     BE97F1B1 B1863AEC 7B40D901 576230BD 69EF8F6A EAFEB2B0
@@ -127,7 +127,7 @@ pub(crate) mod constants {
     /// Defined in [RFC 7919 appendix-A.3].
     ///
     /// [RFC 7919 appendix-A.3]: https://datatracker.ietf.org/doc/html/rfc7919#appendix-A.3
-    pub(crate) const FFDHE4096_Q_STR: &str = "0x
+    const FFDHE4096_Q_STR: &str = "0x
     7FFFFFFF FFFFFFFF D6FC2A2C 515DA54D 57EE2B10 139E9E78
     EC5CE2C1 E7169B4A D4F09B20 8A3219FD E649CEE7 124D9F7C
     BE97F1B1 B1863AEC 7B40D901 576230BD 69EF8F6A EAFEB2B0
@@ -155,7 +155,7 @@ pub(crate) mod constants {
     /// Defined in [RFC 7919 appendix-A.4].
     ///
     /// [RFC 7919 appendix-A.4]: https://datatracker.ietf.org/doc/html/rfc7919#appendix-A.4
-    pub(crate) const FFDHE6144_Q_STR: &str = "0x
+    const FFDHE6144_Q_STR: &str = "0x
     7FFFFFFF FFFFFFFF D6FC2A2C 515DA54D 57EE2B10 139E9E78
     EC5CE2C1 E7169B4A D4F09B20 8A3219FD E649CEE7 124D9F7C
     BE97F1B1 B1863AEC 7B40D901 576230BD 69EF8F6A EAFEB2B0
@@ -193,7 +193,7 @@ pub(crate) mod constants {
     /// Defined in [RFC 7919 appendix-A.5].
     ///
     /// [RFC 7919 appendix-A.5]: https://datatracker.ietf.org/doc/html/rfc7919#appendix-A.5
-    pub(crate) const FFDHE8192_Q_STR: &str = "0x
+    const FFDHE8192_Q_STR: &str = "0x
     7FFFFFFF FFFFFFFF D6FC2A2C 515DA54D 57EE2B10 139E9E78
     EC5CE2C1 E7169B4A D4F09B20 8A3219FD E649CEE7 124D9F7C
     BE97F1B1 B1863AEC 7B40D901 576230BD 69EF8F6A EAFEB2B0
@@ -245,11 +245,11 @@ pub(crate) mod constants {
             .collect()
     }
 
-    pub(crate) static FFDHE2048_KEY_PAIR: OnceLock<Mutex<(Mpi, Mpi)>> = OnceLock::new();
-    pub(crate) static FFDHE3072_KEY_PAIR: OnceLock<Mutex<(Mpi, Mpi)>> = OnceLock::new();
-    pub(crate) static FFDHE4096_KEY_PAIR: OnceLock<Mutex<(Mpi, Mpi)>> = OnceLock::new();
-    pub(crate) static FFDHE6144_KEY_PAIR: OnceLock<Mutex<(Mpi, Mpi)>> = OnceLock::new();
-    pub(crate) static FFDHE8192_KEY_PAIR: OnceLock<Mutex<(Mpi, Mpi)>> = OnceLock::new();
+    static FFDHE2048_KEY_PAIR: OnceLock<Mutex<(Mpi, Mpi)>> = OnceLock::new();
+    static FFDHE3072_KEY_PAIR: OnceLock<Mutex<(Mpi, Mpi)>> = OnceLock::new();
+    static FFDHE4096_KEY_PAIR: OnceLock<Mutex<(Mpi, Mpi)>> = OnceLock::new();
+    static FFDHE6144_KEY_PAIR: OnceLock<Mutex<(Mpi, Mpi)>> = OnceLock::new();
+    static FFDHE8192_KEY_PAIR: OnceLock<Mutex<(Mpi, Mpi)>> = OnceLock::new();
 
     /// Get a known FFDHE key pair.
     /// The key pair is loaded from static arbitrary private keys with their corresponding public keys.
