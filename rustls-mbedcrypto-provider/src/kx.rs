@@ -212,6 +212,8 @@ impl SupportedKxGroup for DheKxGroup {
         let x_pub = g
             .mod_exp(&x, &p)
             .map_err(mbedtls_err_to_rustls_error)?;
+
+        #[cfg(feature = "fips")]
         fips::ffdhe_pct(self, &x, &x_pub)?;
 
         Ok(Box::new(DheActiveKeyExchange::new(
@@ -279,6 +281,7 @@ impl ActiveKeyExchange for DheActiveKeyExchange {
             ));
         }
 
+        #[cfg(feature = "fips")]
         fips::ffdhe_pub_key_check(&self.group, self.named_group, &y_pub)?;
 
         let secret = y_pub
@@ -309,10 +312,7 @@ fn parse_peer_public_key(group_id: mbedtls::pk::EcGroupId, peer_public_key: &[u8
     PkMbed::public_from_ec_components(ec_group, public_point)
 }
 
-/// Pairwise Consistency Test upon generation that mimics the shared
-/// secret computation using the recent generated key pair and a known
-/// key pair with the same domain parameters and comparing the shared
-/// secret computation values calculated using FFC DH primitives.
+#[cfg(feature = "fips")]
 mod fips {
     use std::ops::Sub;
 

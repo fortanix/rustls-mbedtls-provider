@@ -85,7 +85,7 @@ pub(crate) mod log {
 pub mod aead;
 pub(crate) mod agreement;
 pub(crate) mod error;
-// #[cfg(feature = "fips")]
+#[cfg(feature = "fips")]
 pub(crate) mod fips_utils;
 /// Hash algorithms
 pub mod hash;
