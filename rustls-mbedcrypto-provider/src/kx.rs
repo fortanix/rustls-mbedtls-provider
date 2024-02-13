@@ -42,7 +42,17 @@ impl fmt::Debug for KxGroup {
 
 impl SupportedKxGroup for KxGroup {
     fn start(&self) -> Result<Box<dyn crypto::ActiveKeyExchange>, Error> {
-        let priv_key = generate_ec_key(self.agreement_algorithm.group_id)?;
+        #[allow(unused_mut)]
+        let mut priv_key = generate_ec_key(self.agreement_algorithm.group_id)?;
+
+        // Only run fips check on applied NamedGroups
+        #[cfg(feature = "fips")]
+        match self.name {
+            NamedGroup::secp256r1 | NamedGroup::secp384r1 | NamedGroup::secp521r1 => {
+                crate::fips_utils::fip_ec_pct(&mut priv_key, self.agreement_algorithm.group_id)?;
+            }
+            _ => (),
+        }
 
         Ok(Box::new(KeyExchange {
             name: self.name,
