@@ -23,8 +23,8 @@ pub enum FipsCheckError {
 impl fmt::Display for FipsCheckError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            FipsCheckError::Mbedtls(_) => write!(f, "FipsCheckError::{:?}", self),
-            FipsCheckError::General(err_str) => write!(f, "FipsCheckError::General({})", err_str),
+            Self::Mbedtls(_) => write!(f, "FipsCheckError::{:?}", self),
+            Self::General(err_str) => write!(f, "FipsCheckError::General({})", err_str),
         }
     }
 }
