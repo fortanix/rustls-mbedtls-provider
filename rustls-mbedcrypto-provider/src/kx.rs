@@ -5,7 +5,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use core::ops::Sub;
 use std::sync::Mutex;
 use std::sync::OnceLock;
 
@@ -269,9 +268,8 @@ impl ActiveKeyExchange for DheActiveKeyExchange {
 
         let one = Mpi::new(1).map_err(mbedtls_err_to_rustls_error)?;
 
-        let p_minus_one = p
-            .sub(&one)
-            .map_err(mbedtls_err_to_rustls_error)?;
+        let mut p_minus_one = p;
+        p_minus_one -= &one;
 
         // https://www.rfc-editor.org/rfc/rfc7919.html#section-5.1:
         // Peers MUST validate each other's public key Y [...] by ensuring that 1 < Y < p-1.
@@ -280,6 +278,9 @@ impl ActiveKeyExchange for DheActiveKeyExchange {
                 "Invalid DHE key exchange public key received; pub key must be in range (1, p-1)".into(),
             ));
         }
+
+        p_minus_one += &one;
+        let p = p_minus_one;
 
         #[cfg(feature = "fips")]
         fips::ffdhe_pub_key_check(&self.group, self.named_group, &y_pub)?;
@@ -314,8 +315,6 @@ fn parse_peer_public_key(group_id: mbedtls::pk::EcGroupId, peer_public_key: &[u8
 
 #[cfg(feature = "fips")]
 mod fips {
-    use core::ops::Sub;
-
     use crate::fips_utils::{
         constants::{get_ffdhe_q, get_known_ffdhe_key_pair},
         FipsCheckError,
@@ -376,15 +375,8 @@ mod fips {
         //    Success at this stage ensures that y has the expected representation for a nonzero field
         //    element (i.e., an integer in the interval [1, p – 1]) and that y is in the proper range for
         //    a properly generated public key
-        let two = Mpi::new(2).map_err(wrap_fips_mbed_err)?;
-        let p: Mpi = Mpi::from_binary(ffdhe_group.p).map_err(wrap_fips_mbed_err)?;
-        let p_sub_2: Mpi = p
-            .sub(&two)
-            .map_err(wrap_fips_mbed_err)?;
-        if y_pub < &two || y_pub > &p_sub_2 {
-            crate::log::error!("{ERR_MSG}");
-            return Err(FipsCheckError::Other(ERR_MSG.into()).into());
-        }
+        // Note: this is checked in function `ActiveKeyExchange::complete` for `DheActiveKeyExchange`.
+
         // 2. Verify that 1 = y^q mod p.
         //    Success at this stage ensures that y has the correct order and thus, is a non-identity
         //    element in the correct subgroup of GF(p)*.
@@ -393,6 +385,7 @@ mod fips {
         //       (nonzero) quadratic residue modulo p, which can be verified by computing the value of the Legendre symbol
         //       of y with respect to p
         let one = Mpi::new(1).map_err(wrap_fips_mbed_err)?;
+        let p = Mpi::from_binary(ffdhe_group.p).map_err(wrap_fips_mbed_err)?;
         let q = get_ffdhe_q(named_group)
             .expect("validated")
             .lock()

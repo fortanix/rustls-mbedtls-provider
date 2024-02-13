@@ -251,6 +251,8 @@ pub(crate) mod constants {
     pub(crate) static FFDHE6144_KEY_PAIR: OnceLock<Mutex<(Mpi, Mpi)>> = OnceLock::new();
     pub(crate) static FFDHE8192_KEY_PAIR: OnceLock<Mutex<(Mpi, Mpi)>> = OnceLock::new();
 
+    /// Get a known FFDHE key pair.
+    /// The key pair is loaded from static arbitrary private keys with their corresponding public keys.
     pub(crate) fn get_known_ffdhe_key_pair(named_group: NamedGroup) -> Option<&'static Mutex<(Mpi, Mpi)>> {
         let (cell, sk, pk) = match named_group {
             NamedGroup::FFDHE2048 => (&FFDHE2048_KEY_PAIR, FFDHE2048_SK, FFDHE2048_PK),
