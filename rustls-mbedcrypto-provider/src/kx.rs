@@ -349,7 +349,7 @@ mod fips {
         if secret_1 != secret_2 {
             const ERR_MSG: &str = "FFDHE Pairwise Consistency Test: failed";
             crate::log::error!("{ERR_MSG}");
-            return Err(FipsCheckError::Other(ERR_MSG.into()).into());
+            return Err(FipsCheckError::General(ERR_MSG.into()).into());
         }
         crate::log::info!("FFDHE Pairwise Consistency Test: passed");
         Ok(())
@@ -395,7 +395,7 @@ mod fips {
             .map_err(wrap_fips_mbed_err)?;
         if lhs != one {
             crate::log::error!("{ERR_MSG}");
-            return Err(FipsCheckError::Other(ERR_MSG.into()).into());
+            return Err(FipsCheckError::General(ERR_MSG.into()).into());
         }
         Ok(())
     }

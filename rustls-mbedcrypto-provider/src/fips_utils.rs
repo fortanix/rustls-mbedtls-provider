@@ -12,15 +12,20 @@ use std::{borrow::Cow, sync::Arc};
 
 use rustls::OtherError;
 
+/// Type represents errors comes from FIPS check
+#[non_exhaustive]
 #[derive(Debug, Eq, PartialEq)]
 pub enum FipsCheckError {
     Mbedtls(mbedtls::Error),
-    Other(Cow<'static, str>),
+    General(Cow<'static, str>),
 }
 
 impl fmt::Display for FipsCheckError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        match self {
+            FipsCheckError::Mbedtls(_) => write!(f, "FipsCheckError::{:?}", self),
+            FipsCheckError::General(err_str) => write!(f, "FipsCheckError::General({})", err_str),
+        }
     }
 }
 
@@ -459,4 +464,21 @@ pub(crate) mod constants {
         0xf4, 0xfc, 0x96, 0xa9, 0xcd, 0x22, 0x53, 0x99, 0x54, 0x37, 0x97, 0x59, 0xc7, 0x10, 0x85, 0x04, 0xe8, 0xd2, 0xda, 0xa5,
         0x71, 0x3c, 0xb4, 0xc8,
     ];
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fips_check_error_display() {
+        let error = FipsCheckError::Mbedtls(mbedtls::Error::EcpAllocFailed);
+        assert_eq!(format!("{}", error), "FipsCheckError::Mbedtls(EcpAllocFailed)");
+        let error = FipsCheckError::General(Cow::Borrowed("Some other error"));
+        assert_eq!(format!("{}", error), "FipsCheckError::General(Some other error)");
+        let error = FipsCheckError::Mbedtls(mbedtls::Error::EcpAllocFailed);
+        assert_eq!(format!("{:?}", error), "Mbedtls(EcpAllocFailed)");
+        let error_other = FipsCheckError::General(Cow::Borrowed("Some other error"));
+        assert_eq!(format!("{:?}", error_other), "General(\"Some other error\")");
+    }
 }
