@@ -209,15 +209,15 @@ impl SupportedKxGroup for DheKxGroup {
             .mod_exp(&x, &p)
             .map_err(mbedtls_err_to_rustls_error)?;
 
-        Ok(Box::new(DheActiveKeyExchange {
-            named_group: self.named_group,
-            group: self.group,
-            p: Mutex::new(p),
-            x: Mutex::new(x),
-            x_pub: x_pub
+        Ok(Box::new(DheActiveKeyExchange::new(
+            self.named_group,
+            self.group,
+            Mutex::new(p),
+            Mutex::new(x),
+            x_pub
                 .to_binary_padded(self.group.p.len())
                 .map_err(mbedtls_err_to_rustls_error)?,
-        }))
+        )))
     }
 
     fn name(&self) -> NamedGroup {
@@ -225,7 +225,7 @@ impl SupportedKxGroup for DheKxGroup {
     }
 }
 
-struct DheActiveKeyExchange {
+pub(crate) struct DheActiveKeyExchange {
     named_group: NamedGroup,
     group: FfdheGroup<'static>,
     // Using Mutex just because `Mpi` is not currently `Sync`
@@ -233,6 +233,18 @@ struct DheActiveKeyExchange {
     p: Mutex<Mpi>,
     x: Mutex<Mpi>,
     x_pub: Vec<u8>,
+}
+
+impl DheActiveKeyExchange {
+    pub(crate) fn new(
+        named_group: NamedGroup,
+        group: FfdheGroup<'static>,
+        p: Mutex<Mpi>,
+        x: Mutex<Mpi>,
+        x_pub: Vec<u8>,
+    ) -> Self {
+        Self { named_group, group, p, x, x_pub }
+    }
 }
 
 impl ActiveKeyExchange for DheActiveKeyExchange {
