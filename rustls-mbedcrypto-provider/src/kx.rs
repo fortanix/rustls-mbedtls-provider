@@ -314,7 +314,7 @@ fn parse_peer_public_key(group_id: mbedtls::pk::EcGroupId, peer_public_key: &[u8
 
 #[cfg(feature = "fips")]
 mod fips {
-    use std::ops::Sub;
+    use core::ops::Sub;
 
     use crate::fips_utils::{
         constants::{get_ffdhe_q, get_known_ffdhe_key_pair},
@@ -343,12 +343,12 @@ mod fips {
             .map_err(|_| Error::General("Failed to get ffdhe q".to_string()))?;
         let (x, x_pub) = (&key_pair.0, &key_pair.1);
         // compute shared secret with new pk and known sk
-        let secret_1 = compute_shared_secret(&y_pub, &x, &p).map_err(wrap_fips_mbed_err)?;
+        let secret_1 = compute_shared_secret(y_pub, x, &p).map_err(wrap_fips_mbed_err)?;
         // compute shared secret with new sk and known pk
-        let secret_2 = compute_shared_secret(&x_pub, &y, &p).map_err(wrap_fips_mbed_err)?;
+        let secret_2 = compute_shared_secret(x_pub, y, &p).map_err(wrap_fips_mbed_err)?;
         // compare two secrets
         if secret_1 != secret_2 {
-            const ERR_MSG: &'static str = "FFDHE Pairwise Consistency Test: failed";
+            const ERR_MSG: &str = "FFDHE Pairwise Consistency Test: failed";
             crate::log::error!("{ERR_MSG}");
             return Err(FipsCheckError::Other(ERR_MSG.into()).into());
         }
@@ -371,7 +371,7 @@ mod fips {
         named_group: NamedGroup,
         y_pub: &Mpi,
     ) -> Result<(), Error> {
-        const ERR_MSG: &'static str = "FFDHE Full Public-Key Validity: failed";
+        const ERR_MSG: &str = "FFDHE Full Public-Key Validity: failed";
         // 1. Verify that 2 <= y <= p − 2.
         //    Success at this stage ensures that y has the expected representation for a nonzero field
         //    element (i.e., an integer in the interval [1, p – 1]) and that y is in the proper range for

@@ -34,10 +34,9 @@ impl From<FipsCheckError> for rustls::Error {
 
 #[allow(dead_code)]
 pub(crate) mod constants {
-    use std::{
-        str::FromStr,
-        sync::{Mutex, OnceLock},
-    };
+    use core::str::FromStr;
+    use std::sync::Mutex;
+    use std::sync::OnceLock;
 
     use mbedtls::bignum::Mpi;
     use rustls::NamedGroup;
@@ -89,7 +88,7 @@ pub(crate) mod constants {
     /// Defined in [RFC 7919 appendix-A.1].
     ///
     /// [RFC 7919 appendix-A.1]: https://datatracker.ietf.org/doc/html/rfc7919#appendix-A.1
-    pub(crate) const FFDHE2048_Q_STR: &'static str = "0x
+    pub(crate) const FFDHE2048_Q_STR: &str = "0x
     7FFFFFFF FFFFFFFF D6FC2A2C 515DA54D 57EE2B10 139E9E78
     EC5CE2C1 E7169B4A D4F09B20 8A3219FD E649CEE7 124D9F7C
     BE97F1B1 B1863AEC 7B40D901 576230BD 69EF8F6A EAFEB2B0
@@ -106,7 +105,7 @@ pub(crate) mod constants {
     /// Defined in [RFC 7919 appendix-A.2].
     ///
     /// [RFC 7919 appendix-A.2]: https://datatracker.ietf.org/doc/html/rfc7919#appendix-A.2
-    pub(crate) const FFDHE3072_Q_STR: &'static str = "0x
+    pub(crate) const FFDHE3072_Q_STR: &str = "0x
     7FFFFFFF FFFFFFFF D6FC2A2C 515DA54D 57EE2B10 139E9E78
     EC5CE2C1 E7169B4A D4F09B20 8A3219FD E649CEE7 124D9F7C
     BE97F1B1 B1863AEC 7B40D901 576230BD 69EF8F6A EAFEB2B0
@@ -128,7 +127,7 @@ pub(crate) mod constants {
     /// Defined in [RFC 7919 appendix-A.3].
     ///
     /// [RFC 7919 appendix-A.3]: https://datatracker.ietf.org/doc/html/rfc7919#appendix-A.3
-    pub(crate) const FFDHE4096_Q_STR: &'static str = "0x
+    pub(crate) const FFDHE4096_Q_STR: &str = "0x
     7FFFFFFF FFFFFFFF D6FC2A2C 515DA54D 57EE2B10 139E9E78
     EC5CE2C1 E7169B4A D4F09B20 8A3219FD E649CEE7 124D9F7C
     BE97F1B1 B1863AEC 7B40D901 576230BD 69EF8F6A EAFEB2B0
@@ -156,7 +155,7 @@ pub(crate) mod constants {
     /// Defined in [RFC 7919 appendix-A.4].
     ///
     /// [RFC 7919 appendix-A.4]: https://datatracker.ietf.org/doc/html/rfc7919#appendix-A.4
-    pub(crate) const FFDHE6144_Q_STR: &'static str = "0x
+    pub(crate) const FFDHE6144_Q_STR: &str = "0x
     7FFFFFFF FFFFFFFF D6FC2A2C 515DA54D 57EE2B10 139E9E78
     EC5CE2C1 E7169B4A D4F09B20 8A3219FD E649CEE7 124D9F7C
     BE97F1B1 B1863AEC 7B40D901 576230BD 69EF8F6A EAFEB2B0
@@ -194,7 +193,7 @@ pub(crate) mod constants {
     /// Defined in [RFC 7919 appendix-A.5].
     ///
     /// [RFC 7919 appendix-A.5]: https://datatracker.ietf.org/doc/html/rfc7919#appendix-A.5
-    pub(crate) const FFDHE8192_Q_STR: &'static str = "0x
+    pub(crate) const FFDHE8192_Q_STR: &str = "0x
     7FFFFFFF FFFFFFFF D6FC2A2C 515DA54D 57EE2B10 139E9E78
     EC5CE2C1 E7169B4A D4F09B20 8A3219FD E649CEE7 124D9F7C
     BE97F1B1 B1863AEC 7B40D901 576230BD 69EF8F6A EAFEB2B0
