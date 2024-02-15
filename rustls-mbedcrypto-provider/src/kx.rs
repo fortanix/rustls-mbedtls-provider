@@ -85,35 +85,40 @@ pub static SECP521R1: &dyn SupportedKxGroup =
     &KxGroup { name: NamedGroup::secp521r1, agreement_algorithm: &agreement::ECDH_P521 };
 
 /// DHE group [FFDHE2048](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.1)
-pub static FFDHE2048: &dyn SupportedKxGroup = &DheKxGroup {
+pub static FFDHE2048: &dyn SupportedKxGroup = FFDHE2048_KX_GROUP;
+static FFDHE2048_KX_GROUP: &DheKxGroup = &DheKxGroup {
     named_group: NamedGroup::FFDHE2048,
     group: ffdhe_groups::FFDHE2048,
     priv_key_len: 36,
 };
 
 /// DHE group [FFDHE3072](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.2)
-pub static FFDHE3072: &dyn SupportedKxGroup = &DheKxGroup {
+pub static FFDHE3072: &dyn SupportedKxGroup = FFDHE3072_KX_GROUP;
+static FFDHE3072_KX_GROUP: &DheKxGroup = &DheKxGroup {
     named_group: NamedGroup::FFDHE3072,
     group: ffdhe_groups::FFDHE3072,
     priv_key_len: 40,
 };
 
 /// DHE group [FFDHE4096](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.3)
-pub static FFDHE4096: &dyn SupportedKxGroup = &DheKxGroup {
+pub static FFDHE4096: &dyn SupportedKxGroup = FFDHE4096_KX_GROUP;
+static FFDHE4096_KX_GROUP: &DheKxGroup = &DheKxGroup {
     named_group: NamedGroup::FFDHE4096,
     group: ffdhe_groups::FFDHE4096,
     priv_key_len: 48,
 };
 
 /// DHE group [FFDHE6144](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.4)
-pub static FFDHE6144: &dyn SupportedKxGroup = &DheKxGroup {
+pub static FFDHE6144: &dyn SupportedKxGroup = FFDHE6144_KX_GROUP;
+static FFDHE6144_KX_GROUP: &DheKxGroup = &DheKxGroup {
     named_group: NamedGroup::FFDHE6144,
     group: ffdhe_groups::FFDHE6144,
     priv_key_len: 56,
 };
 
 /// DHE group [FFDHE8192](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.5)
-pub static FFDHE8192: &dyn SupportedKxGroup = &DheKxGroup {
+pub static FFDHE8192: &dyn SupportedKxGroup = FFDHE8192_KX_GROUP;
+static FFDHE8192_KX_GROUP: &DheKxGroup = &DheKxGroup {
     named_group: NamedGroup::FFDHE8192,
     group: ffdhe_groups::FFDHE8192,
     priv_key_len: 64,
@@ -195,19 +200,20 @@ struct DheKxGroup {
 
 impl SupportedKxGroup for DheKxGroup {
     fn start(&self) -> Result<Box<dyn ActiveKeyExchange>, Error> {
-        let g = mbedtls::bignum::Mpi::from_binary(self.group.g).map_err(mbedtls_err_to_rustls_error)?;
-        let p = mbedtls::bignum::Mpi::from_binary(self.group.p).map_err(mbedtls_err_to_rustls_error)?;
+        let g = Mpi::from_binary(self.group.g).map_err(mbedtls_err_to_rustls_error)?;
+        let p = Mpi::from_binary(self.group.p).map_err(mbedtls_err_to_rustls_error)?;
 
         let mut rng = super::rng::rng_new().ok_or(rustls::crypto::GetRandomFailed)?;
         let mut x = vec![0; self.priv_key_len];
         rng.random(&mut x)
             .map_err(|_| rustls::crypto::GetRandomFailed)?;
-        let x = mbedtls::bignum::Mpi::from_binary(&x)
-            .map_err(|e| Error::General(format!("failed to make Bignum from random bytes: {}", e)))?;
-
+        let x = Mpi::from_binary(&x).map_err(|e| Error::General(format!("failed to make Bignum from random bytes: {}", e)))?;
         let x_pub = g
             .mod_exp(&x, &p)
             .map_err(mbedtls_err_to_rustls_error)?;
+
+        #[cfg(feature = "fips")]
+        fips::ffdhe_pct(self, &x, &x_pub)?;
 
         Ok(Box::new(DheActiveKeyExchange::new(
             self.named_group,
@@ -276,6 +282,9 @@ impl ActiveKeyExchange for DheActiveKeyExchange {
         p_minus_one += &one;
         let p = p_minus_one;
 
+        #[cfg(feature = "fips")]
+        fips::ffdhe_pub_key_check(&self.group, self.named_group, &y_pub)?;
+
         let secret = y_pub
             .mod_exp(&x, &p)
             .map_err(mbedtls_err_to_rustls_error)?;
@@ -302,6 +311,184 @@ fn parse_peer_public_key(group_id: mbedtls::pk::EcGroupId, peer_public_key: &[u8
     let ec_group = EcGroup::new(group_id)?;
     let public_point = EcPoint::from_binary_no_compress(&ec_group, peer_public_key)?;
     PkMbed::public_from_ec_components(ec_group, public_point)
+}
+
+#[cfg(feature = "fips")]
+mod fips {
+    use crate::fips_utils::{
+        constants::{get_ffdhe_q, get_known_ffdhe_key_pair},
+        FipsCheckError,
+    };
+
+    use super::*;
+
+    /// Run the Pairwise Consistency Test described in [FIPS 140-3 IG] section 10.3.A:
+    ///
+    /// > If at the time a PCT on a key pair is performed it is known
+    /// > whether the keys will be used in a key agreement scheme, digital
+    /// > signature algorithm or to perform a key transport, then the PCT
+    /// > shall be performed consistent with the intended use of the keys
+    /// > (i.e., TE10.35.01 for key transport, TE10.35.02 for signatures,
+    /// > or TE10.35.031 for key agreement), even if the underlying
+    /// > standard does not require a PCT.
+    ///
+    /// [FIPS 140-3 IG]: https://csrc.nist.gov/projects/cryptographic-module-validation-program/fips-140-3-ig-announcements
+    pub(super) fn ffdhe_pct(dhe_group: &DheKxGroup, y: &Mpi, y_pub: &Mpi) -> Result<(), Error> {
+        let p = Mpi::from_binary(dhe_group.group.p).map_err(wrap_fips_mbed_err)?;
+        // todo: load a known key pair based on namedgroup
+        let key_pair = get_known_ffdhe_key_pair(dhe_group.named_group)
+            .expect("validated")
+            .lock()
+            .map_err(|_| Error::General("Failed to get ffdhe q".to_string()))?;
+        let (x, x_pub) = (&key_pair.0, &key_pair.1);
+        // compute shared secret with new pk and known sk
+        let secret_1 = compute_shared_secret(y_pub, x, &p).map_err(wrap_fips_mbed_err)?;
+        // compute shared secret with new sk and known pk
+        let secret_2 = compute_shared_secret(x_pub, y, &p).map_err(wrap_fips_mbed_err)?;
+        // compare two secrets
+        if secret_1 != secret_2 {
+            const ERR_MSG: &str = "FFDHE Pairwise Consistency Test: failed";
+            crate::log::error!("{ERR_MSG}");
+            return Err(FipsCheckError::General(ERR_MSG.into()).into());
+        }
+        crate::log::info!("FFDHE Pairwise Consistency Test: passed");
+        Ok(())
+    }
+
+    #[inline]
+    fn wrap_fips_mbed_err(e: mbedtls::Error) -> Error {
+        FipsCheckError::Mbedtls(e).into()
+    }
+
+    /// Run FFC Full Public-Key Validation Routine, which is defined in
+    /// section 5.6.2.3.3 of [NIST SP 800-56A Rev. 3]
+    ///
+    /// [NIST SP 800-56A Rev. 3]:
+    ///     https://csrc.nist.gov/pubs/sp/800/56/a/r3/final
+    pub(super) fn ffdhe_pub_key_check(
+        ffdhe_group: &FfdheGroup<'static>,
+        named_group: NamedGroup,
+        y_pub: &Mpi,
+    ) -> Result<(), Error> {
+        const ERR_MSG: &str = "FFDHE Full Public-Key Validity: failed";
+        // 1. Verify that 2 <= y <= p − 2.
+        //    Success at this stage ensures that y has the expected representation for a nonzero field
+        //    element (i.e., an integer in the interval [1, p – 1]) and that y is in the proper range for
+        //    a properly generated public key
+        // Note: this is checked in function `ActiveKeyExchange::complete` for `DheActiveKeyExchange`.
+
+        // 2. Verify that 1 = y^q mod p.
+        //    Success at this stage ensures that y has the correct order and thus, is a non-identity
+        //    element in the correct subgroup of GF(p)*.
+        //
+        // Note: When the FFC domain parameters correspond to a safe-prime group, 1 = y^q mod p if and only if y is a
+        //       (nonzero) quadratic residue modulo p, which can be verified by computing the value of the Legendre symbol
+        //       of y with respect to p
+        let one = Mpi::new(1).map_err(wrap_fips_mbed_err)?;
+        let p = Mpi::from_binary(ffdhe_group.p).map_err(wrap_fips_mbed_err)?;
+        let q = get_ffdhe_q(named_group)
+            .expect("validated")
+            .lock()
+            .map_err(|_| Error::General("Failed to get ffdhe q".to_string()))?;
+        let lhs = y_pub
+            .mod_exp(&q, &p)
+            .map_err(wrap_fips_mbed_err)?;
+        if lhs != one {
+            crate::log::error!("{ERR_MSG}");
+            return Err(FipsCheckError::General(ERR_MSG.into()).into());
+        }
+        Ok(())
+    }
+
+    #[inline]
+    fn compute_shared_secret(peer_pub_key: &Mpi, self_private: &Mpi, named_group_prime: &Mpi) -> Result<Mpi, mbedtls::Error> {
+        peer_pub_key.mod_exp(self_private, named_group_prime)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn create_ffdhe_key_pair(dhe_group: &DheKxGroup) -> (Mpi, Mpi) {
+            let g = Mpi::from_binary(dhe_group.group.g).unwrap();
+            let p = Mpi::from_binary(dhe_group.group.p).unwrap();
+            let mut rng = crate::rng::rng_new().unwrap();
+            let mut x_binary = vec![0; dhe_group.priv_key_len];
+            rng.random(&mut x_binary).unwrap();
+            print_vec("private", &x_binary);
+
+            let x = Mpi::from_binary(&x_binary).unwrap();
+            let x_pub = g.mod_exp(&x, &p).unwrap();
+            let x_pub_binary = x_pub
+                .to_binary_padded(dhe_group.group.p.len())
+                .unwrap();
+            print_vec("public", &x_pub_binary);
+            (x, x_pub)
+        }
+
+        fn print_vec(name: &str, val: &[u8]) {
+            let formatted_strings: Vec<String> = val
+                .iter()
+                .map(|byte| format!("0x{:02x}", byte))
+                .collect();
+
+            // Join the formatted strings with commas
+            let formatted_output = formatted_strings.join(",");
+
+            // Print the output, enclosed in brackets
+            println!("{}:\n[{}]", name, formatted_output);
+        }
+
+        #[test]
+        fn test_ffdhe_pct() {
+            for dhe_group in [
+                FFDHE2048_KX_GROUP,
+                FFDHE3072_KX_GROUP,
+                FFDHE4096_KX_GROUP,
+                FFDHE6144_KX_GROUP,
+                FFDHE8192_KX_GROUP,
+            ] {
+                println!(
+                    "Running ffdhe pairwise consistency test smoke test on group: {:?}",
+                    dhe_group.named_group
+                );
+                let (y, y_pub) = create_ffdhe_key_pair(dhe_group);
+                let result = ffdhe_pct(dhe_group, &y, &y_pub);
+                assert_eq!(
+                    result,
+                    Ok(()),
+                    "ffdhe pairwise consistency test smoke test failed with group {:?}, res: {:?}",
+                    dhe_group.named_group,
+                    result
+                );
+            }
+        }
+
+        #[test]
+        fn test_ffdhe_pub_key_check() {
+            for dhe_group in [
+                FFDHE2048_KX_GROUP,
+                FFDHE3072_KX_GROUP,
+                FFDHE4096_KX_GROUP,
+                FFDHE6144_KX_GROUP,
+                FFDHE8192_KX_GROUP,
+            ] {
+                println!(
+                    "Running ffdhe public key check smoke test on group: {:?}",
+                    dhe_group.named_group
+                );
+                let (_, y_pub) = create_ffdhe_key_pair(dhe_group);
+                let result = ffdhe_pub_key_check(&dhe_group.group, dhe_group.named_group, &y_pub);
+                assert_eq!(
+                    result,
+                    Ok(()),
+                    "ffdhe public key check smoke test failed with group {:?}, res: {:?}",
+                    dhe_group.named_group,
+                    result
+                );
+            }
+        }
+    }
 }
 
 #[cfg(bench)]
