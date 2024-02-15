@@ -35,7 +35,7 @@ struct KxGroup {
 }
 
 impl fmt::Debug for KxGroup {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.name)
     }
 }
@@ -49,7 +49,7 @@ impl SupportedKxGroup for KxGroup {
         #[cfg(feature = "fips")]
         match self.name {
             NamedGroup::secp256r1 | NamedGroup::secp384r1 | NamedGroup::secp521r1 => {
-                crate::fips_utils::fip_ec_pct(&mut priv_key, self.agreement_algorithm.group_id)?;
+                crate::fips_utils::fips_ec_pct(&mut priv_key, self.agreement_algorithm.group_id)?;
             }
             _ => (),
         }
@@ -69,8 +69,8 @@ impl SupportedKxGroup for KxGroup {
 
 #[inline]
 fn generate_ec_key(group_id: mbedtls::pk::EcGroupId) -> Result<PkMbed, Error> {
-    PkMbed::generate_ec(&mut super::rng::rng_new().ok_or(rustls::crypto::GetRandomFailed)?, group_id)
-        .map_err(|err| rustls::Error::General(format!("Got error when generating ec key, mbedtls error: {}", err)))
+    PkMbed::generate_ec(&mut super::rng::rng_new().ok_or(crypto::GetRandomFailed)?, group_id)
+        .map_err(|err| Error::General(format!("Got error when generating ec key, mbedtls error: {}", err)))
 }
 
 /// Ephemeral ECDH on curve25519 (see RFC7748)
@@ -140,7 +140,7 @@ impl crypto::ActiveKeyExchange for KeyExchange {
             .agree(
                 &peer_pk,
                 shared_key,
-                &mut super::rng::rng_new().ok_or(rustls::crypto::GetRandomFailed)?,
+                &mut super::rng::rng_new().ok_or(crypto::GetRandomFailed)?,
             )
             .map_err(mbedtls_err_to_rustls_error)?;
         Ok(crypto::SharedSecret::from(&shared_key[..len]))

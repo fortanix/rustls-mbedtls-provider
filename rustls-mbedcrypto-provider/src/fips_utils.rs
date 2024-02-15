@@ -17,6 +17,8 @@ use mbedtls::{
 };
 use rustls::OtherError;
 
+use crate::log;
+
 #[derive(Debug, Eq, PartialEq)]
 struct FipsCheckError(mbedtls::Error);
 
@@ -48,7 +50,7 @@ fn wrap_mbedtls_error_as_fips(mbed_err: mbedtls::Error) -> rustls::Error {
 pub(crate) fn fips_check_ec_pub_key(ec_mbed_pk: &Pk) -> Result<(), rustls::Error> {
     let mut rng = crate::rng::rng_new().ok_or(rustls::Error::FailedToGetRandomBytes)?;
     fips_check_ec_pub_key_mbed(ec_mbed_pk, &mut rng).map_err(wrap_mbedtls_error_as_fips)?;
-    crate::log::info!("ECC Full Public-Key Validation: passed");
+    log::info!("ECC Full Public-Key Validation: passed");
     Ok(())
 }
 
@@ -64,21 +66,21 @@ pub(crate) fn fips_check_ec_pub_key(ec_mbed_pk: &Pk) -> Result<(), rustls::Error
 ///
 /// [FIPS 140-3 IG]: https://csrc.nist.gov/projects/cryptographic-module-validation-program/fips-140-3-ig-announcements
 /// [SP 800-56Ar3]: https://csrc.nist.gov/pubs/sp/800/56/a/r3/final
-pub(crate) fn fip_ec_pct(ec_mbed_pk: &mut Pk, ec_group_id: EcGroupId) -> Result<(), rustls::Error> {
+pub(crate) fn fips_ec_pct(ec_mbed_pk: &mut Pk, ec_group_id: EcGroupId) -> Result<(), rustls::Error> {
+    let mut rng = crate::rng::rng_new().ok_or(rustls::Error::FailedToGetRandomBytes)?;
     // Get a static ec pub key based on given [`EcGroupId`]
     let known_ec_key = get_known_ec_key(&ec_group_id).expect("validated");
     let mut known_ec_key = known_ec_key
         .lock()
-        .map_err(|_| rustls::Error::General("Failed to get known ec key".to_string()))?;
-    let mut rng = crate::rng::rng_new().ok_or(rustls::Error::FailedToGetRandomBytes)?;
+        .map_err(|_| rustls::Error::General("Failed to get known ec key: poisoned lock".to_string()))?;
 
-    fip_ec_pct_mbed(ec_mbed_pk, &mut known_ec_key, &mut rng).map_err(wrap_mbedtls_error_as_fips)?;
-    crate::log::info!("ECC Pairwise Consistency Test: passed");
+    fips_ec_pct_mbed(ec_mbed_pk, &mut known_ec_key, &mut rng).map_err(wrap_mbedtls_error_as_fips)?;
+    log::info!("ECC Pairwise Consistency Test: passed");
     Ok(())
 }
 
 #[allow(non_snake_case)]
-fn fip_ec_pct_mbed<F: mbedtls::rng::Random>(
+fn fips_ec_pct_mbed<F: mbedtls::rng::Random>(
     ec_mbed_pk: &mut Pk,
     known_ec_key: &mut Pk,
     rng: &mut F,
