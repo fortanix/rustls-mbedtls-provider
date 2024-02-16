@@ -8,14 +8,14 @@
 //! This module contains functions only used with `fips` features
 
 use core::fmt;
-use std::sync::{Arc, Mutex, OnceLock};
-
+use core::ops::Sub;
 use mbedtls::{
     bignum::Mpi,
     ecp::EcPoint,
-    pk::{EcGroupId, Pk, ECDSA_MAX_LEN},
+    pk::{EcGroup, EcGroupId, Pk},
 };
 use rustls::OtherError;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::log;
 
@@ -69,12 +69,13 @@ pub(crate) fn fips_check_ec_pub_key(ec_mbed_pk: &Pk) -> Result<(), rustls::Error
 pub(crate) fn fips_ec_pct(ec_mbed_pk: &mut Pk, ec_group_id: EcGroupId) -> Result<(), rustls::Error> {
     let mut rng = crate::rng::rng_new().ok_or(rustls::Error::FailedToGetRandomBytes)?;
     // Get a static ec pub key based on given [`EcGroupId`]
-    let known_ec_key = get_known_ec_key(&ec_group_id).expect("validated");
-    let mut known_ec_key = known_ec_key
+    let known_ec_key_info = get_known_ec_key(&ec_group_id).expect("validated");
+    let mut known_ec_key = known_ec_key_info
+        .0
         .lock()
         .map_err(|_| rustls::Error::General("Failed to get known ec key: poisoned lock".to_string()))?;
-
-    fips_ec_pct_mbed(ec_mbed_pk, &mut known_ec_key, &mut rng).map_err(wrap_mbedtls_error_as_fips)?;
+    let secret_len = known_ec_key_info.1;
+    fips_ec_pct_mbed(ec_mbed_pk, &mut known_ec_key, secret_len, &mut rng).map_err(wrap_mbedtls_error_as_fips)?;
     log::info!("ECC Pairwise Consistency Test: passed");
     Ok(())
 }
@@ -83,6 +84,7 @@ pub(crate) fn fips_ec_pct(ec_mbed_pk: &mut Pk, ec_group_id: EcGroupId) -> Result
 fn fips_ec_pct_mbed<F: mbedtls::rng::Random>(
     ec_mbed_pk: &mut Pk,
     known_ec_key: &mut Pk,
+    secret_len: usize,
     rng: &mut F,
 ) -> Result<(), mbedtls::Error> {
     // Pairwise Consistency Test upon generation that mimics the
@@ -90,8 +92,20 @@ fn fips_ec_pct_mbed<F: mbedtls::rng::Random>(
     // pair and a known key pair with the same domain parameters
     // and comparing the shared secret computation values
     // calculated using either FFC DH or ECC CDH primitives.
-    let mut shared_1 = vec![0; ECDSA_MAX_LEN];
-    let mut shared_2 = vec![0; ECDSA_MAX_LEN];
+    // This is based on section 10.3.A of [FIPS 140-3 IG] :
+    //
+    // > If at the time a PCT on a key pair is performed it is
+    // > known whether the keys will be used in a key agreement
+    // > scheme, digital signature algorithm or to perform a key
+    // > transport, then the PCT shall be performed consistent
+    // > with the intended use of the keys (i.e., TE10.35.01 for
+    // > key transport, TE10.35.02 for signatures, or TE10.35.031
+    // > for key agreement), even if the underlying standard does
+    // > not require a PCT.
+    //
+    // [FIPS 140-3 IG]: https://csrc.nist.gov/projects/cryptographic-module-validation-program/fips-140-3-ig-announcements
+    let mut shared_1 = vec![0; secret_len];
+    let mut shared_2 = vec![0; secret_len];
     let len = ec_mbed_pk.agree(known_ec_key, &mut shared_1, rng)?;
     shared_1.truncate(len);
     let len = known_ec_key.agree(ec_mbed_pk, &mut shared_2, rng)?;
@@ -99,20 +113,21 @@ fn fips_ec_pct_mbed<F: mbedtls::rng::Random>(
     if shared_1 != shared_2 {
         return Err(mbedtls::Error::EcpInvalidKey);
     }
-    // For an ECC key pair (d, Q): Use the private key, d, along
-    // with the generator G and other domain parameters
-    // associated with the key pair, to compute dG (according to
-    // the rules of elliptic-curve arithmetic). Compare the
-    // result to the public key, Q. If dG is not equal to Q,
-    // then the pair-wise consistency test fails.
+    // According to section 5.6.2.1.4 of [SP 800-56Ar3]:
+    //
+    // > For an ECC key pair (d, Q): Use the private key, d, along
+    // > with the generator G and other domain parameters
+    // > associated with the key pair, to compute dG (according to
+    // > the rules of elliptic-curve arithmetic). Compare the
+    // > result to the public key, Q. If dG is not equal to Q,
+    // > then the pair-wise consistency test fails.
+    //
+    // [SP 800-56Ar3]: https://csrc.nist.gov/pubs/sp/800/56/a/r3/final
     let mut ec_group = ec_mbed_pk.ec_group()?;
     let d = ec_mbed_pk.ec_private()?;
     let Q = ec_mbed_pk.ec_public()?;
     let G = ec_group.generator()?;
-    let dummy_ec_point = EcPoint::new()?;
-    let dG = G
-        .mul_with_rng(&mut ec_group, &d, rng)
-        .unwrap_or(dummy_ec_point);
+    let dG = G.mul_with_rng(&mut ec_group, &d, rng)?;
     // Use cloned `dG` to ensure it has same allocation length to `Q`.
     // "Same allocation length" is required by `eq_const_time`.
     if !dG.clone().eq_const_time(&Q)? {
@@ -123,35 +138,26 @@ fn fips_ec_pct_mbed<F: mbedtls::rng::Random>(
 
 #[allow(non_snake_case)]
 fn fips_check_ec_pub_key_mbed<F: mbedtls::rng::Random>(ec_mbed_pk: &Pk, rng: &mut F) -> Result<(), mbedtls::Error> {
-    use core::ops::Sub;
     let pub_point = ec_mbed_pk.ec_public()?;
     // 1. Verify that Q is not the identity element Ø.
     if pub_point.is_zero()? {
         return Err(mbedtls::Error::EcpInvalidKey);
     };
     // 2. Verify that x_Q and y_Q are integers in the interval [0, p − 1] in the case that q is an odd prime p
-    // Note: The q of all NIST P-XXX curves is an odd prime.
-    let mut ec_group = ec_mbed_pk.ec_group()?;
-    let p = ec_group.p()?;
-    let x_Q = pub_point.x()?;
-    let y_Q = pub_point.y()?;
-    if x_Q.sign() != mbedtls::bignum::Sign::Positive || x_Q >= p {
-        return Err(mbedtls::Error::EcpInvalidKey);
-    }
-    if y_Q.sign() != mbedtls::bignum::Sign::Positive || y_Q >= p {
-        return Err(mbedtls::Error::EcpInvalidKey);
-    }
-    // 3. Verify that Q is on the curve. In particular,
-    // If q is an odd prime p, verify that y_Q^2 = (x_Q^3 + a*x_Q + b) mod p.
+    // 3. Verify that Q is on the curve. In particular, if q is an odd prime p, verify that y_Q^2 = (x_Q^3 + a*x_Q + b) mod p.
+    //
     // Note:
     //   - The q of all NIST P-XXX curves is an odd prime.
-    //   - `mbedtls` code called by `contains_point` will finally do check as required.
+    //   - Function `contains_point` will call [`mbedtls_ecp_check_pubkey`] which finally do check 2 & 3 as required.
+    //
+    // [`mbedtls_ecp_check_pubkey`]: https://github.com/fortanix/rust-mbedtls/blob/main/mbedtls-sys/vendor/library/ecp.c#L3090
+    let mut ec_group = ec_mbed_pk.ec_group()?;
     if !ec_group.contains_point(&pub_point)? {
         return Err(mbedtls::Error::EcpInvalidKey);
     }
     // 4. Compute n*Q (using elliptic curve arithmetic), and verify that n*Q = Ø.
-    // Here we compute n*Q = (n-1)*Q +Q, because `EcPoint::mul` always expects
-    // given `Mpi` < n.
+    //    Here we compute n*Q = (n-1)*Q +Q, because `EcPoint::mul` always expects
+    //    given `Mpi` < n.
     let n = ec_group.order()?;
     let n_sub_1 = n.sub(1)?;
     let n_sub_1_q = pub_point.mul_with_rng(&mut ec_group, &n_sub_1, rng)?;
@@ -163,24 +169,32 @@ fn fips_check_ec_pub_key_mbed<F: mbedtls::rng::Random>(ec_mbed_pk: &Pk, rng: &mu
     Ok(())
 }
 
-static NIST_P192_PK: OnceLock<Arc<Mutex<Pk>>> = OnceLock::new();
-static NIST_P224_PK: OnceLock<Arc<Mutex<Pk>>> = OnceLock::new();
-static NIST_P256_PK: OnceLock<Arc<Mutex<Pk>>> = OnceLock::new();
-static NIST_P384_PK: OnceLock<Arc<Mutex<Pk>>> = OnceLock::new();
-static NIST_P521_PK: OnceLock<Arc<Mutex<Pk>>> = OnceLock::new();
+static NIST_P192_PK_INFO: OnceLock<(Arc<Mutex<Pk>>, usize)> = OnceLock::new();
+static NIST_P224_PK_INFO: OnceLock<(Arc<Mutex<Pk>>, usize)> = OnceLock::new();
+static NIST_P256_PK_INFO: OnceLock<(Arc<Mutex<Pk>>, usize)> = OnceLock::new();
+static NIST_P384_PK_INFO: OnceLock<(Arc<Mutex<Pk>>, usize)> = OnceLock::new();
+static NIST_P521_PK_INFO: OnceLock<(Arc<Mutex<Pk>>, usize)> = OnceLock::new();
 
 /// Get a known NIST-XXX EC private key from static PEM values.
-fn get_known_ec_key(ec_group_id: &EcGroupId) -> Option<&'static Arc<Mutex<Pk>>> {
+fn get_known_ec_key(ec_group_id: &EcGroupId) -> Option<&'static (Arc<Mutex<Pk>>, usize)> {
     let (pk_cell, pem_str) = match ec_group_id {
-        EcGroupId::SecP192R1 => (&NIST_P192_PK, NIST_P192_KEY),
-        EcGroupId::SecP224R1 => (&NIST_P224_PK, NIST_P224_KEY),
-        EcGroupId::SecP256R1 => (&NIST_P256_PK, NIST_P256_KEY),
-        EcGroupId::SecP384R1 => (&NIST_P384_PK, NIST_P384_KEY),
-        EcGroupId::SecP521R1 => (&NIST_P521_PK, NIST_P521_KEY),
+        EcGroupId::SecP192R1 => (&NIST_P192_PK_INFO, NIST_P192_KEY),
+        EcGroupId::SecP224R1 => (&NIST_P224_PK_INFO, NIST_P224_KEY),
+        EcGroupId::SecP256R1 => (&NIST_P256_PK_INFO, NIST_P256_KEY),
+        EcGroupId::SecP384R1 => (&NIST_P384_PK_INFO, NIST_P384_KEY),
+        EcGroupId::SecP521R1 => (&NIST_P521_PK_INFO, NIST_P521_KEY),
         // meet invalid EcGroupId in FIPS mode
         _ => return None,
     };
-    Some(pk_cell.get_or_init(|| Arc::new(Mutex::new(create_known_ec_key(pem_str)))))
+    Some(pk_cell.get_or_init(|| {
+        let secret_len = EcGroup::new(*ec_group_id)
+            .unwrap()
+            .p()
+            .unwrap()
+            .byte_length()
+            .unwrap();
+        (Arc::new(Mutex::new(create_known_ec_key(pem_str))), secret_len)
+    }))
 }
 
 fn create_known_ec_key(ec_key_pem: &str) -> Pk {
