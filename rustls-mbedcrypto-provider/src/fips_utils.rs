@@ -255,8 +255,31 @@ mod tests {
     #[test]
     fn fips_check_ec_pub_key_smoke_test() {
         let mut rng = crate::rng::rng_new().unwrap();
-        let ec_key = Pk::generate_ec(&mut rng, EcGroupId::SecP256R1).unwrap();
-        let () = fips_check_ec_pub_key(&ec_key).unwrap();
+        for group_id in [
+            EcGroupId::SecP192R1,
+            EcGroupId::SecP224R1,
+            EcGroupId::SecP256R1,
+            EcGroupId::SecP384R1,
+            EcGroupId::SecP521R1,
+        ] {
+            let ec_key = Pk::generate_ec(&mut rng, group_id).unwrap();
+            let () = fips_check_ec_pub_key(&ec_key).unwrap();
+        }
+    }
+
+    #[test]
+    fn fips_ec_pct_smoke_test() {
+        let mut rng = crate::rng::rng_new().unwrap();
+        for group_id in [
+            EcGroupId::SecP192R1,
+            EcGroupId::SecP224R1,
+            EcGroupId::SecP256R1,
+            EcGroupId::SecP384R1,
+            EcGroupId::SecP521R1,
+        ] {
+            let mut ec_key = Pk::generate_ec(&mut rng, group_id).unwrap();
+            let () = fips_ec_pct(&mut ec_key, group_id).unwrap();
+        }
     }
 
     #[test]
