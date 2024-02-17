@@ -35,14 +35,24 @@ struct KxGroup {
 }
 
 impl fmt::Debug for KxGroup {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.name)
     }
 }
 
 impl SupportedKxGroup for KxGroup {
     fn start(&self) -> Result<Box<dyn crypto::ActiveKeyExchange>, Error> {
-        let priv_key = generate_ec_key(self.agreement_algorithm.group_id)?;
+        #[allow(unused_mut)]
+        let mut priv_key = generate_ec_key(self.agreement_algorithm.group_id)?;
+
+        // Only run fips check on applied NamedGroups
+        #[cfg(feature = "fips")]
+        match self.name {
+            NamedGroup::secp256r1 | NamedGroup::secp384r1 | NamedGroup::secp521r1 => {
+                crate::fips_utils::fips_ec_pct(&mut priv_key, self.agreement_algorithm.group_id)?;
+            }
+            _ => (),
+        }
 
         Ok(Box::new(KeyExchange {
             name: self.name,
@@ -59,8 +69,8 @@ impl SupportedKxGroup for KxGroup {
 
 #[inline]
 fn generate_ec_key(group_id: mbedtls::pk::EcGroupId) -> Result<PkMbed, Error> {
-    PkMbed::generate_ec(&mut super::rng::rng_new().ok_or(rustls::crypto::GetRandomFailed)?, group_id)
-        .map_err(|err| rustls::Error::General(format!("Got error when generating ec key, mbedtls error: {}", err)))
+    PkMbed::generate_ec(&mut super::rng::rng_new().ok_or(crypto::GetRandomFailed)?, group_id)
+        .map_err(|err| Error::General(format!("Got error when generating ec key, mbedtls error: {}", err)))
 }
 
 /// Ephemeral ECDH on curve25519 (see RFC7748)
@@ -81,7 +91,7 @@ pub static SECP521R1: &dyn SupportedKxGroup =
 /// A list of all the key exchange groups supported by mbedtls.
 pub static ALL_KX_GROUPS: &[&dyn SupportedKxGroup] = &[X25519, SECP256R1, SECP384R1, SECP521R1];
 
-/// An in-progress key exchange.  This has the algorithm,
+/// An in-progress ECDH key exchange.  This has the algorithm,
 /// our private key, and our public key.
 struct KeyExchange {
     name: NamedGroup,
@@ -112,6 +122,14 @@ impl crypto::ActiveKeyExchange for KeyExchange {
         }
 
         let peer_pk = parse_peer_public_key(group_id, peer_public_key).map_err(mbedtls_err_to_rustls_error)?;
+        // Only run fips check on applied NamedGroups
+        #[cfg(feature = "fips")]
+        match self.name {
+            NamedGroup::secp256r1 | NamedGroup::secp384r1 | NamedGroup::secp521r1 => {
+                crate::fips_utils::fips_check_ec_pub_key(&peer_pk)?
+            }
+            _ => (),
+        }
 
         let mut shared_key = [0u8; mbedtls::pk::ECDSA_MAX_LEN];
         let shared_key = &mut shared_key[..self
@@ -122,7 +140,7 @@ impl crypto::ActiveKeyExchange for KeyExchange {
             .agree(
                 &peer_pk,
                 shared_key,
-                &mut super::rng::rng_new().ok_or(rustls::crypto::GetRandomFailed)?,
+                &mut super::rng::rng_new().ok_or(crypto::GetRandomFailed)?,
             )
             .map_err(mbedtls_err_to_rustls_error)?;
         Ok(crypto::SharedSecret::from(&shared_key[..len]))

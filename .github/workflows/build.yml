@@ -103,6 +103,10 @@ jobs:
           cargo build --tests --locked --features self_tests --package rustls-mbedcrypto-provider
           cargo test --locked --features self_tests --package rustls-mbedcrypto-provider
 
+      - name: cargo test + build (rustls_mbedcrypto_provider; debug; fips)
+        run: |
+          cargo test --locked --features fips --package rustls-mbedcrypto-provider
+
       - name: cargo test (release; no run)
         run: cargo test --locked --release --no-run --workspace
 

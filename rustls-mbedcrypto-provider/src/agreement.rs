@@ -7,7 +7,7 @@
 
 use mbedtls::pk::{EcGroupId, ECDSA_MAX_LEN};
 
-/// A key agreement algorithm.
+/// An ECDH key agreement algorithm.
 pub(crate) struct Algorithm {
     pub(crate) group_id: EcGroupId,
     pub(crate) public_key_len: usize,
