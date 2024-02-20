@@ -37,7 +37,6 @@ impl fmt::Display for FipsCheckError {
             Self::General(err_str) => write!(f, "FipsCheckError::General({})", err_str),
         }
     }
-
 }
 
 impl std::error::Error for FipsCheckError {}
@@ -477,7 +476,6 @@ pub(crate) mod constants {
     ];
 }
 
-
 /// Wrap a [`mbedtls::Error`] with [`FipsCheckError`] and convert it to [`rustls::Error`].
 #[inline]
 fn wrap_mbedtls_error_as_fips(mbed_err: mbedtls::Error) -> rustls::Error {
@@ -690,8 +688,8 @@ jHD6VjiXQLhdnpClYCBet1zodtHp7cQR5B77qKexLw==
 
 #[cfg(test)]
 mod tests {
-    use mbedtls::pk::EcGroupId;
     use super::*;
+    use mbedtls::pk::EcGroupId;
 
     #[test]
     fn test_fips_check_error_display() {
