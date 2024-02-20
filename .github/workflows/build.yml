@@ -9,8 +9,8 @@ on:
       - '*.md'
       - 'LICENSE'
     branches:
-        - master
-        - ffdhe
+      - master
+      - ffdhe
   merge_group:
   schedule:
     - cron: '30 13 * * *'
