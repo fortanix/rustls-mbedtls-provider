@@ -737,10 +737,10 @@ mod tests {
 
     #[test]
     fn fips_check_error_debug_test() {
-        let rustls_test: rustls::Error = FipsCheckError(mbedtls::Error::AesBadInputData).into();
+        let rustls_test: rustls::Error = wrap_mbedtls_error_as_fips(mbedtls::Error::AesBadInputData);
         let rustls_test_fmt = format!("{rustls_test}");
         let rustls_test_dbg = format!("{rustls_test:?}");
-        assert_eq!("other error: FipsCheckError(AesBadInputData)", rustls_test_fmt);
-        assert_eq!("Other(OtherError(FipsCheckError(AesBadInputData)))", rustls_test_dbg);
+        assert_eq!("other error: FipsCheckError::Mbedtls(AesBadInputData)", rustls_test_fmt);
+        assert_eq!("Other(OtherError(Mbedtls(AesBadInputData)))", rustls_test_dbg);
     }
 }
