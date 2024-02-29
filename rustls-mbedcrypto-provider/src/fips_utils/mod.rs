@@ -66,7 +66,7 @@ fn wrap_mbedtls_error_as_fips(mbed_err: mbedtls::Error) -> rustls::Error {
 pub(crate) fn fips_check_ec_pub_key(ec_mbed_pk: &Pk) -> Result<(), rustls::Error> {
     let mut rng = crate::rng::rng_new().ok_or(rustls::Error::FailedToGetRandomBytes)?;
     fips_check_ec_pub_key_mbed(ec_mbed_pk, &mut rng).map_err(wrap_mbedtls_error_as_fips)?;
-    log::info!("ECC Full Public-Key Validation: passed");
+    log::debug!("ECC Full Public-Key Validation: passed");
     Ok(())
 }
 
@@ -92,7 +92,7 @@ pub(crate) fn fips_ec_pct(ec_mbed_pk: &mut Pk, ec_group_id: EcGroupId) -> Result
         .map_err(|_| rustls::Error::General("Failed to get known ec key: poisoned lock".to_string()))?;
     let secret_len = known_ec_key_info.1;
     fips_ec_pct_mbed(ec_mbed_pk, &mut known_ec_key, secret_len, &mut rng).map_err(wrap_mbedtls_error_as_fips)?;
-    log::info!("ECC Pairwise Consistency Test: passed");
+    log::debug!("ECC Pairwise Consistency Test: passed");
     Ok(())
 }
 
@@ -213,7 +213,7 @@ pub(super) fn ffdhe_pct(dhe_group: &DheKxGroup, y: &Mpi, y_pub: &Mpi) -> Result<
         crate::log::error!("{ERR_MSG}");
         return Err(FipsCheckError::General(ERR_MSG.into()).into());
     }
-    crate::log::info!("FFDHE Pairwise Consistency Test: passed");
+    crate::log::debug!("FFDHE Pairwise Consistency Test: passed");
     Ok(())
 }
 
