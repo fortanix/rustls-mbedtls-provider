@@ -1,6 +1,6 @@
 [package]
 authors = ["Fortanix Inc."]
-categories = ["network-programming", "cryptography"]
+categories = ["cryptography", "network-programming"]
 description = "Mbedtls based crypto provider for rustls."
 edition = "2021"
 homepage = "https://github.com/fortanix/rustls-mbedtls-provider"
@@ -18,8 +18,8 @@ mbedtls = { version = "0.12.3", default-features = false, features = ["std"] }
 rustls = { version = "0.22.2", default-features = false }
 utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-provider-utils", version = "0.1.0" }
 webpki = { package = "rustls-webpki", version = "0.102.0", default-features = false, features = [
-    "alloc",
-    "std",
+  "alloc",
+  "std",
 ] }
 yasna = { version = "0.3", default-features = false, features = ["bit-vec"] }
 
@@ -33,11 +33,11 @@ webpki-roots = "0.26.1"
 
 [features]
 default = ["logging", "tls12"]
-logging = ["rustls/logging", "log"]
-rdrand = ["mbedtls/rdrand"]
-tls12 = ["rustls/tls12"]
-self_tests = []                     # enables `self_tests` module
 fips = ["self_tests"]               # enable FIPS checks
+logging = ["log", "rustls/logging"]
+rdrand = ["mbedtls/rdrand"]
+self_tests = []                     # enables `self_tests` module
+tls12 = ["rustls/tls12"]
 
 [[example]]
 name = "client"

@@ -10,7 +10,7 @@ version = "0.1.0"
 env_logger = "0.10"
 rustls = { version = "0.22.2", default-features = false }
 rustls-mbedcrypto-provider = { path = "../rustls-mbedcrypto-provider", features = [
-    "tls12",
+  "tls12",
 ] }
 rustls-mbedpki-provider = { path = "../rustls-mbedpki-provider" }
 rustls-native-certs = "0.7.0"
