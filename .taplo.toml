@@ -2,3 +2,10 @@
 align_comments = true
 reorder_arrays = true
 reorder_keys = true
+
+[[rule]]
+include = ["**/Cargo.toml"]
+keys = ["package"]
+
+[rule.formatting]
+reorder_keys = false
