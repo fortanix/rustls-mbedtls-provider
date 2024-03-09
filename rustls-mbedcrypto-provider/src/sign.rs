@@ -84,7 +84,7 @@ impl MbedTlsPkSigningKey {
     /// Make a new [`MbedTlsPkSigningKey`] from a DER encoding.
     pub fn new(der: &pki_types::PrivateKeyDer<'_>) -> Result<Self, rustls::Error> {
         let pk = mbedtls::pk::Pk::from_private_key(der.secret_der(), None)
-            .map_err(|err| rustls::Error::Other(rustls::OtherError(alloc::sync::Arc::new(err))))?;
+            .map_err(|err| rustls::Error::Other(rustls::OtherError(Arc::new(err))))?;
         Self::from_pk(pk)
     }
 
@@ -97,7 +97,7 @@ impl MbedTlsPkSigningKey {
             Some(
                 match pk
                     .curve()
-                    .map_err(|err| rustls::Error::Other(rustls::OtherError(alloc::sync::Arc::new(err))))?
+                    .map_err(|err| rustls::Error::Other(rustls::OtherError(Arc::new(err))))?
                 {
                     EcGroupId::SecP256R1 => SignatureScheme::ECDSA_NISTP256_SHA256,
                     EcGroupId::SecP384R1 => SignatureScheme::ECDSA_NISTP384_SHA384,
@@ -113,7 +113,7 @@ impl MbedTlsPkSigningKey {
             None
         };
         Ok(Self {
-            pk: alloc::sync::Arc::new(std::sync::Mutex::new(pk)),
+            pk: Arc::new(Mutex::new(pk)),
             pk_type,
             signature_algorithm,
             ec_signature_scheme,
