@@ -10,7 +10,6 @@ use alloc::string::ToString;
 use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
-use chrono::NaiveDateTime;
 use mbedtls::x509::VerifyError;
 use rustls::client::danger::{ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::ServerName;
@@ -139,7 +138,7 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
         _ocsp_response: &[u8],
         now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
-        let now = NaiveDateTime::from_timestamp_opt(
+        let now = chrono::DateTime::from_timestamp(
             now.as_secs()
                 .try_into()
                 .map_err(|_| rustls::Error::General(String::from("Invalid current unix timestamp")))?,

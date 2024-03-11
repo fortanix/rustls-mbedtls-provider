@@ -45,7 +45,6 @@ extern crate std;
 
 use core::fmt::Display;
 
-use chrono::NaiveDateTime;
 use mbedtls::x509::VerifyError;
 use rustls::pki_types::CertificateDer;
 use rustls::SignatureScheme;
@@ -97,7 +96,7 @@ fn time_err_to_err(_time_err: mbedtls::x509::InvalidTimeError) -> rustls::Error 
 /// each certificate
 fn verify_certificates_active<'a>(
     chain: impl IntoIterator<Item = &'a mbedtls::x509::Certificate>,
-    now: NaiveDateTime,
+    now: chrono::DateTime<chrono::Utc>,
     active_check: &CertActiveCheck,
 ) -> Result<Result<(), VerifyError>, rustls::Error> {
     if active_check.ignore_expired && active_check.ignore_not_active_yet {
@@ -106,22 +105,22 @@ fn verify_certificates_active<'a>(
 
     for cert in chain.into_iter() {
         if !active_check.ignore_expired {
-            let not_after = cert
+            let not_after: chrono::NaiveDateTime = cert
                 .not_after()
                 .map_err(mbedtls_err_into_rustls_err)?
                 .try_into()
                 .map_err(time_err_to_err)?;
-            if now > not_after {
+            if now.naive_utc() > not_after {
                 return Ok(Err(VerifyError::CERT_EXPIRED));
             }
         }
         if !active_check.ignore_not_active_yet {
-            let not_before = cert
+            let not_before: chrono::NaiveDateTime = cert
                 .not_before()
                 .map_err(mbedtls_err_into_rustls_err)?
                 .try_into()
                 .map_err(time_err_to_err)?;
-            if now < not_before {
+            if now.naive_utc() < not_before {
                 return Ok(Err(VerifyError::CERT_FUTURE));
             }
         }
