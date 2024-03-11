@@ -334,7 +334,7 @@ mod tests {
 
         let verifier = MbedTlsClientCertVerifier::new(trusted_cas.iter()).unwrap();
 
-        let now = SystemTime::from(chrono::DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
+        let now = SystemTime::from(DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
         let now = UnixTime::since_unix_epoch(
             now.duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap(),
