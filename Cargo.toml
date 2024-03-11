@@ -1,13 +1,13 @@
 [workspace]
-members = [
-    "examples",
-    "rustls-mbedcrypto-provider",
-    "rustls-mbedpki-provider",
-    "rustls-mbedtls-provider-utils",
-]
 default-members = [
-    "rustls-mbedcrypto-provider",
-    "rustls-mbedpki-provider",
-    "rustls-mbedtls-provider-utils",
+  "rustls-mbedcrypto-provider",
+  "rustls-mbedpki-provider",
+  "rustls-mbedtls-provider-utils",
+]
+members = [
+  "examples",
+  "rustls-mbedcrypto-provider",
+  "rustls-mbedpki-provider",
+  "rustls-mbedtls-provider-utils",
 ]
 resolver = "2"
