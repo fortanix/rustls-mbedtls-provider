@@ -13,7 +13,7 @@ resolver = "2"
 
 [dependencies]
 bit-vec = "0.6.3"
-log = { version = "0.4.4", optional = true }
+log = { version = "0.4", optional = true }
 mbedtls = { version = "0.12.3", default-features = false, features = ["std"] }
 rustls = { version = "0.22.2", default-features = false }
 utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-provider-utils", version = "0.1.0" }
@@ -26,7 +26,7 @@ yasna = { version = "0.3", default-features = false, features = ["bit-vec"] }
 [dev-dependencies]
 bencher = "0.1.5"
 env_logger = "0.10"
-log = { version = "0.4.4" }
+log = { version = "0.4" }
 rustls = { version = "0.22.2", default-features = false, features = ["ring"] }
 rustls-pemfile = "2"
 webpki-roots = "0.26.1"
