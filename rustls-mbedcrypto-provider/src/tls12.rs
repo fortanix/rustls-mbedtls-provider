@@ -236,7 +236,7 @@ impl MessageDecrypter for GcmMessageDecrypter {
                 mbedtls::Error::CcmAuthFailed
                 | mbedtls::Error::ChachapolyAuthFailed
                 | mbedtls::Error::CipherAuthFailed
-                | mbedtls::Error::GcmAuthFailed => rustls::Error::DecryptError,
+                | mbedtls::Error::GcmAuthFailed => Error::DecryptError,
                 _ => mbedtls_err_to_rustls_error(err),
             })?;
         if plain_len > MAX_FRAGMENT_LEN {
@@ -274,7 +274,7 @@ impl MessageEncrypter for GcmMessageEncrypter {
                 mbedtls::Error::CcmAuthFailed
                 | mbedtls::Error::ChachapolyAuthFailed
                 | mbedtls::Error::CipherAuthFailed
-                | mbedtls::Error::GcmAuthFailed => rustls::Error::EncryptError,
+                | mbedtls::Error::GcmAuthFailed => Error::EncryptError,
                 _ => mbedtls_err_to_rustls_error(err),
             })?;
         payload.extend(tag);
@@ -343,7 +343,7 @@ impl MessageDecrypter for ChaCha20Poly1305MessageDecrypter {
                 mbedtls::Error::CcmAuthFailed
                 | mbedtls::Error::ChachapolyAuthFailed
                 | mbedtls::Error::CipherAuthFailed
-                | mbedtls::Error::GcmAuthFailed => rustls::Error::DecryptError,
+                | mbedtls::Error::GcmAuthFailed => Error::DecryptError,
                 _ => mbedtls_err_to_rustls_error(err),
             })?;
 
@@ -383,7 +383,7 @@ impl MessageEncrypter for ChaCha20Poly1305MessageEncrypter {
                 mbedtls::Error::CcmAuthFailed
                 | mbedtls::Error::ChachapolyAuthFailed
                 | mbedtls::Error::CipherAuthFailed
-                | mbedtls::Error::GcmAuthFailed => rustls::Error::EncryptError,
+                | mbedtls::Error::GcmAuthFailed => Error::EncryptError,
                 _ => mbedtls_err_to_rustls_error(err),
             })?;
         payload.extend(tag);

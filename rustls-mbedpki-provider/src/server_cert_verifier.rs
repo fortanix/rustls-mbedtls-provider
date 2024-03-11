@@ -215,6 +215,7 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
 // cert subject: CN=ponytown RSA CA, issuer: CN=ponytown RSA CA
 #[cfg(test)]
 mod tests {
+    use chrono::DateTime;
     use std::{sync::Arc, time::SystemTime};
 
     use mbedtls::x509::VerifyError;
@@ -358,7 +359,7 @@ mod tests {
         let verifier = MbedTlsServerCertVerifier::new(trusted_cas.iter()).unwrap();
 
         let server_name = "testserver.com".try_into().unwrap();
-        let now = SystemTime::from(chrono::DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
+        let now = SystemTime::from(DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
         let now = UnixTime::since_unix_epoch(
             now.duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap(),
@@ -375,7 +376,7 @@ mod tests {
         let verifier = MbedTlsServerCertVerifier::new(trusted_cas.iter()).unwrap();
 
         let server_name = "testserver.com".try_into().unwrap();
-        let now = SystemTime::from(chrono::DateTime::parse_from_rfc3339("2052-11-26T12:00:00+00:00").unwrap());
+        let now = SystemTime::from(DateTime::parse_from_rfc3339("2052-11-26T12:00:00+00:00").unwrap());
         let now = UnixTime::since_unix_epoch(
             now.duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap(),
@@ -400,7 +401,7 @@ mod tests {
 
         let mut verifier = MbedTlsServerCertVerifier::new(trusted_cas.iter()).unwrap();
         let server_name = "testserver.com".try_into().unwrap();
-        let now = SystemTime::from(chrono::DateTime::parse_from_rfc3339("2052-11-26T12:00:00+00:00").unwrap());
+        let now = SystemTime::from(DateTime::parse_from_rfc3339("2052-11-26T12:00:00+00:00").unwrap());
         let now = UnixTime::since_unix_epoch(
             now.duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap(),
@@ -423,7 +424,7 @@ mod tests {
         let verify_res = verifier.verify_server_cert(&cert_chain[0], &cert_chain[1..], &server_name, &[], now);
         assert!(verify_res.is_ok());
 
-        let now = SystemTime::from(chrono::DateTime::parse_from_rfc3339("2002-11-26T12:00:00+00:00").unwrap());
+        let now = SystemTime::from(DateTime::parse_from_rfc3339("2002-11-26T12:00:00+00:00").unwrap());
         let now = UnixTime::since_unix_epoch(
             now.duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap(),
@@ -459,7 +460,7 @@ mod tests {
         let verifier = MbedTlsServerCertVerifier::new(trusted_cas.iter()).unwrap();
 
         let server_name = "testserver.com.eu".try_into().unwrap();
-        let now = SystemTime::from(chrono::DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
+        let now = SystemTime::from(DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
         let now = UnixTime::since_unix_epoch(
             now.duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap(),
@@ -477,7 +478,7 @@ mod tests {
         let mut verifier = MbedTlsServerCertVerifier::new(trusted_cas.iter()).unwrap();
         assert!(verifier.verify_callback().is_none());
         let server_name = "testserver.com.eu".try_into().unwrap();
-        let now = SystemTime::from(chrono::DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
+        let now = SystemTime::from(DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
         let now = UnixTime::since_unix_epoch(
             now.duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap(),
@@ -503,7 +504,7 @@ mod tests {
         let verifier = MbedTlsServerCertVerifier::new(trusted_cas.iter()).unwrap();
 
         let server_name = "testserver.com".try_into().unwrap();
-        let now = SystemTime::from(chrono::DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
+        let now = SystemTime::from(DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
         let now = UnixTime::since_unix_epoch(
             now.duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap(),

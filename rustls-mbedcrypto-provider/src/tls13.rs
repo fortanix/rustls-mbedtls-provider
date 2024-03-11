@@ -134,7 +134,7 @@ impl MessageEncrypter for Tls13MessageEncrypter {
                 mbedtls::Error::CcmAuthFailed
                 | mbedtls::Error::ChachapolyAuthFailed
                 | mbedtls::Error::CipherAuthFailed
-                | mbedtls::Error::GcmAuthFailed => rustls::Error::EncryptError,
+                | mbedtls::Error::GcmAuthFailed => Error::EncryptError,
                 _ => mbedtls_err_to_rustls_error(err),
             })?;
         payload.extend(tag);
@@ -186,7 +186,7 @@ impl MessageDecrypter for Tls13MessageDecrypter {
                 mbedtls::Error::CcmAuthFailed
                 | mbedtls::Error::ChachapolyAuthFailed
                 | mbedtls::Error::CipherAuthFailed
-                | mbedtls::Error::GcmAuthFailed => rustls::Error::DecryptError,
+                | mbedtls::Error::GcmAuthFailed => Error::DecryptError,
                 _ => mbedtls_err_to_rustls_error(err),
             })?;
         payload.truncate(plain_len);
