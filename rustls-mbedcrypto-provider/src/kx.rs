@@ -221,10 +221,10 @@ impl SupportedKxGroup for DheKxGroup {
         let g = Mpi::from_binary(self.group.g).map_err(mbedtls_err_to_rustls_error)?;
         let p = Mpi::from_binary(self.group.p).map_err(mbedtls_err_to_rustls_error)?;
 
-        let mut rng = super::rng::rng_new().ok_or(rustls::crypto::GetRandomFailed)?;
+        let mut rng = super::rng::rng_new().ok_or(crypto::GetRandomFailed)?;
         let mut x = vec![0; self.priv_key_len];
         rng.random(&mut x)
-            .map_err(|_| rustls::crypto::GetRandomFailed)?;
+            .map_err(|_| crypto::GetRandomFailed)?;
         let x = Mpi::from_binary(&x).map_err(|e| Error::General(format!("failed to make Bignum from random bytes: {}", e)))?;
         let x_pub = g
             .mod_exp(&x, &p)
