@@ -1,29 +1,29 @@
 [package]
 name = "rustls-mbedpki-provider"
 version = "0.0.2"
+authors = ["Fortanix Inc."]
+categories = ["cryptography", "network-programming"]
+description = "Implements rustls PKI traits using mbedtls"
 edition = "2021"
 license = "MPL-2.0"
-description = "Implements rustls PKI traits using mbedtls"
-repository = "https://github.com/fortanix/rustls-mbedtls-provider"
 readme = "../README.md"
-authors = ["Fortanix Inc."]
-categories = ["network-programming", "cryptography"]
+repository = "https://github.com/fortanix/rustls-mbedtls-provider"
 resolver = "2"
 
 [dependencies]
-rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r4", default_features = false }
-mbedtls = { version = "0.12.2", features = [
-    "x509",
-    "chrono",
-    "std",
-], default_features = false }
-
-x509-parser = "0.15"
 chrono = "0.4"
+mbedtls = { version = "0.12.2", default_features = false, features = [
+  "chrono",
+  "std",
+  "x509",
+] }
+rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r4", default_features = false }
 utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-provider-utils", version = "0.1.0" }
+x509-parser = "0.15"
 
 [dev-dependencies]
-rustls-pemfile = "2"
+mbedtls = { version = "0.12.2", default_features = false, features = [
+  "time",
+] } # We enable the time feature for tests to make sure it does not mess up cert expiration checking
 rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r4" }
-# We enable the time feature for tests to make sure it does not mess up cert expiration checking
-mbedtls = { version = "0.12.2", features = ["time"], default_features = false }
+rustls-pemfile = "2"

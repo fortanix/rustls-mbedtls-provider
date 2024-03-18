@@ -1,16 +1,16 @@
 [package]
 name = "rustls-mbedtls-provider-utils"
 version = "0.1.1"
-edition = "2021"
-license = "MPL-2.0"
-description = "Utility code used in mbedtls based provider for rustls."
-homepage = "https://github.com/fortanix/rustls-mbedtls-provider"
-repository = "https://github.com/fortanix/rustls-mbedtls-provider"
-readme = "../README.md"
 authors = ["Fortanix Inc."]
-categories = ["network-programming", "cryptography"]
+categories = ["cryptography", "network-programming"]
+description = "Utility code used in mbedtls based provider for rustls."
+edition = "2021"
+homepage = "https://github.com/fortanix/rustls-mbedtls-provider"
+license = "MPL-2.0"
+readme = "../README.md"
+repository = "https://github.com/fortanix/rustls-mbedtls-provider"
 resolver = "2"
 
 [dependencies]
-rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r4", default-features = false }
 mbedtls = { version = "0.12.2", default-features = false, features = ["std"] }
+rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r4", default-features = false }
