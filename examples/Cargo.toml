@@ -14,5 +14,5 @@ rustls-mbedcrypto-provider = { path = "../rustls-mbedcrypto-provider", features 
 ] }
 rustls-mbedpki-provider = { path = "../rustls-mbedpki-provider" }
 rustls-native-certs = "0.7.0"
-rustls-pki-types = "1"
 rustls-pemfile = "2"
+rustls-pki-types = "1"
