@@ -8,7 +8,7 @@ publish = false
 
 [dependencies]
 env_logger = "0.10"
-rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r4", default-features = false }
+rustls = { version = "0.23" }
 rustls-mbedcrypto-provider = { path = "../rustls-mbedcrypto-provider", features = [
   "tls12",
 ] }
