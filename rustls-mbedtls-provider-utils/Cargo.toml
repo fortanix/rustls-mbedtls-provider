@@ -13,4 +13,4 @@ resolver = "2"
 
 [dependencies]
 mbedtls = { version = "0.12.2", default-features = false, features = ["std"] }
-rustls = { version = "0.22.2", default-features = false }
+rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r4", default-features = false }
