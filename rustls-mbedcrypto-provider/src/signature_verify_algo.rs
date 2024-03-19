@@ -37,6 +37,14 @@ pub static ECDSA_P256_SHA384: &Algorithm = &Algorithm {
     ec_group_id: Some(EcGroupId::SecP256R1),
     signature_alg_id: alg_id::ECDSA_SHA384,
 };
+/// ECDSA signatures using the P-512 curve and SHA-512.
+pub static ECDSA_P521_SHA512: &Algorithm = &Algorithm {
+    signature_scheme: SignatureScheme::ECDSA_NISTP521_SHA512,
+    hash_algo: &super::hash::MBED_SHA_512,
+    public_key_alg_id: alg_id::ECDSA_P521,
+    ec_group_id: Some(EcGroupId::SecP521R1),
+    signature_alg_id: alg_id::ECDSA_SHA512,
+};
 /// RSA PKCS#1 1.5 signatures using SHA-256.
 pub static RSA_PKCS1_SHA256: &Algorithm = &Algorithm {
     signature_scheme: SignatureScheme::RSA_PKCS1_SHA256,
