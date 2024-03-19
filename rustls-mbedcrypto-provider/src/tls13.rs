@@ -14,13 +14,12 @@ use alloc::vec::Vec;
 use mbedtls::cipher::raw::CipherType;
 use mbedtls::cipher::{Authenticated, Cipher, Decryption, Encryption, Fresh};
 use rustls::crypto::cipher::{
-    make_tls13_aad, AeadKey, BorrowedPlainMessage, Iv, MessageDecrypter, MessageEncrypter, Nonce, OpaqueMessage, PlainMessage,
-    Tls13AeadAlgorithm, UnsupportedOperationError,
+    make_tls13_aad, AeadKey, InboundOpaqueMessage, InboundPlainMessage, Iv, MessageDecrypter, MessageEncrypter, Nonce,
+    OutboundOpaqueMessage, OutboundPlainMessage, PlainMessage, PrefixedPayload, Tls13AeadAlgorithm, UnsupportedOperationError,
 };
 use rustls::crypto::hmac::Hmac;
 use rustls::crypto::tls13::{Hkdf, HkdfExpander, OkmBlock, OutputLengthError};
 use rustls::crypto::CipherSuiteCommon;
-use rustls::internal::msgs::codec::Codec;
 use rustls::{
     CipherSuite, ConnectionTrafficSecrets, ContentType, Error, ProtocolVersion, SupportedCipherSuite, Tls13CipherSuite,
 };
@@ -34,7 +33,6 @@ pub(crate) static TLS13_CHACHA20_POLY1305_SHA256_INTERNAL: &Tls13CipherSuite = &
         suite: CipherSuite::TLS13_CHACHA20_POLY1305_SHA256,
         hash_provider: &super::hash::SHA256,
         confidentiality_limit: u64::MAX,
-        integrity_limit: 1 << 36,
     },
     hkdf_provider: &MbedHkdfUsingHmac(&super::hmac::HMAC_SHA256),
     aead_alg: &AeadAlgorithm(&aead::CHACHA20_POLY1305),
@@ -104,11 +102,12 @@ struct Tls13MessageDecrypter {
 }
 
 impl MessageEncrypter for Tls13MessageEncrypter {
-    fn encrypt(&mut self, msg: BorrowedPlainMessage, seq: u64) -> Result<OpaqueMessage, Error> {
-        let total_len = msg.payload.len() + 1 + aead::TAG_LEN;
-        let mut payload = Vec::with_capacity(total_len);
-        payload.extend_from_slice(msg.payload);
-        msg.typ.encode(&mut payload);
+    fn encrypt(&mut self, msg: OutboundPlainMessage, seq: u64) -> Result<OutboundOpaqueMessage, Error> {
+        let total_len = self.encrypted_payload_len(msg.payload.len());
+        let mut payload = PrefixedPayload::with_capacity(total_len);
+        // let mut payload = Vec::with_capacity(total_len);
+        payload.extend_from_chunks(&msg.payload);
+        payload.extend_from_slice(&msg.typ.to_array());
 
         let nonce = Nonce::new(&self.iv, seq).0;
         let aad = make_tls13_aad(total_len);
@@ -127,7 +126,7 @@ impl MessageEncrypter for Tls13MessageEncrypter {
             .map_err(mbedtls_err_to_rustls_error)?;
 
         cipher
-            .encrypt_auth_inplace(&aad, &mut payload, &mut tag)
+            .encrypt_auth_inplace(&aad, &mut payload.as_mut(), &mut tag)
             .map_err(|err| match err {
                 mbedtls::Error::CcmAuthFailed
                 | mbedtls::Error::ChachapolyAuthFailed
@@ -135,9 +134,9 @@ impl MessageEncrypter for Tls13MessageEncrypter {
                 | mbedtls::Error::GcmAuthFailed => Error::EncryptError,
                 _ => mbedtls_err_to_rustls_error(err),
             })?;
-        payload.extend(tag);
+        payload.extend_from_slice(&tag);
 
-        Ok(OpaqueMessage::new(
+        Ok(OutboundOpaqueMessage::new(
             ContentType::ApplicationData,
             ProtocolVersion::TLSv1_2,
             payload,
@@ -150,8 +149,8 @@ impl MessageEncrypter for Tls13MessageEncrypter {
 }
 
 impl MessageDecrypter for Tls13MessageDecrypter {
-    fn decrypt(&mut self, mut msg: OpaqueMessage, seq: u64) -> Result<PlainMessage, Error> {
-        let payload = msg.payload_mut();
+    fn decrypt<'a>(&mut self, mut msg: InboundOpaqueMessage<'a>, seq: u64) -> Result<InboundPlainMessage<'a>, Error> {
+        let payload = &mut msg.payload;
         if payload.len() < aead::TAG_LEN {
             return Err(Error::DecryptError);
         }

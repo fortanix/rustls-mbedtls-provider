@@ -11,8 +11,9 @@ use alloc::vec::Vec;
 use mbedtls::cipher::raw::{CipherId, CipherMode, CipherType};
 use mbedtls::cipher::{Authenticated, Cipher, Decryption, Encryption, Fresh};
 use rustls::crypto::cipher::{
-    make_tls12_aad, AeadKey, BorrowedPlainMessage, Iv, KeyBlockShape, MessageDecrypter, MessageEncrypter, Nonce, OpaqueMessage,
-    PlainMessage, Tls12AeadAlgorithm, UnsupportedOperationError, NONCE_LEN,
+    make_tls12_aad, AeadKey, InboundOpaqueMessage, InboundPlainMessage, Iv, KeyBlockShape, MessageDecrypter, MessageEncrypter,
+    Nonce, OutboundOpaqueMessage, OutboundPlainMessage, PlainMessage, PrefixedPayload, Tls12AeadAlgorithm,
+    UnsupportedOperationError, NONCE_LEN,
 };
 use rustls::crypto::tls12::PrfUsingHmac;
 use rustls::crypto::{CipherSuiteCommon, KeyExchangeAlgorithm};
@@ -33,7 +34,6 @@ pub static TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256: SupportedCipherSuite =
             suite: CipherSuite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
             hash_provider: &super::hash::SHA256,
             confidentiality_limit: u64::MAX,
-            integrity_limit: 1 << 36,
         },
         kx: KeyExchangeAlgorithm::ECDHE,
         sign: TLS12_ECDSA_SCHEMES,
@@ -47,7 +47,6 @@ pub static TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256: SupportedCipherSuite = S
         suite: CipherSuite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
         hash_provider: &super::hash::SHA256,
         confidentiality_limit: u64::MAX,
-        integrity_limit: 1 << 36,
     },
     kx: KeyExchangeAlgorithm::ECDHE,
     sign: TLS12_RSA_SCHEMES,
@@ -139,7 +138,6 @@ pub static TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256: SupportedCipherSuite = Sup
         suite: CipherSuite::TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
         hash_provider: &super::hash::SHA256,
         confidentiality_limit: u64::MAX,
-        integrity_limit: 1 << 36,
     },
     kx: KeyExchangeAlgorithm::DHE,
     sign: TLS12_RSA_SCHEMES,
@@ -238,8 +236,8 @@ struct GcmMessageDecrypter {
 }
 
 impl MessageDecrypter for GcmMessageDecrypter {
-    fn decrypt(&mut self, msg: OpaqueMessage, seq: u64) -> Result<PlainMessage, Error> {
-        let payload = msg.payload();
+    fn decrypt<'a>(&mut self, mut msg: InboundOpaqueMessage<'a>, seq: u64) -> Result<InboundPlainMessage<'a>, Error> {
+        let payload = &mut msg.payload;
         if payload.len() < GCM_OVERHEAD {
             return Err(Error::DecryptError);
         }
@@ -263,11 +261,10 @@ impl MessageDecrypter for GcmMessageDecrypter {
             .len()
             .checked_sub(aead::TAG_LEN)
             .ok_or(Error::General(String::from("Tag length overflow")))?;
-
-        let tag = &payload[tag_offset..];
-        let mut ciphertext = payload[GCM_EXPLICIT_NONCE_LEN..tag_offset].to_vec();
+        let (remaining, tag) = payload.split_at_mut(tag_offset);
+        let (_, ciphertext) = remaining.split_at_mut(GCM_EXPLICIT_NONCE_LEN);
         let (plain_len, _) = cipher
-            .decrypt_auth_inplace(&aad, &mut ciphertext, tag)
+            .decrypt_auth_inplace(&aad, ciphertext, tag)
             .map_err(|err| match err {
                 mbedtls::Error::CcmAuthFailed
                 | mbedtls::Error::ChachapolyAuthFailed
@@ -278,24 +275,24 @@ impl MessageDecrypter for GcmMessageDecrypter {
         if plain_len > MAX_FRAGMENT_LEN {
             return Err(Error::PeerSentOversizedRecord);
         }
-        ciphertext.truncate(plain_len);
-        Ok(PlainMessage {
-            typ: msg.typ,
-            version: msg.version,
-            payload: rustls::internal::msgs::base::Payload(ciphertext),
-        })
+        payload.copy_within(GCM_EXPLICIT_NONCE_LEN..tag_offset, 0);
+        payload.truncate(plain_len);
+        Ok(msg.into_plain_message())
     }
 }
 
 impl MessageEncrypter for GcmMessageEncrypter {
-    fn encrypt(&mut self, msg: BorrowedPlainMessage, seq: u64) -> Result<OpaqueMessage, Error> {
+    fn encrypt(&mut self, msg: OutboundPlainMessage, seq: u64) -> Result<OutboundOpaqueMessage, Error> {
+        let payload_len = msg.payload.len();
+        let total_len = self.encrypted_payload_len(payload_len);
+        let mut payload = PrefixedPayload::with_capacity(total_len);
+
         let nonce = Nonce::new(&self.iv, seq).0;
-        let aad = make_tls12_aad(seq, msg.typ, msg.version, msg.payload.len());
-        let mut tag = [0u8; aead::TAG_LEN];
-        let plain_total_len = msg.payload.len() + aead::TAG_LEN;
-        let mut payload = Vec::with_capacity(GCM_EXPLICIT_NONCE_LEN + plain_total_len);
         payload.extend_from_slice(&nonce.as_ref()[GCM_FIXED_IV_LEN..]);
-        payload.extend_from_slice(msg.payload);
+        payload.extend_from_chunks(&msg.payload);
+
+        let aad = make_tls12_aad(seq, msg.typ, msg.version, payload_len);
+        let mut tag = [0u8; aead::TAG_LEN];
 
         let enc_key = self.enc_key.as_ref();
         let cipher = Cipher::<Encryption, Authenticated, Fresh>::new(CipherId::Aes, CipherMode::GCM, (enc_key.len() * 8) as _)
@@ -305,7 +302,7 @@ impl MessageEncrypter for GcmMessageEncrypter {
             .map_err(mbedtls_err_to_rustls_error)?;
 
         cipher
-            .encrypt_auth_inplace(&aad, &mut payload[GCM_EXPLICIT_NONCE_LEN..], &mut tag)
+            .encrypt_auth_inplace(&aad, &mut payload.as_mut()[GCM_EXPLICIT_NONCE_LEN..], &mut tag)
             .map_err(|err| match err {
                 mbedtls::Error::CcmAuthFailed
                 | mbedtls::Error::ChachapolyAuthFailed
@@ -313,9 +310,9 @@ impl MessageEncrypter for GcmMessageEncrypter {
                 | mbedtls::Error::GcmAuthFailed => Error::EncryptError,
                 _ => mbedtls_err_to_rustls_error(err),
             })?;
-        payload.extend(tag);
+        payload.extend_from_slice(&tag);
 
-        Ok(OpaqueMessage::new(msg.typ, msg.version, payload))
+        Ok(OutboundOpaqueMessage::new(msg.typ, msg.version, payload))
     }
 
     fn encrypted_payload_len(&self, payload_len: usize) -> usize {
@@ -342,8 +339,8 @@ struct ChaCha20Poly1305MessageDecrypter {
 const CHACHAPOLY1305_OVERHEAD: usize = 16;
 
 impl MessageDecrypter for ChaCha20Poly1305MessageDecrypter {
-    fn decrypt(&mut self, mut msg: OpaqueMessage, seq: u64) -> Result<PlainMessage, Error> {
-        let payload = msg.payload();
+    fn decrypt<'a>(&mut self, mut msg: InboundOpaqueMessage<'a>, seq: u64) -> Result<InboundPlainMessage<'a>, Error> {
+        let payload = &mut msg.payload;
 
         if payload.len() < CHACHAPOLY1305_OVERHEAD {
             return Err(Error::DecryptError);
@@ -351,8 +348,6 @@ impl MessageDecrypter for ChaCha20Poly1305MessageDecrypter {
 
         let nonce = Nonce::new(&self.dec_offset, seq).0;
         let aad = make_tls12_aad(seq, msg.typ, msg.version, payload.len() - CHACHAPOLY1305_OVERHEAD);
-
-        let payload = msg.payload_mut();
 
         let dec_key = self.dec_key.as_ref();
         let cipher = Cipher::<Decryption, Authenticated, Fresh>::new(
@@ -393,13 +388,15 @@ impl MessageDecrypter for ChaCha20Poly1305MessageDecrypter {
 }
 
 impl MessageEncrypter for ChaCha20Poly1305MessageEncrypter {
-    fn encrypt(&mut self, msg: BorrowedPlainMessage, seq: u64) -> Result<OpaqueMessage, Error> {
+    fn encrypt(&mut self, msg: OutboundPlainMessage, seq: u64) -> Result<OutboundOpaqueMessage, Error> {
+        let payload_len = msg.payload.len();
+        let total_len = self.encrypted_payload_len(payload_len);
+        let mut payload = PrefixedPayload::with_capacity(total_len);
+        payload.extend_from_chunks(&msg.payload);
+
         let nonce = Nonce::new(&self.enc_offset, seq).0;
-        let aad = make_tls12_aad(seq, msg.typ, msg.version, msg.payload.len());
+        let aad = make_tls12_aad(seq, msg.typ, msg.version, payload_len);
         let mut tag = [0u8; aead::TAG_LEN];
-        let plain_total_len = msg.payload.len() + aead::TAG_LEN;
-        let mut payload = Vec::with_capacity(plain_total_len);
-        payload.extend_from_slice(msg.payload);
 
         let enc_key = self.enc_key.as_ref();
         let cipher = Cipher::<Encryption, Authenticated, Fresh>::new(
@@ -414,7 +411,7 @@ impl MessageEncrypter for ChaCha20Poly1305MessageEncrypter {
             .map_err(mbedtls_err_to_rustls_error)?;
 
         cipher
-            .encrypt_auth_inplace(&aad, &mut payload, &mut tag)
+            .encrypt_auth_inplace(&aad, &mut payload.as_mut(), &mut tag)
             .map_err(|err| match err {
                 mbedtls::Error::CcmAuthFailed
                 | mbedtls::Error::ChachapolyAuthFailed
@@ -422,9 +419,9 @@ impl MessageEncrypter for ChaCha20Poly1305MessageEncrypter {
                 | mbedtls::Error::GcmAuthFailed => Error::EncryptError,
                 _ => mbedtls_err_to_rustls_error(err),
             })?;
-        payload.extend(tag);
+        payload.extend_from_slice(&tag);
 
-        Ok(OpaqueMessage::new(msg.typ, msg.version, payload))
+        Ok(OutboundOpaqueMessage::new(msg.typ, msg.version, payload))
     }
 
     fn encrypted_payload_len(&self, payload_len: usize) -> usize {
