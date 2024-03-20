@@ -14,7 +14,7 @@ use core::{
 
 use rustls::{client::danger::ServerCertVerifier, ClientConnection, ConnectionCommon, ServerConnection, SideData};
 use rustls::{
-    crypto::{aws_lc_rs, CryptoProvider},
+    crypto::{ring, CryptoProvider},
     pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime},
 };
 
@@ -23,7 +23,7 @@ use std::sync::Once;
 pub(crate) fn init_crypto_provider() {
     static START: Once = Once::new();
     START.call_once(|| {
-        CryptoProvider::install_default(aws_lc_rs::default_provider()).unwrap();
+        CryptoProvider::install_default(ring::default_provider()).unwrap();
     });
 }
 
