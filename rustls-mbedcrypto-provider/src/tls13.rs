@@ -126,7 +126,7 @@ impl MessageEncrypter for Tls13MessageEncrypter {
             .map_err(mbedtls_err_to_rustls_error)?;
 
         cipher
-            .encrypt_auth_inplace(&aad, &mut payload.as_mut(), &mut tag)
+            .encrypt_auth_inplace(&aad, payload.as_mut(), &mut tag)
             .map_err(|err| match err {
                 mbedtls::Error::CcmAuthFailed
                 | mbedtls::Error::ChachapolyAuthFailed
