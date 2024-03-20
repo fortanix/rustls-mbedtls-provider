@@ -227,7 +227,9 @@ mod tests {
     };
 
     use crate::server_cert_verifier::server_name_to_str;
-    use crate::tests_common::{do_handshake_until_error, get_chain, get_key, VerifierWithSupportedVerifySchemes};
+    use crate::tests_common::{
+        do_handshake_until_error, get_chain, get_key, init_crypto_provider, VerifierWithSupportedVerifySchemes,
+    };
 
     use super::MbedTlsServerCertVerifier;
 
@@ -315,6 +317,7 @@ mod tests {
 
     #[test]
     fn connection_server_cert_verifier() {
+        init_crypto_provider();
         let test_cases = [
             (SignatureScheme::RSA_PSS_SHA512, &TLS12),
             (SignatureScheme::RSA_PSS_SHA384, &TLS12),
@@ -333,6 +336,7 @@ mod tests {
 
     #[test]
     fn connection_server_cert_verifier_with_invalid_certs() {
+        init_crypto_provider();
         let cert_chain = get_chain(include_bytes!("../test-data/rsa/end.fullchain"));
 
         let mut broken_chain1 = cert_chain.clone();

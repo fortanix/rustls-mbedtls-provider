@@ -12,8 +12,20 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime};
 use rustls::{client::danger::ServerCertVerifier, ClientConnection, ConnectionCommon, ServerConnection, SideData};
+use rustls::{
+    crypto::{aws_lc_rs, CryptoProvider},
+    pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime},
+};
+
+use std::sync::Once;
+
+pub(crate) fn init_crypto_provider() {
+    static START: Once = Once::new();
+    START.call_once(|| {
+        CryptoProvider::install_default(aws_lc_rs::default_provider()).unwrap();
+    });
+}
 
 /// Get a certificate chain from the contents of a pem file
 pub(crate) fn get_chain(bytes: &[u8]) -> Vec<CertificateDer> {
