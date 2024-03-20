@@ -223,7 +223,7 @@ mod tests {
     use std::{sync::Arc, time::SystemTime};
 
     use super::MbedTlsClientCertVerifier;
-    use crate::tests_common::{do_handshake_until_error, get_chain, get_key, init_crypto_provider};
+    use crate::tests_common::{do_handshake_until_error, get_chain, get_key};
 
     fn server_config_with_verifier(client_cert_verifier: MbedTlsClientCertVerifier) -> ServerConfig {
         ServerConfig::builder()
@@ -265,7 +265,6 @@ mod tests {
 
     #[test]
     fn connection_client_cert_verifier() {
-        init_crypto_provider();
         let client_config = ClientConfig::builder();
         let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());
         let mut root_store = RootCertStore::empty();
@@ -311,7 +310,6 @@ mod tests {
 
     #[test]
     fn connection_client_cert_verifier_with_invalid_certs() {
-        init_crypto_provider();
         let cert_chain = get_chain(include_bytes!("../test-data/rsa/client.fullchain"));
 
         let mut invalid_chain1 = cert_chain.clone();
