@@ -1,6 +1,6 @@
 [package]
 name = "rustls-mbedtls-provider-utils"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Fortanix Inc."]
 categories = ["cryptography", "network-programming"]
 description = "Utility code used in mbedtls based provider for rustls."
