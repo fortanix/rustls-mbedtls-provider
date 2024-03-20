@@ -146,23 +146,15 @@ fn version_test(
 #[test]
 fn versions() {
     // default -> 1.3
-    // version_test(&[], &[], Some(ProtocolVersion::TLSv1_3));
+    version_test(&[], &[], Some(ProtocolVersion::TLSv1_3));
 
-    // // client default, server 1.2 -> 1.2
-    // #[cfg(feature = "tls12")]
-    // version_test(&[], &[&rustls::version::TLS12], Some(ProtocolVersion::TLSv1_2));
-    // return;
-    // // client 1.2, server default -> 1.2
-    // #[cfg(feature = "tls12")]
-    // version_test(&[&rustls::version::TLS12], &[], Some(ProtocolVersion::TLSv1_2));
-
-    // client 1.2, server 1.2 -> 1.2
+    // client default, server 1.2 -> 1.2
     #[cfg(feature = "tls12")]
-    version_test(
-        &[&rustls::version::TLS12],
-        &[&rustls::version::TLS12],
-        Some(ProtocolVersion::TLSv1_2),
-    );
+    version_test(&[], &[&rustls::version::TLS12], Some(ProtocolVersion::TLSv1_2));
+
+    // client 1.2, server default -> 1.2
+    #[cfg(feature = "tls12")]
+    version_test(&[&rustls::version::TLS12], &[], Some(ProtocolVersion::TLSv1_2));
 
     // client 1.2, server 1.3 -> fail
     #[cfg(feature = "tls12")]
