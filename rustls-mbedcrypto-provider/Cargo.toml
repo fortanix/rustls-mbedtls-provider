@@ -27,7 +27,12 @@ yasna = { version = "0.3", default-features = false, features = ["bit-vec"] }
 bencher = "0.1.5"
 env_logger = "0.10"
 log = { version = "0.4" }
-rustls = { version = "0.23.3", default-features = false, features = ["ring", "std", "logging", "tls12"] }
+rustls = { version = "0.23.3", default-features = false, features = [
+  "logging",
+  "ring",
+  "std",
+  "tls12",
+] }
 rustls-pemfile = "2"
 webpki-roots = "0.26.1"
 
