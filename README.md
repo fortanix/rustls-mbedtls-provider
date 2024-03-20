@@ -12,7 +12,7 @@ Implements following `rustls` traits:
 - Hmac algorithms through: [`Hmac`] + [`Key`]
   - Support: `HMAC_SHA256`, `HMAC_SHA384`
 - key-exchange groups through: [`SupportedKxGroup`] + [`ActiveKeyExchange`]
-  - Support: `X25519`, `SECP256R1`, `SECP384R1`, `SECP521R1`
+  - Support: `X25519`, `SECP256R1`, `SECP384R1`, `SECP521R1`, `FFDHE2048`, `FFDHE3072`, `FFDHE4096`, `FFDHE6144`, `FFDHE8192`
 - [`CryptoProvider`]
 - Aead algorithms though:[`Tls12AeadAlgorithm`] + [`Tls13AeadAlgorithm`] + [`MessageEncrypter`] + [`MessageDecrypter`]
   - Support: `AES128_GCM`, `AES256_GCM`, `CHACHA20_POLY1305`
@@ -29,10 +29,21 @@ Supports following ciphersuites:
   - `TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384`
   - `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256`
   - `TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256`
+  - `TLS_DHE_RSA_WITH_AES_128_GCM_SHA256`
+  - `TLS_DHE_RSA_WITH_AES_256_GCM_SHA384`
+  - `TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256`
 
 ## PKI provider
 
 Implements [`ClientCertVerifier`](https://docs.rs/rustls/latest/rustls/server/trait.ClientCertVerifier.html) and [`ClientCertVerifier`](https://docs.rs/rustls/latest/rustls/client/trait.ServerCertVerifier.html) traits from `rustls` using mbedtls.
+
+# Developing
+
+## Code style
+
+Use `cargo fmt` for code formatting.
+
+Use `taplo fmt` for `Cargo.toml` formatting. Please check [Taplo Website](https://taplo.tamasfe.dev/) for installing the cli tool.
 
 # Contributing
 
@@ -69,14 +80,14 @@ This project is primarily distributed under the terms of the Mozilla Public
 License (MPL) 2.0, see [LICENSE](./LICENSE) for details.
 
 
-[`Hash`]: https://docs.rs/rustls/0.22.0-alpha.3/rustls/crypto/hash/trait.Hash.html
-[`Context`]: https://docs.rs/rustls/0.22.0-alpha.3/rustls/crypto/hash/trait.Context.html
-[`Hmac`]: https://docs.rs/rustls/0.22.0-alpha.3/rustls/crypto/hmac/trait.Hmac.html
-[`Key`]: https://docs.rs/rustls/0.22.0-alpha.3/rustls/crypto/hmac/trait.Key.html
-[`SupportedKxGroup`]: https://docs.rs/rustls/0.22.0-alpha.3/rustls/crypto/trait.SupportedKxGroup.html
-[`ActiveKeyExchange`]: https://docs.rs/rustls/0.22.0-alpha.3/rustls/crypto/trait.ActiveKeyExchange.html
-[`CryptoProvider`]: https://docs.rs/rustls/0.22.0-alpha.3/rustls/crypto/trait.CryptoProvider.html
-[`Tls12AeadAlgorithm`]: https://docs.rs/rustls/0.22.0-alpha.3/rustls/crypto/cipher/trait.Tls12AeadAlgorithm.html
-[`Tls13AeadAlgorithm`]: https://docs.rs/rustls/0.22.0-alpha.3/rustls/crypto/cipher/trait.Tls13AeadAlgorithm.html
-[`MessageEncrypter`]: https://docs.rs/rustls/0.22.0-alpha.3/rustls/crypto/cipher/trait.MessageEncrypter.html
-[`MessageDecrypter`]: https://docs.rs/rustls/0.22.0-alpha.3/rustls/crypto/cipher/trait.MessageDecrypter.html
+[`Hash`]: https://docs.rs/rustls/0.22.3/rustls/crypto/hash/trait.Hash.html
+[`Context`]: https://docs.rs/rustls/0.22.3/rustls/crypto/hash/trait.Context.html
+[`Hmac`]: https://docs.rs/rustls/0.22.3/rustls/crypto/hmac/trait.Hmac.html
+[`Key`]: https://docs.rs/rustls/0.22.3/rustls/crypto/hmac/trait.Key.html
+[`SupportedKxGroup`]: https://docs.rs/rustls/0.22.3/rustls/crypto/trait.SupportedKxGroup.html
+[`ActiveKeyExchange`]: https://docs.rs/rustls/0.22.3/rustls/crypto/trait.ActiveKeyExchange.html
+[`CryptoProvider`]: https://docs.rs/rustls/0.22.3/rustls/crypto/trait.CryptoProvider.html
+[`Tls12AeadAlgorithm`]: https://docs.rs/rustls/0.22.3/rustls/crypto/cipher/trait.Tls12AeadAlgorithm.html
+[`Tls13AeadAlgorithm`]: https://docs.rs/rustls/0.22.3/rustls/crypto/cipher/trait.Tls13AeadAlgorithm.html
+[`MessageEncrypter`]: https://docs.rs/rustls/0.22.3/rustls/crypto/cipher/trait.MessageEncrypter.html
+[`MessageDecrypter`]: https://docs.rs/rustls/0.22.3/rustls/crypto/cipher/trait.MessageDecrypter.html
