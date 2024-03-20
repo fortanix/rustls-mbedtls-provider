@@ -181,6 +181,7 @@ jobs:
         with:
           file: final.info
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   semver:
     name: Check semver compatibility
