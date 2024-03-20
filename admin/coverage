@@ -7,4 +7,5 @@ cargo llvm-cov clean --workspace
 
 cargo build --locked --all-targets --all-features
 cargo test --locked --all-features
+cargo test --locked --no-default-features
 cargo llvm-cov report "$@"
