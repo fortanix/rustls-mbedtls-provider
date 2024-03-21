@@ -11,13 +11,14 @@ use std::io;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
+use rustls::crypto::cipher::OutboundOpaqueMessage;
 use rustls::pki_types::{CertificateDer, CertificateRevocationListDer, PrivateKeyDer, ServerName};
 
 use primary_provider::mbedtls_crypto_provider;
 use rustls::client::{ServerCertVerifierBuilder, WebPkiServerVerifier};
-use rustls::crypto::CryptoProvider;
+use rustls::crypto::{CryptoProvider, KeyExchangeAlgorithm};
 use rustls::internal::msgs::codec::Reader;
-use rustls::internal::msgs::message::{Message, OpaqueMessage, PlainMessage};
+use rustls::internal::msgs::message::{Message, PlainMessage};
 use rustls::server::{ClientCertVerifierBuilder, WebPkiClientVerifier};
 use rustls::Connection;
 use rustls::Error;
@@ -178,13 +179,22 @@ where
 
         let mut reader = Reader::init(&buf[..sz]);
         while reader.any_left() {
-            let message = OpaqueMessage::read(&mut reader).unwrap();
-            let mut message = Message::try_from(message.into_plain_message()).unwrap();
-            let message_enc = match filter(&mut message) {
-                Altered::InPlace => PlainMessage::from(message)
-                    .into_unencrypted_opaque()
-                    .encode(),
-                Altered::Raw(data) => data,
+            let message = OutboundOpaqueMessage::read(&mut reader).unwrap();
+
+            // this is a bit of a falsehood: we don't know whether message
+            // is encrypted.  it is quite unlikely that a genuine encrypted
+            // message can be decoded by `Message::try_from`.
+            let plain = message.into_plain_message();
+
+            let message_enc = match Message::try_from(plain.clone()) {
+                Ok(mut message) => match filter(&mut message) {
+                    Altered::InPlace => PlainMessage::from(message)
+                        .into_unencrypted_opaque()
+                        .encode(),
+                    Altered::Raw(data) => data,
+                },
+                // pass through encrypted/undecodable messages
+                Err(_) => plain.into_unencrypted_opaque().encode(),
             };
 
             let message_enc_reader: &mut dyn io::Read = &mut &message_enc[..];
@@ -329,9 +339,11 @@ pub fn make_server_config_with_kx_groups(
     finish_server_config(
         kt,
         ServerConfig::builder_with_provider(
-            CryptoProvider { kx_groups: kx_groups.to_vec(), ..mbedtls_crypto_provider() }
-                .with_cipher_suites_without_matching_kx_removed()
-                .into(),
+            crypto_provider_with_cs_with_no_matching_kx_removed(CryptoProvider {
+                kx_groups: kx_groups.to_vec(),
+                ..mbedtls_crypto_provider()
+            })
+            .into(),
         )
         .with_safe_default_protocol_versions()
         .unwrap(),
@@ -418,14 +430,51 @@ pub fn make_client_config(kt: KeyType) -> ClientConfig {
     )
 }
 
+static ALL_KEY_EXCHANGE_ALGORITHMS: &[KeyExchangeAlgorithm] = &[KeyExchangeAlgorithm::ECDHE, KeyExchangeAlgorithm::DHE];
+
+fn supported_kx_algos(provider: &CryptoProvider) -> Vec<KeyExchangeAlgorithm> {
+    let mut res = Vec::with_capacity(ALL_KEY_EXCHANGE_ALGORITHMS.len());
+    for kx in provider
+        .kx_groups
+        .iter()
+        .map(|kx| kx.name().key_exchange_algorithm())
+    {
+        if !res.contains(&kx) {
+            res.push(kx);
+        }
+        if res.len() == ALL_KEY_EXCHANGE_ALGORITHMS.len() {
+            break;
+        }
+    }
+    res
+}
+
+/// Return a `CryptoProvider` that have not matching `SupportedKxGroup`s in `kx_groups` removed.
+pub fn crypto_provider_with_cs_with_no_matching_kx_removed(mut provider: CryptoProvider) -> CryptoProvider {
+    let kx_algos = supported_kx_algos(&provider);
+
+    provider.cipher_suites.retain(|cs| {
+        let cs_kx = match cs {
+            rustls::SupportedCipherSuite::Tls12(tls12) => core::slice::from_ref(&tls12.kx),
+            rustls::SupportedCipherSuite::Tls13(_) => ALL_KEY_EXCHANGE_ALGORITHMS,
+        };
+        cs_kx
+            .iter()
+            .any(|kx| kx_algos.contains(kx))
+    });
+    provider
+}
+
 pub fn make_client_config_with_kx_groups(
     kt: KeyType,
     kx_groups: &[&'static dyn rustls::crypto::SupportedKxGroup],
 ) -> ClientConfig {
     let builder = ClientConfig::builder_with_provider(
-        CryptoProvider { kx_groups: kx_groups.to_vec(), ..mbedtls_crypto_provider() }
-            .with_cipher_suites_without_matching_kx_removed()
-            .into(),
+        crypto_provider_with_cs_with_no_matching_kx_removed(CryptoProvider {
+            kx_groups: kx_groups.to_vec(),
+            ..mbedtls_crypto_provider()
+        })
+        .into(),
     )
     .with_safe_default_protocol_versions()
     .unwrap();

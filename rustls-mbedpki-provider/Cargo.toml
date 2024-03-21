@@ -1,6 +1,6 @@
 [package]
 name = "rustls-mbedpki-provider"
-version = "0.0.2"
+version = "0.1.0"
 authors = ["Fortanix Inc."]
 categories = ["cryptography", "network-programming"]
 description = "Implements rustls PKI traits using mbedtls"
@@ -12,18 +12,22 @@ resolver = "2"
 
 [dependencies]
 chrono = "0.4"
-mbedtls = { version = "0.12.2", default_features = false, features = [
+mbedtls = { version = "0.12.3", default_features = false, features = [
   "chrono",
   "std",
   "x509",
 ] }
-rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r4", default_features = false }
-utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-provider-utils", version = "0.1.0" }
+rustls = { version = "0.23.3", default_features = false }
+utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-provider-utils", version = "0.2.0" }
 x509-parser = "0.15"
 
 [dev-dependencies]
 mbedtls = { version = "0.12.2", default_features = false, features = [
   "time",
 ] } # We enable the time feature for tests to make sure it does not mess up cert expiration checking
-rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r4" }
+rustls = { version = "0.23.3", default-features = false, features = [
+  "ring",
+  "std",
+  "tls12",
+] }
 rustls-pemfile = "2"

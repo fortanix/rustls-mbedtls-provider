@@ -27,6 +27,54 @@ dependencies = [
 ]
 
 [[package]]
+name = "anstream"
+version = "0.6.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d96bd03f33fe50a863e394ee9718a706f988b9079b20c3784fb726e7678b62fb"
+dependencies = [
+ "anstyle",
+ "anstyle-parse",
+ "anstyle-query",
+ "anstyle-wincon",
+ "colorchoice",
+ "utf8parse",
+]
+
+[[package]]
+name = "anstyle"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8901269c6307e8d93993578286ac0edf7f195079ffff5ebdeea6a59ffb7e36bc"
+
+[[package]]
+name = "anstyle-parse"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c75ac65da39e5fe5ab759307499ddad880d724eed2f6ce5b5e8a26f4f387928c"
+dependencies = [
+ "utf8parse",
+]
+
+[[package]]
+name = "anstyle-query"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e28923312444cdd728e4738b3f9c9cac739500909bb3d3c94b43551b16517648"
+dependencies = [
+ "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "anstyle-wincon"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cd54b81ec8d6180e24654d0b371ad22fc3dd083b6ff8ba325b72e00c87660a7"
+dependencies = [
+ "anstyle",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
 name = "asn1-rs"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -201,6 +249,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "colorchoice"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -263,6 +317,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a26ae43d7bcc3b814de94796a5e736d4029efb0ee900c12e2d54c993ad1a1e07"
 
 [[package]]
+name = "env_filter"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a009aa4810eb158359dda09d0c87378e4bbb89b5a801f016885a4707ba24f7ea"
+dependencies = [
+ "log",
+ "regex",
+]
+
+[[package]]
 name = "env_logger"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -273,6 +337,19 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.11.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38b35839ba51819680ba087cd351788c9a3c476841207e0b8cee0b04722343b9"
+dependencies = [
+ "anstream",
+ "anstyle",
+ "env_filter",
+ "humantime",
+ "log",
 ]
 
 [[package]]
@@ -445,9 +522,9 @@ dependencies = [
 
 [[package]]
 name = "mbedtls-sys-auto"
-version = "2.28.4+mbedtls-2.28.3"
+version = "2.28.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98d7ce5f5cf8204f7d901bf98d220f54514c6a30ac0dc7cfc473d499139196d4"
+checksum = "11bb8ccdfd2a163117d977677665a2008fbd9ab38c884b0b8a57828219868dc0"
 dependencies = [
  "bindgen",
  "cc",
@@ -666,10 +743,12 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.0-alpha.0"
-source = "git+https://github.com/fortanix/rustls?tag=ffdhe-r4#128444112cc7160627e5a80a5f433fccdee07616"
+version = "0.23.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b3818d6051afeb6f88412bc8693cf8219799b2f2c2365f15e7534f0e198a16c"
 dependencies = [
  "log",
+ "once_cell",
  "ring",
  "rustls-pki-types",
  "rustls-webpki",
@@ -679,11 +758,11 @@ dependencies = [
 
 [[package]]
 name = "rustls-mbedcrypto-provider"
-version = "0.0.3"
+version = "0.1.0"
 dependencies = [
  "bencher",
  "bit-vec 0.6.3",
- "env_logger",
+ "env_logger 0.10.2",
  "log",
  "mbedtls",
  "rustls",
@@ -696,7 +775,7 @@ dependencies = [
 
 [[package]]
 name = "rustls-mbedpki-provider"
-version = "0.0.2"
+version = "0.1.0"
 dependencies = [
  "chrono",
  "mbedtls",
@@ -710,7 +789,7 @@ dependencies = [
 name = "rustls-mbedtls-provider-examples"
 version = "0.1.0"
 dependencies = [
- "env_logger",
+ "env_logger 0.11.3",
  "rustls",
  "rustls-mbedcrypto-provider",
  "rustls-mbedpki-provider",
@@ -721,7 +800,7 @@ dependencies = [
 
 [[package]]
 name = "rustls-mbedtls-provider-utils"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "mbedtls",
  "rustls",
@@ -758,9 +837,9 @@ checksum = "048a63e5b3ac996d78d402940b5fa47973d2d080c6c6fffa1d0f19c4445310b7"
 
 [[package]]
 name = "rustls-webpki"
-version = "0.102.1"
+version = "0.102.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef4ca26037c909dedb327b48c3327d0ba91d3dd3c4e05dad328f210ffb68e95b"
+checksum = "faaa0a62740bedb9b2ef5afa303da42764c012f743917351dc9a237ea1663610"
 dependencies = [
  "ring",
  "rustls-pki-types",
@@ -946,6 +1025,12 @@ name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
+
+[[package]]
+name = "utf8parse"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "wasi"
@@ -1238,6 +1323,6 @@ dependencies = [
 
 [[package]]
 name = "zeroize"
-version = "1.6.0"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a0956f1ba7c7909bfb66c2e9e4124ab6f6482560f6628b5aaeba39207c9aad9"
+checksum = "525b4ec142c6b68a2d10f01f7bbf6755599ca3f81ea53b8431b7dd348f5fdb2d"

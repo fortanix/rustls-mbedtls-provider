@@ -1,6 +1,6 @@
 [package]
 name = "rustls-mbedtls-provider-utils"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Fortanix Inc."]
 categories = ["cryptography", "network-programming"]
 description = "Utility code used in mbedtls based provider for rustls."
@@ -12,5 +12,5 @@ repository = "https://github.com/fortanix/rustls-mbedtls-provider"
 resolver = "2"
 
 [dependencies]
-mbedtls = { version = "0.12.2", default-features = false, features = ["std"] }
-rustls = { git = "https://github.com/fortanix/rustls", tag = "ffdhe-r4", default-features = false }
+mbedtls = { version = "0.12.3", default-features = false, features = ["std"] }
+rustls = { version = "0.23.3", default-features = false, features = ["std"] }

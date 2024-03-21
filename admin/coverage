@@ -7,4 +7,7 @@ cargo llvm-cov clean --workspace
 
 cargo build --locked --all-targets --all-features
 cargo test --locked --all-features
+# we add feature `tls12` here because cargo will unify features of
+# dependency among workspace
+cargo test --locked --no-default-features --features tls12
 cargo llvm-cov report "$@"
