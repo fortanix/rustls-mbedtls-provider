@@ -339,8 +339,11 @@ pub fn make_server_config_with_kx_groups(
     finish_server_config(
         kt,
         ServerConfig::builder_with_provider(
-            crypto_provider_with_cs_with_no_matching_kx_removed(CryptoProvider { kx_groups: kx_groups.to_vec(), ..mbedtls_crypto_provider() })
-                .into(),
+            crypto_provider_with_cs_with_no_matching_kx_removed(CryptoProvider {
+                kx_groups: kx_groups.to_vec(),
+                ..mbedtls_crypto_provider()
+            })
+            .into(),
         )
         .with_safe_default_protocol_versions()
         .unwrap(),
@@ -467,8 +470,11 @@ pub fn make_client_config_with_kx_groups(
     kx_groups: &[&'static dyn rustls::crypto::SupportedKxGroup],
 ) -> ClientConfig {
     let builder = ClientConfig::builder_with_provider(
-        crypto_provider_with_cs_with_no_matching_kx_removed(CryptoProvider { kx_groups: kx_groups.to_vec(), ..mbedtls_crypto_provider() })
-            .into(),
+        crypto_provider_with_cs_with_no_matching_kx_removed(CryptoProvider {
+            kx_groups: kx_groups.to_vec(),
+            ..mbedtls_crypto_provider()
+        })
+        .into(),
     )
     .with_safe_default_protocol_versions()
     .unwrap();
