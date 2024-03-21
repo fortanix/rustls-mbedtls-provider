@@ -339,7 +339,7 @@ pub fn make_server_config_with_kx_groups(
     finish_server_config(
         kt,
         ServerConfig::builder_with_provider(
-            crypto_provider_without_matching_kx(CryptoProvider { kx_groups: kx_groups.to_vec(), ..mbedtls_crypto_provider() })
+            crypto_provider_with_cs_with_no_matching_kx_removed(CryptoProvider { kx_groups: kx_groups.to_vec(), ..mbedtls_crypto_provider() })
                 .into(),
         )
         .with_safe_default_protocol_versions()
@@ -447,7 +447,7 @@ fn supported_kx_algos(provider: &CryptoProvider) -> Vec<KeyExchangeAlgorithm> {
 }
 
 /// Return a `CryptoProvider` that have not matching `SupportedKxGroup`s in `kx_groups` removed.
-pub fn crypto_provider_without_matching_kx(mut provider: CryptoProvider) -> CryptoProvider {
+pub fn crypto_provider_with_cs_with_no_matching_kx_removed(mut provider: CryptoProvider) -> CryptoProvider {
     let kx_algos = supported_kx_algos(&provider);
 
     provider.cipher_suites.retain(|cs| {
@@ -467,7 +467,7 @@ pub fn make_client_config_with_kx_groups(
     kx_groups: &[&'static dyn rustls::crypto::SupportedKxGroup],
 ) -> ClientConfig {
     let builder = ClientConfig::builder_with_provider(
-        crypto_provider_without_matching_kx(CryptoProvider { kx_groups: kx_groups.to_vec(), ..mbedtls_crypto_provider() })
+        crypto_provider_with_cs_with_no_matching_kx_removed(CryptoProvider { kx_groups: kx_groups.to_vec(), ..mbedtls_crypto_provider() })
             .into(),
     )
     .with_safe_default_protocol_versions()
