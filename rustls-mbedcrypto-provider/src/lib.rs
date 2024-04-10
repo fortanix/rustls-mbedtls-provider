@@ -92,7 +92,8 @@ pub(crate) mod fips_utils;
 pub mod hash;
 /// Hmac algorithms
 pub mod hmac;
-pub(crate) mod kx;
+/// Key exchange algorithms
+pub mod kx;
 
 #[cfg(feature = "self_tests")]
 pub mod self_tests;
@@ -117,19 +118,27 @@ pub mod rng {
     #[cfg(not(any(target_env = "sgx", feature = "rdrand")))]
     use mbedtls::rng::{CtrDrbg, OsEntropy};
 
-    #[cfg(any(target_env = "sgx", feature = "rdrand"))]
-    use mbedtls::rng::Rdrand;
+    /// Type alias for the RNG supported by *mbedtls*
+    #[cfg(not(any(target_env = "sgx", feature = "rdrand")))]
+    pub type MbedRng = CtrDrbg;
 
     /// Get a RNG supported by *mbedtls*
     #[cfg(not(any(target_env = "sgx", feature = "rdrand")))]
-    pub fn rng_new() -> Option<CtrDrbg> {
+    pub fn rng_new() -> Option<MbedRng> {
         let entropy = alloc::sync::Arc::new(OsEntropy::new());
         CtrDrbg::new(entropy, None).ok()
     }
 
+    #[cfg(any(target_env = "sgx", feature = "rdrand"))]
+    use mbedtls::rng::Rdrand;
+
+    /// Type alias for the RNG supported by *mbedtls*
+    #[cfg(any(target_env = "sgx", feature = "rdrand"))]
+    pub type MbedRng = Rdrand;
+
     /// Get a RNG supported by *mbedtls*
     #[cfg(any(target_env = "sgx", feature = "rdrand"))]
-    pub const fn rng_new() -> Option<Rdrand> {
+    pub fn rng_new() -> Option<MbedRng> {
         Some(Rdrand)
     }
 }
@@ -169,7 +178,7 @@ impl KeyProvider for MbedtlsKeyProvider {
         &self,
         key_der: webpki::types::PrivateKeyDer<'static>,
     ) -> Result<alloc::sync::Arc<dyn rustls::sign::SigningKey>, rustls::Error> {
-        Ok(alloc::sync::Arc::new(sign::MbedTlsPkSigningKey::new(&key_der)?))
+        Ok(alloc::sync::Arc::new(sign::MbedTlsPkSigningKey::new(&key_der, rng::rng_new)?))
     }
 }
 
