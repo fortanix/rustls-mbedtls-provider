@@ -17,6 +17,7 @@ use mbedtls::{
     bignum::Mpi,
     ecp::EcPoint,
     pk::{EcGroupId, Pk},
+    rng::RngCallback,
 };
 
 mod constants;
@@ -63,9 +64,8 @@ fn wrap_mbedtls_error_as_fips(mbed_err: mbedtls::Error) -> rustls::Error {
 ///
 /// [NIST SP 800-56A Rev. 3]:
 ///     https://csrc.nist.gov/pubs/sp/800/56/a/r3/final
-pub(crate) fn fips_check_ec_pub_key(ec_mbed_pk: &Pk) -> Result<(), rustls::Error> {
-    let mut rng = crate::rng::rng_new().ok_or(rustls::Error::FailedToGetRandomBytes)?;
-    fips_check_ec_pub_key_mbed(ec_mbed_pk, &mut rng).map_err(wrap_mbedtls_error_as_fips)?;
+pub(crate) fn fips_check_ec_pub_key<F: mbedtls::rng::Random>(ec_mbed_pk: &Pk, rng: &mut F) -> Result<(), rustls::Error> {
+    fips_check_ec_pub_key_mbed(ec_mbed_pk, rng).map_err(wrap_mbedtls_error_as_fips)?;
     log::debug!("ECC Full Public-Key Validation: passed");
     Ok(())
 }
@@ -82,8 +82,11 @@ pub(crate) fn fips_check_ec_pub_key(ec_mbed_pk: &Pk) -> Result<(), rustls::Error
 ///
 /// [FIPS 140-3 IG]: https://csrc.nist.gov/projects/cryptographic-module-validation-program/fips-140-3-ig-announcements
 /// [SP 800-56Ar3]: https://csrc.nist.gov/pubs/sp/800/56/a/r3/final
-pub(crate) fn fips_ec_pct(ec_mbed_pk: &mut Pk, ec_group_id: EcGroupId) -> Result<(), rustls::Error> {
-    let mut rng = crate::rng::rng_new().ok_or(rustls::Error::FailedToGetRandomBytes)?;
+pub(crate) fn fips_ec_pct<F: mbedtls::rng::Random>(
+    ec_mbed_pk: &mut Pk,
+    ec_group_id: EcGroupId,
+    rng: &mut F,
+) -> Result<(), rustls::Error> {
     // Get a static ec pub key based on given [`EcGroupId`]
     let known_ec_key_info = get_known_ec_key(&ec_group_id).expect("validated");
     let mut known_ec_key = known_ec_key_info
@@ -91,7 +94,7 @@ pub(crate) fn fips_ec_pct(ec_mbed_pk: &mut Pk, ec_group_id: EcGroupId) -> Result
         .lock()
         .map_err(|_| rustls::Error::General("Failed to get known ec key: poisoned lock".to_string()))?;
     let secret_len = known_ec_key_info.1;
-    fips_ec_pct_mbed(ec_mbed_pk, &mut known_ec_key, secret_len, &mut rng).map_err(wrap_mbedtls_error_as_fips)?;
+    fips_ec_pct_mbed(ec_mbed_pk, &mut known_ec_key, secret_len, rng).map_err(wrap_mbedtls_error_as_fips)?;
     log::debug!("ECC Pairwise Consistency Test: passed");
     Ok(())
 }
@@ -196,7 +199,7 @@ fn fips_check_ec_pub_key_mbed<F: mbedtls::rng::Random>(ec_mbed_pk: &Pk, rng: &mu
 /// > standard does not require a PCT.
 ///
 /// [FIPS 140-3 IG]: https://csrc.nist.gov/projects/cryptographic-module-validation-program/fips-140-3-ig-announcements
-pub(super) fn ffdhe_pct(dhe_group: &DheKxGroup, y: &Mpi, y_pub: &Mpi) -> Result<(), rustls::Error> {
+pub(super) fn ffdhe_pct<T: RngCallback>(dhe_group: &DheKxGroup<T>, y: &Mpi, y_pub: &Mpi) -> Result<(), rustls::Error> {
     let p = Mpi::from_binary(dhe_group.group.p).map_err(wrap_mbedtls_error_as_fips)?;
     let key_pair = get_known_ffdhe_key_pair(dhe_group.named_group)
         .expect("validated")
@@ -290,7 +293,7 @@ mod tests {
             EcGroupId::SecP521R1,
         ] {
             let ec_key = Pk::generate_ec(&mut rng, group_id).unwrap();
-            let () = fips_check_ec_pub_key(&ec_key).unwrap();
+            let () = fips_check_ec_pub_key(&ec_key, &mut rng).unwrap();
         }
     }
 
@@ -305,7 +308,7 @@ mod tests {
             EcGroupId::SecP521R1,
         ] {
             let mut ec_key = Pk::generate_ec(&mut rng, group_id).unwrap();
-            let () = fips_ec_pct(&mut ec_key, group_id).unwrap();
+            let () = fips_ec_pct(&mut ec_key, group_id, &mut rng).unwrap();
         }
     }
 
@@ -318,7 +321,7 @@ mod tests {
         assert_eq!("Other(OtherError(Mbedtls(AesBadInputData)))", rustls_test_dbg);
     }
 
-    fn create_ffdhe_key_pair(dhe_group: &DheKxGroup) -> (Mpi, Mpi) {
+    fn create_ffdhe_key_pair<T: RngCallback>(dhe_group: &DheKxGroup<T>) -> (Mpi, Mpi) {
         let g = Mpi::from_binary(dhe_group.group.g).unwrap();
         let p = Mpi::from_binary(dhe_group.group.p).unwrap();
         let mut rng = crate::rng::rng_new().unwrap();
