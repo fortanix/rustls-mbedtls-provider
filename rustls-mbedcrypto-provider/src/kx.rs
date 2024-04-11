@@ -264,7 +264,6 @@ pub struct DheKxGroup<T: RngCallback> {
     pub rng_provider_fn: fn() -> Option<T>,
 }
 
-
 impl<T: RngCallback> fmt::Debug for DheKxGroup<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DheKxGroup")
