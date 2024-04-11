@@ -38,7 +38,7 @@ pub struct KxGroup<T: RngCallback> {
     /// The IANA "TLS Supported Groups" name of the group
     pub name: NamedGroup,
 
-    /// The corresponding [`agreement::Algorithm`]
+    /// The corresponding agreement algorithm
     pub agreement_algorithm: &'static agreement::Algorithm,
 
     /// Function to provider a RNG
