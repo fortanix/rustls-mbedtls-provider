@@ -36,13 +36,20 @@ use rustls::NamedGroup;
 /// the `ALL_KX_GROUPS` array.
 pub struct KxGroup<T: RngCallback> {
     /// The IANA "TLS Supported Groups" name of the group
-    pub name: NamedGroup,
+    name: NamedGroup,
 
     /// The corresponding agreement algorithm
-    pub agreement_algorithm: &'static agreement::Algorithm,
+    agreement_algorithm: &'static agreement::Algorithm,
 
     /// Callback to produce RNGs when needed
-    pub rng_provider: fn() -> Option<T>,
+    rng_provider: fn() -> Option<T>,
+}
+
+impl<T: RngCallback> KxGroup<T> {
+    /// Create a new [`KxGroup`] with given RNG provider callback.
+    pub const fn with_rng_provider<F: RngCallback>(&self, rng_provider: fn() -> Option<F>) -> KxGroup<F> {
+        KxGroup { rng_provider, name: self.name, agreement_algorithm: self.agreement_algorithm }
+    }
 }
 
 impl<T: RngCallback> fmt::Debug for KxGroup<T> {
@@ -255,13 +262,25 @@ impl<T: RngCallback> ActiveKeyExchange for KeyExchange<T> {
 /// the `ALL_KX_GROUPS` array.
 pub struct DheKxGroup<T: RngCallback> {
     /// The IANA "TLS Supported Groups" name of the group
-    pub named_group: NamedGroup,
+    pub(crate) named_group: NamedGroup,
     /// FFDHE Group parameters
-    pub group: FfdheGroup<'static>,
+    pub(crate) group: FfdheGroup<'static>,
     /// Private key length
-    pub priv_key_len: usize,
+    pub(crate) priv_key_len: usize,
     /// Callback to produce RNGs when needed
-    pub rng_provider: fn() -> Option<T>,
+    rng_provider: fn() -> Option<T>,
+}
+
+impl<T: RngCallback> DheKxGroup<T> {
+    /// Create a new [`DheKxGroup`] with given RNG provider callback.
+    pub const fn with_rng_provider<F: RngCallback>(&self, rng_provider: fn() -> Option<F>) -> DheKxGroup<F> {
+        DheKxGroup {
+            rng_provider,
+            named_group: self.named_group,
+            group: self.group,
+            priv_key_len: self.priv_key_len,
+        }
+    }
 }
 
 impl<T: RngCallback> fmt::Debug for DheKxGroup<T> {
@@ -388,6 +407,20 @@ fn parse_peer_public_key(group_id: mbedtls::pk::EcGroupId, peer_public_key: &[u8
     let ec_group = EcGroup::new(group_id)?;
     let public_point = EcPoint::from_binary_no_compress(&ec_group, peer_public_key)?;
     PkMbed::public_from_ec_components(ec_group, public_point)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_static_with_rng_provider() {
+        fn _get_ftx_rng() -> Option<MbedRng> {
+            None
+        }
+        static _X25519: &dyn SupportedKxGroup = &X25519_KX_GROUP.with_rng_provider(_get_ftx_rng);
+        static _FFDHE2048: &dyn SupportedKxGroup = &FFDHE2048_KX_GROUP.with_rng_provider(_get_ftx_rng);
+    }
 }
 
 #[cfg(bench)]
