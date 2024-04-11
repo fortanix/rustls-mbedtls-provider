@@ -38,7 +38,7 @@ impl Hmac {
 struct HmacKey(MbedHmacKey);
 
 impl crypto::hmac::Key for HmacKey {
-    fn sign_concat(&self, first: &[u8], middle: &[&[u8]], last: &[u8]) -> rustls::crypto::hmac::Tag {
+    fn sign_concat(&self, first: &[u8], middle: &[&[u8]], last: &[u8]) -> crypto::hmac::Tag {
         let mut ctx = self.0.starts();
         ctx.update(first);
         for m in middle {
@@ -142,7 +142,7 @@ impl AsMut<[u8]> for Tag {
     }
 }
 
-impl From<Tag> for rustls::crypto::hmac::Tag {
+impl From<Tag> for crypto::hmac::Tag {
     fn from(val: Tag) -> Self {
         Self::new(&val.buf[..val.used])
     }

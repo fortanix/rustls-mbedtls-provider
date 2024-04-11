@@ -77,15 +77,15 @@ pub struct CertActiveCheck {
 
 /// All supported signature schemas
 pub const SUPPORTED_SIGNATURE_SCHEMA: [SignatureScheme; 9] = [
-    rustls::SignatureScheme::RSA_PSS_SHA512,
-    rustls::SignatureScheme::RSA_PSS_SHA384,
-    rustls::SignatureScheme::RSA_PSS_SHA256,
-    rustls::SignatureScheme::RSA_PKCS1_SHA512,
-    rustls::SignatureScheme::RSA_PKCS1_SHA384,
-    rustls::SignatureScheme::RSA_PKCS1_SHA256,
-    rustls::SignatureScheme::RSA_PSS_SHA512,
-    rustls::SignatureScheme::RSA_PSS_SHA384,
-    rustls::SignatureScheme::RSA_PSS_SHA256,
+    SignatureScheme::RSA_PSS_SHA512,
+    SignatureScheme::RSA_PSS_SHA384,
+    SignatureScheme::RSA_PSS_SHA256,
+    SignatureScheme::RSA_PKCS1_SHA512,
+    SignatureScheme::RSA_PKCS1_SHA384,
+    SignatureScheme::RSA_PKCS1_SHA256,
+    SignatureScheme::RSA_PSS_SHA512,
+    SignatureScheme::RSA_PSS_SHA384,
+    SignatureScheme::RSA_PSS_SHA256,
 ];
 
 /// Helper function to convert a [`mbedtls::x509::InvalidTimeError`] to a [`rustls::Error`]

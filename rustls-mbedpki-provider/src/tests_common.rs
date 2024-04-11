@@ -9,7 +9,7 @@ use std::io;
 
 use core::{
     fmt::Debug,
-    ops::{Deref, DerefMut},
+    ops::DerefMut,
 };
 
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime};
@@ -34,8 +34,8 @@ pub(crate) fn get_key(bytes: &[u8]) -> PrivateKeyDer {
 
 // Copied from rustls repo
 pub(crate) fn transfer(
-    left: &mut (impl DerefMut + Deref<Target = ConnectionCommon<impl SideData>>),
-    right: &mut (impl DerefMut + Deref<Target = ConnectionCommon<impl SideData>>),
+    left: &mut impl DerefMut<Target = ConnectionCommon<impl SideData>>,
+    right: &mut impl DerefMut <Target = ConnectionCommon<impl SideData>>,
 ) -> usize {
     let mut buf = [0u8; 262144];
     let mut total = 0;

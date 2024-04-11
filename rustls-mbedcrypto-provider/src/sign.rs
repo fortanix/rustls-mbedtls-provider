@@ -90,7 +90,7 @@ impl<T: RngCallback> MbedTlsPkSigningKey<T> {
     /// Make a new [`MbedTlsPkSigningKey`] from a DER encoding.
     pub fn new(der: &pki_types::PrivateKeyDer<'_>, rng_provider_fn: fn() -> Option<T>) -> Result<Self, rustls::Error> {
         let pk = mbedtls::pk::Pk::from_private_key(der.secret_der(), None)
-            .map_err(|err| rustls::Error::Other(rustls::OtherError(alloc::sync::Arc::new(err))))?;
+            .map_err(|err| rustls::Error::Other(rustls::OtherError(Arc::new(err))))?;
         Self::from_pk(pk, rng_provider_fn)
     }
 
@@ -103,7 +103,7 @@ impl<T: RngCallback> MbedTlsPkSigningKey<T> {
             Some(
                 match pk
                     .curve()
-                    .map_err(|err| rustls::Error::Other(rustls::OtherError(alloc::sync::Arc::new(err))))?
+                    .map_err(|err| rustls::Error::Other(rustls::OtherError(Arc::new(err))))?
                 {
                     EcGroupId::SecP256R1 => SignatureScheme::ECDSA_NISTP256_SHA256,
                     EcGroupId::SecP384R1 => SignatureScheme::ECDSA_NISTP384_SHA384,
@@ -119,12 +119,12 @@ impl<T: RngCallback> MbedTlsPkSigningKey<T> {
             None
         };
         Ok(Self {
-            pk: alloc::sync::Arc::new(std::sync::Mutex::new(pk)),
+            pk: Arc::new(Mutex::new(pk)),
             pk_type,
             signature_algorithm,
             ec_signature_scheme,
             rsa_scheme_prefer_order_list: DEFAULT_RSA_SIGNATURE_SCHEME_PREFER_LIST,
-            rng_provider_fn: rng_provider_fn,
+            rng_provider_fn,
         })
     }
 

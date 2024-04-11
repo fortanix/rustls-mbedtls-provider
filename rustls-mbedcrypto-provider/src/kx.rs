@@ -53,7 +53,7 @@ impl<T: RngCallback> fmt::Debug for KxGroup<T> {
 
 impl<T: RngCallback + 'static> SupportedKxGroup for KxGroup<T> {
     fn start(&self) -> Result<Box<dyn ActiveKeyExchange>, Error> {
-        let mut rng = (self.rng_provider_fn)().ok_or(rustls::Error::FailedToGetRandomBytes)?;
+        let mut rng = (self.rng_provider_fn)().ok_or(Error::FailedToGetRandomBytes)?;
 
         #[allow(unused_mut)]
         let mut priv_key = generate_ec_key(self.agreement_algorithm.group_id, &mut rng)?;
@@ -281,10 +281,10 @@ impl<T: RngCallback> SupportedKxGroup for DheKxGroup<T> {
         let g = Mpi::from_binary(self.group.g).map_err(mbedtls_err_to_rustls_error)?;
         let p = Mpi::from_binary(self.group.p).map_err(mbedtls_err_to_rustls_error)?;
 
-        let mut rng = (self.rng_provider_fn)().ok_or(rustls::crypto::GetRandomFailed)?;
+        let mut rng = (self.rng_provider_fn)().ok_or(crypto::GetRandomFailed)?;
         let mut x = vec![0; self.priv_key_len];
         rng.random(&mut x)
-            .map_err(|_| rustls::crypto::GetRandomFailed)?;
+            .map_err(|_| crypto::GetRandomFailed)?;
         let x = Mpi::from_binary(&x).map_err(|e| Error::General(format!("failed to make Bignum from random bytes: {}", e)))?;
         let x_pub = g
             .mod_exp(&x, &p)
