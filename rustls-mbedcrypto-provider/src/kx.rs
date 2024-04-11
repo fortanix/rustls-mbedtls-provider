@@ -198,7 +198,7 @@ struct KeyExchange<T: RngCallback> {
     priv_key: PkMbed,
     /// Public key in binary format [`EcPoint`] without compression
     pub_key: OnceLock<Vec<u8>>,
-    /// Function to provider a RNG
+    /// Callback to produce RNGs when needed
     rng_provider: fn() -> Option<T>,
 }
 
