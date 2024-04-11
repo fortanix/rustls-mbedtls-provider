@@ -41,8 +41,8 @@ pub struct KxGroup<T: RngCallback> {
     /// The corresponding agreement algorithm
     pub agreement_algorithm: &'static agreement::Algorithm,
 
-    /// Function to provider a RNG
-    pub rng_provider_fn: fn() -> Option<T>,
+    /// Callback to produce RNGs when needed
+    pub rng_provider: fn() -> Option<T>,
 }
 
 impl<T: RngCallback> fmt::Debug for KxGroup<T> {
@@ -53,7 +53,7 @@ impl<T: RngCallback> fmt::Debug for KxGroup<T> {
 
 impl<T: RngCallback + 'static> SupportedKxGroup for KxGroup<T> {
     fn start(&self) -> Result<Box<dyn ActiveKeyExchange>, Error> {
-        let mut rng = (self.rng_provider_fn)().ok_or(Error::FailedToGetRandomBytes)?;
+        let mut rng = (self.rng_provider)().ok_or(Error::FailedToGetRandomBytes)?;
 
         #[allow(unused_mut)]
         let mut priv_key = generate_ec_key(self.agreement_algorithm.group_id, &mut rng)?;
@@ -72,7 +72,7 @@ impl<T: RngCallback + 'static> SupportedKxGroup for KxGroup<T> {
             agreement_algorithm: self.agreement_algorithm,
             priv_key,
             pub_key: OnceLock::new(),
-            rng_provider_fn: self.rng_provider_fn,
+            rng_provider: self.rng_provider,
         }))
     }
 
@@ -93,7 +93,7 @@ pub static X25519: &dyn SupportedKxGroup = X25519_KX_GROUP;
 pub static X25519_KX_GROUP: &KxGroup<MbedRng> = &KxGroup {
     name: NamedGroup::X25519,
     agreement_algorithm: &agreement::X25519,
-    rng_provider_fn: crate::rng::rng_new,
+    rng_provider: crate::rng::rng_new,
 };
 
 /// Ephemeral ECDH on secp256r1 (aka NIST-P256)
@@ -102,7 +102,7 @@ pub static SECP256R1: &dyn SupportedKxGroup = SECP256R1_KX_GROUP;
 pub static SECP256R1_KX_GROUP: &KxGroup<MbedRng> = &KxGroup {
     name: NamedGroup::secp256r1,
     agreement_algorithm: &agreement::ECDH_P256,
-    rng_provider_fn: crate::rng::rng_new,
+    rng_provider: crate::rng::rng_new,
 };
 
 /// Ephemeral ECDH on secp384r1 (aka NIST-P384)
@@ -111,7 +111,7 @@ pub static SECP384R1: &dyn SupportedKxGroup = SECP384R1_KX_GROUP;
 pub static SECP384R1_KX_GROUP: &KxGroup<MbedRng> = &KxGroup {
     name: NamedGroup::secp384r1,
     agreement_algorithm: &agreement::ECDH_P384,
-    rng_provider_fn: crate::rng::rng_new,
+    rng_provider: crate::rng::rng_new,
 };
 
 /// Ephemeral ECDH on secp521r1 (aka NIST-P521)
@@ -120,7 +120,7 @@ pub static SECP521R1: &dyn SupportedKxGroup = SECP521R1_KX_GROUP;
 pub static SECP521R1_KX_GROUP: &KxGroup<MbedRng> = &KxGroup {
     name: NamedGroup::secp521r1,
     agreement_algorithm: &agreement::ECDH_P521,
-    rng_provider_fn: crate::rng::rng_new,
+    rng_provider: crate::rng::rng_new,
 };
 
 /// DHE group [FFDHE2048](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.1)
@@ -130,7 +130,7 @@ pub static FFDHE2048_KX_GROUP: &DheKxGroup<MbedRng> = &DheKxGroup {
     named_group: NamedGroup::FFDHE2048,
     group: ffdhe_groups::FFDHE2048,
     priv_key_len: 36,
-    rng_provider_fn: crate::rng::rng_new,
+    rng_provider: crate::rng::rng_new,
 };
 
 /// DHE group [FFDHE3072](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.2)
@@ -140,7 +140,7 @@ pub static FFDHE3072_KX_GROUP: &DheKxGroup<MbedRng> = &DheKxGroup {
     named_group: NamedGroup::FFDHE3072,
     group: ffdhe_groups::FFDHE3072,
     priv_key_len: 40,
-    rng_provider_fn: crate::rng::rng_new,
+    rng_provider: crate::rng::rng_new,
 };
 
 /// DHE group [FFDHE4096](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.3)
@@ -150,7 +150,7 @@ pub static FFDHE4096_KX_GROUP: &DheKxGroup<MbedRng> = &DheKxGroup {
     named_group: NamedGroup::FFDHE4096,
     group: ffdhe_groups::FFDHE4096,
     priv_key_len: 48,
-    rng_provider_fn: crate::rng::rng_new,
+    rng_provider: crate::rng::rng_new,
 };
 
 /// DHE group [FFDHE6144](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.4)
@@ -160,7 +160,7 @@ pub static FFDHE6144_KX_GROUP: &DheKxGroup<MbedRng> = &DheKxGroup {
     named_group: NamedGroup::FFDHE6144,
     group: ffdhe_groups::FFDHE6144,
     priv_key_len: 56,
-    rng_provider_fn: crate::rng::rng_new,
+    rng_provider: crate::rng::rng_new,
 };
 
 /// DHE group [FFDHE8192](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.5)
@@ -170,7 +170,7 @@ pub static FFDHE8192_KX_GROUP: &DheKxGroup<MbedRng> = &DheKxGroup {
     named_group: NamedGroup::FFDHE8192,
     group: ffdhe_groups::FFDHE8192,
     priv_key_len: 64,
-    rng_provider_fn: crate::rng::rng_new,
+    rng_provider: crate::rng::rng_new,
 };
 
 /// A list of all the key exchange groups supported by mbedtls.
@@ -192,7 +192,7 @@ struct KeyExchange<T: RngCallback> {
     /// Public key in binary format [`EcPoint`] without compression
     pub_key: OnceLock<Vec<u8>>,
     /// Function to provider a RNG
-    rng_provider_fn: fn() -> Option<T>,
+    rng_provider: fn() -> Option<T>,
 }
 
 impl<T: RngCallback> KeyExchange<T> {
@@ -215,7 +215,7 @@ impl<T: RngCallback> ActiveKeyExchange for KeyExchange<T> {
 
         let peer_pk = parse_peer_public_key(group_id, peer_public_key).map_err(mbedtls_err_to_rustls_error)?;
 
-        let mut rng = (self.rng_provider_fn)().ok_or(crypto::GetRandomFailed)?;
+        let mut rng = (self.rng_provider)().ok_or(crypto::GetRandomFailed)?;
 
         // Only run fips check on applied NamedGroups
         #[cfg(feature = "fips")]
@@ -260,8 +260,8 @@ pub struct DheKxGroup<T: RngCallback> {
     pub group: FfdheGroup<'static>,
     /// Private key length
     pub priv_key_len: usize,
-    /// Function to provider a RNG
-    pub rng_provider_fn: fn() -> Option<T>,
+    /// Callback to produce RNGs when needed
+    pub rng_provider: fn() -> Option<T>,
 }
 
 impl<T: RngCallback> fmt::Debug for DheKxGroup<T> {
@@ -270,7 +270,7 @@ impl<T: RngCallback> fmt::Debug for DheKxGroup<T> {
             .field("named_group", &self.named_group)
             .field("group", &self.group)
             .field("priv_key_len", &self.priv_key_len)
-            .field("rng_provider_fn", &self.rng_provider_fn)
+            .field("rng_provider", &self.rng_provider)
             .finish()
     }
 }
@@ -280,7 +280,7 @@ impl<T: RngCallback> SupportedKxGroup for DheKxGroup<T> {
         let g = Mpi::from_binary(self.group.g).map_err(mbedtls_err_to_rustls_error)?;
         let p = Mpi::from_binary(self.group.p).map_err(mbedtls_err_to_rustls_error)?;
 
-        let mut rng = (self.rng_provider_fn)().ok_or(crypto::GetRandomFailed)?;
+        let mut rng = (self.rng_provider)().ok_or(crypto::GetRandomFailed)?;
         let mut x = vec![0; self.priv_key_len];
         rng.random(&mut x)
             .map_err(|_| crypto::GetRandomFailed)?;

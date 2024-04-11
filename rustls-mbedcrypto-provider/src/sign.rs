@@ -13,7 +13,7 @@ use utils::pk::{get_signature_schema_from_offered, pk_type_to_signature_algo, ru
 struct MbedTlsSigner<T: RngCallback> {
     pk: Arc<Mutex<mbedtls::pk::Pk>>,
     signature_scheme: SignatureScheme,
-    rng_provider_fn: fn() -> Option<T>,
+    rng_provider: fn() -> Option<T>,
 }
 
 impl<T: RngCallback> Debug for MbedTlsSigner<T> {
@@ -51,7 +51,7 @@ impl<T: RngCallback> rustls::sign::Signer for MbedTlsSigner<T> {
                 hash_type,
                 &hash[..hash_size],
                 &mut sig,
-                &mut (self.rng_provider_fn)().ok_or(rustls::Error::FailedToGetRandomBytes)?,
+                &mut (self.rng_provider)().ok_or(rustls::Error::FailedToGetRandomBytes)?,
             )
             .map_err(mbedtls_err_into_rustls_err)?;
         sig.truncate(sig_len);
@@ -72,7 +72,7 @@ pub struct MbedTlsPkSigningKey<T: RngCallback> {
     signature_algorithm: rustls::SignatureAlgorithm,
     ec_signature_scheme: Option<SignatureScheme>,
     rsa_scheme_prefer_order_list: &'static [SignatureScheme],
-    rng_provider_fn: fn() -> Option<T>,
+    rng_provider: fn() -> Option<T>,
 }
 
 impl<T: RngCallback> Debug for MbedTlsPkSigningKey<T> {
@@ -88,14 +88,14 @@ impl<T: RngCallback> Debug for MbedTlsPkSigningKey<T> {
 
 impl<T: RngCallback> MbedTlsPkSigningKey<T> {
     /// Make a new [`MbedTlsPkSigningKey`] from a DER encoding.
-    pub fn new(der: &pki_types::PrivateKeyDer<'_>, rng_provider_fn: fn() -> Option<T>) -> Result<Self, rustls::Error> {
+    pub fn new(der: &pki_types::PrivateKeyDer<'_>, rng_provider: fn() -> Option<T>) -> Result<Self, rustls::Error> {
         let pk = mbedtls::pk::Pk::from_private_key(der.secret_der(), None)
             .map_err(|err| rustls::Error::Other(rustls::OtherError(Arc::new(err))))?;
-        Self::from_pk(pk, rng_provider_fn)
+        Self::from_pk(pk, rng_provider)
     }
 
     /// Make a new [`MbedTlsPkSigningKey`] from a [`mbedtls::pk::Pk`].
-    pub fn from_pk(pk: mbedtls::pk::Pk, rng_provider_fn: fn() -> Option<T>) -> Result<Self, rustls::Error> {
+    pub fn from_pk(pk: mbedtls::pk::Pk, rng_provider: fn() -> Option<T>) -> Result<Self, rustls::Error> {
         let pk_type = pk.pk_type();
         let signature_algorithm = pk_type_to_signature_algo(pk_type)
             .ok_or(rustls::Error::General(String::from("MbedTlsPkSigningKey: invalid pk type")))?;
@@ -124,7 +124,7 @@ impl<T: RngCallback> MbedTlsPkSigningKey<T> {
             signature_algorithm,
             ec_signature_scheme,
             rsa_scheme_prefer_order_list: DEFAULT_RSA_SIGNATURE_SCHEME_PREFER_LIST,
-            rng_provider_fn,
+            rng_provider,
         })
     }
 
@@ -155,7 +155,7 @@ impl<T: RngCallback + 'static> rustls::sign::SigningKey for MbedTlsPkSigningKey<
         let signer = MbedTlsSigner {
             pk: Arc::clone(&self.pk),
             signature_scheme: scheme,
-            rng_provider_fn: self.rng_provider_fn,
+            rng_provider: self.rng_provider,
         };
         Some(Box::new(signer))
     }
