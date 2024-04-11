@@ -431,8 +431,9 @@ mod benchmarks {
 
     #[bench]
     fn bench_ecdh_p256_gen_private_key(b: &mut test::Bencher) {
+        let mut rng = crate::rng::rng_new().unwrap();
         b.iter(|| {
-            test::black_box(super::generate_ec_key(mbedtls::pk::EcGroupId::SecP256R1).unwrap());
+            test::black_box(super::generate_ec_key(mbedtls::pk::EcGroupId::SecP256R1, &mut rng).unwrap());
         });
     }
 
