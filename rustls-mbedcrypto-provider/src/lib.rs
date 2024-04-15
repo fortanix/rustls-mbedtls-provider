@@ -188,7 +188,10 @@ impl KeyProvider for MbedtlsKeyProvider {
         &self,
         key_der: webpki::types::PrivateKeyDer<'static>,
     ) -> Result<alloc::sync::Arc<dyn rustls::sign::SigningKey>, rustls::Error> {
-        Ok(alloc::sync::Arc::new(sign::MbedTlsPkSigningKey::new(&key_der, rng::rng_new)?))
+        Ok(alloc::sync::Arc::new(sign::MbedTlsPkSigningKeyWrapper::new(
+            &key_der,
+            rng::rng_new,
+        )?))
     }
 }
 

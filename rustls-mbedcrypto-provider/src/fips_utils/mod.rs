@@ -24,7 +24,7 @@ mod constants;
 
 use crate::{
     fips_utils::constants::{get_ffdhe_q, get_known_ec_key, get_known_ffdhe_key_pair},
-    kx::DheKxGroup,
+    kx::{DheKxGroup, DheKxGroupWrapper},
     log,
 };
 
@@ -199,9 +199,9 @@ fn fips_check_ec_pub_key_mbed<F: mbedtls::rng::Random>(ec_mbed_pk: &Pk, rng: &mu
 /// > standard does not require a PCT.
 ///
 /// [FIPS 140-3 IG]: https://csrc.nist.gov/projects/cryptographic-module-validation-program/fips-140-3-ig-announcements
-pub(super) fn ffdhe_pct<T: RngCallback>(dhe_group: &DheKxGroup<T>, y: &Mpi, y_pub: &Mpi) -> Result<(), rustls::Error> {
-    let p = Mpi::from_binary(dhe_group.group.p).map_err(wrap_mbedtls_error_as_fips)?;
-    let key_pair = get_known_ffdhe_key_pair(dhe_group.named_group)
+pub(super) fn ffdhe_pct<T: RngCallback>(dhe_group: &DheKxGroupWrapper<T>, y: &Mpi, y_pub: &Mpi) -> Result<(), rustls::Error> {
+    let p = Mpi::from_binary(dhe_group.dhe_kx_group.group.p).map_err(wrap_mbedtls_error_as_fips)?;
+    let key_pair = get_known_ffdhe_key_pair(dhe_group.dhe_kx_group.named_group)
         .expect("validated")
         .lock()
         .map_err(|_| rustls::Error::General("Failed to get ffdhe q".to_string()))?;
@@ -269,6 +269,7 @@ fn compute_shared_secret(peer_pub_key: &Mpi, self_private: &Mpi, named_group_pri
 mod tests {
     use super::*;
     use mbedtls::{pk::EcGroupId, rng::Random};
+    use rustls::crypto::SupportedKxGroup;
 
     #[test]
     fn test_fips_check_error_display() {
@@ -321,18 +322,18 @@ mod tests {
         assert_eq!("Other(OtherError(Mbedtls(AesBadInputData)))", rustls_test_dbg);
     }
 
-    fn create_ffdhe_key_pair<T: RngCallback>(dhe_group: &DheKxGroup<T>) -> (Mpi, Mpi) {
-        let g = Mpi::from_binary(dhe_group.group.g).unwrap();
-        let p = Mpi::from_binary(dhe_group.group.p).unwrap();
+    fn create_ffdhe_key_pair<T: RngCallback>(dhe_group: &DheKxGroupWrapper<T>) -> (Mpi, Mpi) {
+        let g = Mpi::from_binary(dhe_group.dhe_kx_group.group.g).unwrap();
+        let p = Mpi::from_binary(dhe_group.dhe_kx_group.group.p).unwrap();
         let mut rng = crate::rng::rng_new().unwrap();
-        let mut x_binary = vec![0; dhe_group.priv_key_len];
+        let mut x_binary = vec![0; dhe_group.dhe_kx_group.priv_key_len];
         rng.random(&mut x_binary).unwrap();
         print_vec("private", &x_binary);
 
         let x = Mpi::from_binary(&x_binary).unwrap();
         let x_pub = g.mod_exp(&x, &p).unwrap();
         let x_pub_binary = x_pub
-            .to_binary_padded(dhe_group.group.p.len())
+            .to_binary_padded(dhe_group.dhe_kx_group.group.p.len())
             .unwrap();
         print_vec("public", &x_pub_binary);
         (x, x_pub)
@@ -362,7 +363,7 @@ mod tests {
         ] {
             println!(
                 "Running ffdhe pairwise consistency test smoke test on group: {:?}",
-                dhe_group.named_group
+                dhe_group.name(),
             );
             let (y, y_pub) = create_ffdhe_key_pair(dhe_group);
             let result = ffdhe_pct(dhe_group, &y, &y_pub);
@@ -370,7 +371,7 @@ mod tests {
                 result,
                 Ok(()),
                 "ffdhe pairwise consistency test smoke test failed with group {:?}, res: {:?}",
-                dhe_group.named_group,
+                dhe_group.name(),
                 result
             );
         }
@@ -385,17 +386,14 @@ mod tests {
             crate::kx::FFDHE6144_KX_GROUP,
             crate::kx::FFDHE8192_KX_GROUP,
         ] {
-            println!(
-                "Running ffdhe public key check smoke test on group: {:?}",
-                dhe_group.named_group
-            );
+            println!("Running ffdhe public key check smoke test on group: {:?}", dhe_group.name(),);
             let (_, y_pub) = create_ffdhe_key_pair(dhe_group);
-            let result = ffdhe_pub_key_check(&dhe_group.group, dhe_group.named_group, &y_pub);
+            let result = ffdhe_pub_key_check(&dhe_group.dhe_kx_group.group, dhe_group.name(), &y_pub);
             assert_eq!(
                 result,
                 Ok(()),
                 "ffdhe public key check smoke test failed with group {:?}, res: {:?}",
-                dhe_group.named_group,
+                dhe_group.name(),
                 result
             );
         }
