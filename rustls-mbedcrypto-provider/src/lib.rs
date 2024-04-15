@@ -115,33 +115,41 @@ use rustls::{
 
 /// RNG supported by *mbedtls*
 pub mod rng {
-    #[cfg(not(any(target_env = "sgx", feature = "rdrand")))]
-    use mbedtls::rng::{CtrDrbg, OsEntropy};
 
-    /// Type alias for the a RNG(implemented by using [`CtrDrbg`]) supported
-    /// by [*mbedtls*], it always use [`OsEntrypy`].
+    /// Type alias for the a RNG(implemented by using [`mbedtls::rng::CtrDrbg`]) supported
+    /// by [*mbedtls*], it always use [`mbedtls::rng::OsEntropy`].
+    ///
+    /// [*mbedtls*]: https://github.com/fortanix/rust-mbedtls
     #[cfg(not(any(target_env = "sgx", feature = "rdrand")))]
-    pub type MbedRng = CtrDrbg;
+    pub type MbedRng = mbedtls::rng::CtrDrbg;
 
-    /// Get a RNG supported by *mbedtls*
+    /// Get a RNG supported by [*mbedtls*].
+    ///
+    /// The RNG is implemented by using [`mbedtls::rng::CtrDrbg`] and it always uses
+    /// [`mbedtls::rng::OsEntropy`].
+    ///
+    /// [*mbedtls*]: https://github.com/fortanix/rust-mbedtls
     #[cfg(not(any(target_env = "sgx", feature = "rdrand")))]
     pub fn rng_new() -> Option<MbedRng> {
-        let entropy = alloc::sync::Arc::new(OsEntropy::new());
-        CtrDrbg::new(entropy, None).ok()
+        let entropy = alloc::sync::Arc::new(mbedtls::rng::OsEntropy::new());
+        mbedtls::rng::CtrDrbg::new(entropy, None).ok()
     }
 
-    #[cfg(any(target_env = "sgx", feature = "rdrand"))]
-    use mbedtls::rng::Rdrand;
-
-    /// Type alias for the a RNG(implemented by using [`Rdrand`]) supported by
+    /// Type alias for the a RNG(implemented by using [`mbedtls::rng::Rdrand`]) supported by
     /// [*mbedtls*].
+    ///
+    /// [*mbedtls*]: https://github.com/fortanix/rust-mbedtls
     #[cfg(any(target_env = "sgx", feature = "rdrand"))]
-    pub type MbedRng = Rdrand;
+    pub type MbedRng = mbedtls::rng::Rdrand;
 
-    /// Get a RNG supported by *mbedtls*
+    /// Get a RNG supported by [*mbedtls*].
+    ///
+    /// The RNG is implemented by using [`mbedtls::rng::Rdrand`].
+    ///
+    /// [*mbedtls*]: https://github.com/fortanix/rust-mbedtls
     #[cfg(any(target_env = "sgx", feature = "rdrand"))]
     pub fn rng_new() -> Option<MbedRng> {
-        Some(Rdrand)
+        Some(mbedtls::rng::Rdrand)
     }
 }
 
