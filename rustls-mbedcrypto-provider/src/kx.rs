@@ -57,7 +57,6 @@ impl<T: RngCallback> fmt::Debug for KxGroup<T> {
         f.debug_struct("KxGroup")
             .field("name", &self.name)
             .field("agreement_algorithm", &self.agreement_algorithm.group_id)
-            .field("rng_provider", &self.rng_provider)
             .finish()
     }
 }
@@ -293,7 +292,6 @@ impl<T: RngCallback> fmt::Debug for DheKxGroup<T> {
             .field("named_group", &self.named_group)
             .field("group", &self.group)
             .field("priv_key_len", &self.priv_key_len)
-            .field("rng_provider", &self.rng_provider)
             .finish()
     }
 }
@@ -426,7 +424,7 @@ mod tests {
             debug_str.contains("agreement_algorithm: Curve25519"),
             "debug_str: {debug_str}"
         );
-        assert!(debug_str.contains("rng_provider: 0x"), "debug_str: {debug_str}");
+        assert!(!debug_str.contains("rng_provider"), "debug_str: {debug_str}");
     }
 
     #[test]
@@ -435,7 +433,7 @@ mod tests {
         assert!(debug_str.contains("DheKxGroup"), "debug_str: {debug_str}");
         assert!(debug_str.contains("FFDHE2048"), "debug_str: {debug_str}");
         assert!(debug_str.contains("FfdheGroup"), "debug_str: {debug_str}");
-        assert!(debug_str.contains("rng_provider: 0x"), "debug_str: {debug_str}");
+        assert!(!debug_str.contains("rng_provider"), "debug_str: {debug_str}");
     }
 
     #[test]
