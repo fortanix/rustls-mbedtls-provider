@@ -8,7 +8,6 @@
 use mbedtls::pk::{EcGroupId, ECDSA_MAX_LEN};
 
 /// An ECDH key agreement algorithm.
-#[derive(Debug)]
 pub(crate) struct Algorithm {
     pub(crate) group_id: EcGroupId,
     pub(crate) public_key_len: usize,

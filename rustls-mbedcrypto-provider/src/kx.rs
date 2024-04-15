@@ -56,7 +56,7 @@ impl<T: RngCallback> fmt::Debug for KxGroup<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("KxGroup")
             .field("name", &self.name)
-            .field("agreement_algorithm", &self.agreement_algorithm)
+            .field("agreement_algorithm", &self.agreement_algorithm.group_id)
             .field("rng_provider", &self.rng_provider)
             .finish()
     }
@@ -420,7 +420,13 @@ mod tests {
     #[test]
     fn test_kx_group_fmt_debug() {
         let debug_str = format!("{:?}", X25519_KX_GROUP);
-        assert!(debug_str.contains("KxGroup { name: X25519, agreement_algorithm: Algorithm { group_id: Curve25519, public_key_len: 32, max_signature_len: 64 }, rng_provider: 0x"), "debug_str: {debug_str}")
+        assert!(debug_str.contains("KxGroup"), "debug_str: {debug_str}");
+        assert!(debug_str.contains("name: X25519"), "debug_str: {debug_str}");
+        assert!(
+            debug_str.contains("agreement_algorithm: Curve25519"),
+            "debug_str: {debug_str}"
+        );
+        assert!(debug_str.contains("rng_provider: 0x"), "debug_str: {debug_str}");
     }
 
     #[test]

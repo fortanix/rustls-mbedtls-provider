@@ -118,7 +118,8 @@ pub mod rng {
     #[cfg(not(any(target_env = "sgx", feature = "rdrand")))]
     use mbedtls::rng::{CtrDrbg, OsEntropy};
 
-    /// Type alias for the RNG supported by *mbedtls*
+    /// Type alias for the a RNG(implemented by using [`CtrDrbg`]) supported
+    /// by [*mbedtls*], it always use [`OsEntrypy`].
     #[cfg(not(any(target_env = "sgx", feature = "rdrand")))]
     pub type MbedRng = CtrDrbg;
 
@@ -132,7 +133,8 @@ pub mod rng {
     #[cfg(any(target_env = "sgx", feature = "rdrand"))]
     use mbedtls::rng::Rdrand;
 
-    /// Type alias for the RNG supported by *mbedtls*
+    /// Type alias for the a RNG(implemented by using [`Rdrand`]) supported by
+    /// [*mbedtls*].
     #[cfg(any(target_env = "sgx", feature = "rdrand"))]
     pub type MbedRng = Rdrand;
 
