@@ -328,7 +328,6 @@ mod tests {
         let mut rng = crate::rng::rng_new().unwrap();
         let mut x_binary = vec![0; dhe_group.dhe_kx_group.priv_key_len];
         rng.random(&mut x_binary).unwrap();
-        print_vec("private", &x_binary);
 
         let x = Mpi::from_binary(&x_binary).unwrap();
         let x_pub = g.mod_exp(&x, &p).unwrap();
