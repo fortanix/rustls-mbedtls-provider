@@ -398,8 +398,8 @@ pub fn make_server_config_with_client_verifier(kt: KeyType, verifier_builder: Cl
 
 pub fn finish_client_config(kt: KeyType, config: rustls::ConfigBuilder<ClientConfig, rustls::WantsVerifier>) -> ClientConfig {
     let mut root_store = RootCertStore::empty();
-    let mut rootbuf = io::BufReader::new(kt.bytes_for("ca.cert"));
-    root_store.add_parsable_certificates(rustls_pemfile::certs(&mut rootbuf).map(|result| result.unwrap()));
+    let mut root_buf = io::BufReader::new(kt.bytes_for("ca.cert"));
+    root_store.add_parsable_certificates(rustls_pemfile::certs(&mut root_buf).map(|result| result.unwrap()));
 
     config
         .with_root_certificates(root_store)
@@ -411,9 +411,9 @@ pub fn finish_client_config_with_creds(
     config: rustls::ConfigBuilder<ClientConfig, rustls::WantsVerifier>,
 ) -> ClientConfig {
     let mut root_store = RootCertStore::empty();
-    let mut rootbuf = io::BufReader::new(kt.bytes_for("ca.cert"));
+    let mut root_buf = io::BufReader::new(kt.bytes_for("ca.cert"));
     // Passing a reference here just for testing.
-    root_store.add_parsable_certificates(rustls_pemfile::certs(&mut rootbuf).map(|result| result.unwrap()));
+    root_store.add_parsable_certificates(rustls_pemfile::certs(&mut root_buf).map(|result| result.unwrap()));
 
     config
         .with_root_certificates(root_store)
@@ -633,17 +633,17 @@ pub fn server_name(name: &'static str) -> ServerName {
 }
 
 pub struct FailsReads {
-    errkind: io::ErrorKind,
+    error_kind: io::ErrorKind,
 }
 
 impl FailsReads {
-    pub fn new(errkind: io::ErrorKind) -> Self {
-        Self { errkind }
+    pub fn new(error_kind: io::ErrorKind) -> Self {
+        Self { error_kind }
     }
 }
 
 impl io::Read for FailsReads {
     fn read(&mut self, _b: &mut [u8]) -> io::Result<usize> {
-        Err(io::Error::from(self.errkind))
+        Err(io::Error::from(self.error_kind))
     }
 }

@@ -86,14 +86,14 @@ impl Debug for MbedTlsPkSigningKey {
 ///
 /// [`SigningKey`]: rustls::sign::SigningKey
 pub struct MbedTlsPkSigningKeyWrapper<T: RngCallback> {
-    sigining_key: MbedTlsPkSigningKey,
+    signing_key: MbedTlsPkSigningKey,
     rng_provider: fn() -> Option<T>,
 }
 
 impl<T: RngCallback> Debug for MbedTlsPkSigningKeyWrapper<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("MbedTlsPkSigningKeyWrapper")
-            .field("sigining_key", &self.sigining_key)
+            .field("signing_key", &self.signing_key)
             .finish()
     }
 }
@@ -132,7 +132,7 @@ impl<T: RngCallback> MbedTlsPkSigningKeyWrapper<T> {
             None
         };
         Ok(Self {
-            sigining_key: MbedTlsPkSigningKey {
+            signing_key: MbedTlsPkSigningKey {
                 pk: Arc::new(Mutex::new(pk)),
                 pk_type,
                 signature_algorithm,
@@ -145,7 +145,7 @@ impl<T: RngCallback> MbedTlsPkSigningKeyWrapper<T> {
 
     /// Change the rsa signature scheme prefer list
     pub fn set_rsa_signature_scheme_prefer_list(&mut self, prefer_order_list: &'static [SignatureScheme]) {
-        self.sigining_key
+        self.signing_key
             .rsa_scheme_prefer_order_list = prefer_order_list
     }
 }
@@ -163,14 +163,14 @@ pub const DEFAULT_RSA_SIGNATURE_SCHEME_PREFER_LIST: &[SignatureScheme] = &[
 impl<T: RngCallback + 'static> rustls::sign::SigningKey for MbedTlsPkSigningKeyWrapper<T> {
     fn choose_scheme(&self, offered: &[SignatureScheme]) -> Option<Box<dyn rustls::sign::Signer>> {
         let scheme = get_signature_schema_from_offered(
-            self.sigining_key.pk_type,
+            self.signing_key.pk_type,
             offered,
-            self.sigining_key.ec_signature_scheme,
-            self.sigining_key
+            self.signing_key.ec_signature_scheme,
+            self.signing_key
                 .rsa_scheme_prefer_order_list,
         )?;
         let signer = MbedTlsSigner {
-            pk: Arc::clone(&self.sigining_key.pk),
+            pk: Arc::clone(&self.signing_key.pk),
             signature_scheme: scheme,
             rng_provider: self.rng_provider,
         };
@@ -178,7 +178,7 @@ impl<T: RngCallback + 'static> rustls::sign::SigningKey for MbedTlsPkSigningKeyW
     }
 
     fn algorithm(&self) -> rustls::SignatureAlgorithm {
-        self.sigining_key.signature_algorithm
+        self.signing_key.signature_algorithm
     }
 }
 
@@ -197,7 +197,7 @@ mod tests {
                 .unwrap()
                 .into();
         let key = MbedTlsPkSigningKeyWrapper::new(&der, crate::rng::rng_new).unwrap();
-        assert_eq!(format!("{:?}", key), "MbedTlsPkSigningKeyWrapper { sigining_key: MbedTlsPkSigningKeyWrapper { pk: \"Arc<Mutex<mbedtls::pk::Pk>>\", pk_type: Eckey, signature_algorithm: ECDSA, ec_signature_scheme: Some(ECDSA_NISTP256_SHA256) } }");
+        assert_eq!(format!("{:?}", key), "MbedTlsPkSigningKeyWrapper { signing_key: MbedTlsPkSigningKeyWrapper { pk: \"Arc<Mutex<mbedtls::pk::Pk>>\", pk_type: Eckey, signature_algorithm: ECDSA, ec_signature_scheme: Some(ECDSA_NISTP256_SHA256) } }");
         assert!(key
             .choose_scheme(&[SignatureScheme::RSA_PKCS1_SHA1])
             .is_none());
