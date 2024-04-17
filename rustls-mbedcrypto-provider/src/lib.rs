@@ -92,7 +92,8 @@ pub(crate) mod fips_utils;
 pub mod hash;
 /// Hmac algorithms
 pub mod hmac;
-pub(crate) mod kx;
+/// Key exchange algorithms
+pub mod kx;
 
 #[cfg(feature = "self_tests")]
 pub mod self_tests;
@@ -114,23 +115,41 @@ use rustls::{
 
 /// RNG supported by *mbedtls*
 pub mod rng {
-    #[cfg(not(any(target_env = "sgx", feature = "rdrand")))]
-    use mbedtls::rng::{CtrDrbg, OsEntropy};
 
-    #[cfg(any(target_env = "sgx", feature = "rdrand"))]
-    use mbedtls::rng::Rdrand;
-
-    /// Get a RNG supported by *mbedtls*
+    /// Type alias for the a RNG(implemented by using [`mbedtls::rng::CtrDrbg`]) supported
+    /// by [*mbedtls*], it always use [`mbedtls::rng::OsEntropy`].
+    ///
+    /// [*mbedtls*]: https://github.com/fortanix/rust-mbedtls
     #[cfg(not(any(target_env = "sgx", feature = "rdrand")))]
-    pub fn rng_new() -> Option<CtrDrbg> {
-        let entropy = alloc::sync::Arc::new(OsEntropy::new());
-        CtrDrbg::new(entropy, None).ok()
+    pub type MbedRng = mbedtls::rng::CtrDrbg;
+
+    /// Get a RNG supported by [*mbedtls*].
+    ///
+    /// The RNG is implemented by using [`mbedtls::rng::CtrDrbg`] and it always uses
+    /// [`mbedtls::rng::OsEntropy`].
+    ///
+    /// [*mbedtls*]: https://github.com/fortanix/rust-mbedtls
+    #[cfg(not(any(target_env = "sgx", feature = "rdrand")))]
+    pub fn rng_new() -> Option<MbedRng> {
+        let entropy = alloc::sync::Arc::new(mbedtls::rng::OsEntropy::new());
+        mbedtls::rng::CtrDrbg::new(entropy, None).ok()
     }
 
-    /// Get a RNG supported by *mbedtls*
+    /// Type alias for the a RNG(implemented by using [`mbedtls::rng::Rdrand`]) supported by
+    /// [*mbedtls*].
+    ///
+    /// [*mbedtls*]: https://github.com/fortanix/rust-mbedtls
     #[cfg(any(target_env = "sgx", feature = "rdrand"))]
-    pub const fn rng_new() -> Option<Rdrand> {
-        Some(Rdrand)
+    pub type MbedRng = mbedtls::rng::Rdrand;
+
+    /// Get a RNG supported by [*mbedtls*].
+    ///
+    /// The RNG is implemented by using [`mbedtls::rng::Rdrand`].
+    ///
+    /// [*mbedtls*]: https://github.com/fortanix/rust-mbedtls
+    #[cfg(any(target_env = "sgx", feature = "rdrand"))]
+    pub fn rng_new() -> Option<MbedRng> {
+        Some(mbedtls::rng::Rdrand)
     }
 }
 
@@ -169,7 +188,10 @@ impl KeyProvider for MbedtlsKeyProvider {
         &self,
         key_der: webpki::types::PrivateKeyDer<'static>,
     ) -> Result<alloc::sync::Arc<dyn rustls::sign::SigningKey>, rustls::Error> {
-        Ok(alloc::sync::Arc::new(sign::MbedTlsPkSigningKey::new(&key_der)?))
+        Ok(alloc::sync::Arc::new(sign::MbedTlsPkSigningKeyWrapper::new(
+            &key_der,
+            rng::rng_new,
+        )?))
     }
 }
 

@@ -5,6 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use core::fmt;
+
 use mbedtls::pk::{EcGroupId, ECDSA_MAX_LEN};
 
 /// An ECDH key agreement algorithm.
@@ -12,6 +14,14 @@ pub(crate) struct Algorithm {
     pub(crate) group_id: EcGroupId,
     pub(crate) public_key_len: usize,
     pub(crate) max_signature_len: usize,
+}
+
+impl fmt::Debug for Algorithm {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Algorithm")
+            .field("group_id", &self.group_id)
+            .finish()
+    }
 }
 
 const ELEM_LEN: usize = 32;

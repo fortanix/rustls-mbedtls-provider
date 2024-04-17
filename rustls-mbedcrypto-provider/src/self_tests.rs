@@ -232,7 +232,7 @@ pub fn ffdhe_crypto_algo_self_test() {
     let self_public_key_vec = self_public_key
         .to_binary_padded(group.p.len())
         .unwrap();
-    let dhe_kx = Box::new(crate::kx::DheActiveKeyExchange::new(
+    let dhe_kx = Box::new(crate::kx::DheActiveKeyExchangeImpl::new(
         named_group,
         group,
         std::sync::Mutex::new(p),

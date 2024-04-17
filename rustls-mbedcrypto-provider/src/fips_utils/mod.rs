@@ -17,13 +17,14 @@ use mbedtls::{
     bignum::Mpi,
     ecp::EcPoint,
     pk::{EcGroupId, Pk},
+    rng::RngCallback,
 };
 
 mod constants;
 
 use crate::{
     fips_utils::constants::{get_ffdhe_q, get_known_ec_key, get_known_ffdhe_key_pair},
-    kx::DheKxGroup,
+    kx::{FfdheKxGroup, FfdheKxGroupWrapper},
     log,
 };
 
@@ -63,9 +64,8 @@ fn wrap_mbedtls_error_as_fips(mbed_err: mbedtls::Error) -> rustls::Error {
 ///
 /// [NIST SP 800-56A Rev. 3]:
 ///     https://csrc.nist.gov/pubs/sp/800/56/a/r3/final
-pub(crate) fn fips_check_ec_pub_key(ec_mbed_pk: &Pk) -> Result<(), rustls::Error> {
-    let mut rng = crate::rng::rng_new().ok_or(rustls::Error::FailedToGetRandomBytes)?;
-    fips_check_ec_pub_key_mbed(ec_mbed_pk, &mut rng).map_err(wrap_mbedtls_error_as_fips)?;
+pub(crate) fn fips_check_ec_pub_key<F: mbedtls::rng::Random>(ec_mbed_pk: &Pk, rng: &mut F) -> Result<(), rustls::Error> {
+    fips_check_ec_pub_key_mbed(ec_mbed_pk, rng).map_err(wrap_mbedtls_error_as_fips)?;
     log::debug!("ECC Full Public-Key Validation: passed");
     Ok(())
 }
@@ -82,8 +82,11 @@ pub(crate) fn fips_check_ec_pub_key(ec_mbed_pk: &Pk) -> Result<(), rustls::Error
 ///
 /// [FIPS 140-3 IG]: https://csrc.nist.gov/projects/cryptographic-module-validation-program/fips-140-3-ig-announcements
 /// [SP 800-56Ar3]: https://csrc.nist.gov/pubs/sp/800/56/a/r3/final
-pub(crate) fn fips_ec_pct(ec_mbed_pk: &mut Pk, ec_group_id: EcGroupId) -> Result<(), rustls::Error> {
-    let mut rng = crate::rng::rng_new().ok_or(rustls::Error::FailedToGetRandomBytes)?;
+pub(crate) fn fips_ec_pct<F: mbedtls::rng::Random>(
+    ec_mbed_pk: &mut Pk,
+    ec_group_id: EcGroupId,
+    rng: &mut F,
+) -> Result<(), rustls::Error> {
     // Get a static ec pub key based on given [`EcGroupId`]
     let known_ec_key_info = get_known_ec_key(&ec_group_id).expect("validated");
     let mut known_ec_key = known_ec_key_info
@@ -91,7 +94,7 @@ pub(crate) fn fips_ec_pct(ec_mbed_pk: &mut Pk, ec_group_id: EcGroupId) -> Result
         .lock()
         .map_err(|_| rustls::Error::General("Failed to get known ec key: poisoned lock".to_string()))?;
     let secret_len = known_ec_key_info.1;
-    fips_ec_pct_mbed(ec_mbed_pk, &mut known_ec_key, secret_len, &mut rng).map_err(wrap_mbedtls_error_as_fips)?;
+    fips_ec_pct_mbed(ec_mbed_pk, &mut known_ec_key, secret_len, rng).map_err(wrap_mbedtls_error_as_fips)?;
     log::debug!("ECC Pairwise Consistency Test: passed");
     Ok(())
 }
@@ -196,9 +199,9 @@ fn fips_check_ec_pub_key_mbed<F: mbedtls::rng::Random>(ec_mbed_pk: &Pk, rng: &mu
 /// > standard does not require a PCT.
 ///
 /// [FIPS 140-3 IG]: https://csrc.nist.gov/projects/cryptographic-module-validation-program/fips-140-3-ig-announcements
-pub(super) fn ffdhe_pct(dhe_group: &DheKxGroup, y: &Mpi, y_pub: &Mpi) -> Result<(), rustls::Error> {
-    let p = Mpi::from_binary(dhe_group.group.p).map_err(wrap_mbedtls_error_as_fips)?;
-    let key_pair = get_known_ffdhe_key_pair(dhe_group.named_group)
+pub(super) fn ffdhe_pct<T: RngCallback>(dhe_group: &FfdheKxGroupWrapper<T>, y: &Mpi, y_pub: &Mpi) -> Result<(), rustls::Error> {
+    let p = Mpi::from_binary(dhe_group.dhe_kx_group.group.p).map_err(wrap_mbedtls_error_as_fips)?;
+    let key_pair = get_known_ffdhe_key_pair(dhe_group.dhe_kx_group.named_group)
         .expect("validated")
         .lock()
         .map_err(|_| rustls::Error::General("Failed to get ffdhe q".to_string()))?;
@@ -266,6 +269,7 @@ fn compute_shared_secret(peer_pub_key: &Mpi, self_private: &Mpi, named_group_pri
 mod tests {
     use super::*;
     use mbedtls::{pk::EcGroupId, rng::Random};
+    use rustls::crypto::SupportedKxGroup;
 
     #[test]
     fn test_fips_check_error_display() {
@@ -290,7 +294,7 @@ mod tests {
             EcGroupId::SecP521R1,
         ] {
             let ec_key = Pk::generate_ec(&mut rng, group_id).unwrap();
-            let () = fips_check_ec_pub_key(&ec_key).unwrap();
+            let () = fips_check_ec_pub_key(&ec_key, &mut rng).unwrap();
         }
     }
 
@@ -305,7 +309,7 @@ mod tests {
             EcGroupId::SecP521R1,
         ] {
             let mut ec_key = Pk::generate_ec(&mut rng, group_id).unwrap();
-            let () = fips_ec_pct(&mut ec_key, group_id).unwrap();
+            let () = fips_ec_pct(&mut ec_key, group_id, &mut rng).unwrap();
         }
     }
 
@@ -318,18 +322,17 @@ mod tests {
         assert_eq!("Other(OtherError(Mbedtls(AesBadInputData)))", rustls_test_dbg);
     }
 
-    fn create_ffdhe_key_pair(dhe_group: &DheKxGroup) -> (Mpi, Mpi) {
-        let g = Mpi::from_binary(dhe_group.group.g).unwrap();
-        let p = Mpi::from_binary(dhe_group.group.p).unwrap();
+    fn create_ffdhe_key_pair<T: RngCallback>(dhe_group: &FfdheKxGroupWrapper<T>) -> (Mpi, Mpi) {
+        let g = Mpi::from_binary(dhe_group.dhe_kx_group.group.g).unwrap();
+        let p = Mpi::from_binary(dhe_group.dhe_kx_group.group.p).unwrap();
         let mut rng = crate::rng::rng_new().unwrap();
-        let mut x_binary = vec![0; dhe_group.priv_key_len];
+        let mut x_binary = vec![0; dhe_group.dhe_kx_group.priv_key_len];
         rng.random(&mut x_binary).unwrap();
-        print_vec("private", &x_binary);
 
         let x = Mpi::from_binary(&x_binary).unwrap();
         let x_pub = g.mod_exp(&x, &p).unwrap();
         let x_pub_binary = x_pub
-            .to_binary_padded(dhe_group.group.p.len())
+            .to_binary_padded(dhe_group.dhe_kx_group.group.p.len())
             .unwrap();
         print_vec("public", &x_pub_binary);
         (x, x_pub)
@@ -359,7 +362,7 @@ mod tests {
         ] {
             println!(
                 "Running ffdhe pairwise consistency test smoke test on group: {:?}",
-                dhe_group.named_group
+                dhe_group.name(),
             );
             let (y, y_pub) = create_ffdhe_key_pair(dhe_group);
             let result = ffdhe_pct(dhe_group, &y, &y_pub);
@@ -367,7 +370,7 @@ mod tests {
                 result,
                 Ok(()),
                 "ffdhe pairwise consistency test smoke test failed with group {:?}, res: {:?}",
-                dhe_group.named_group,
+                dhe_group.name(),
                 result
             );
         }
@@ -382,17 +385,14 @@ mod tests {
             crate::kx::FFDHE6144_KX_GROUP,
             crate::kx::FFDHE8192_KX_GROUP,
         ] {
-            println!(
-                "Running ffdhe public key check smoke test on group: {:?}",
-                dhe_group.named_group
-            );
+            println!("Running ffdhe public key check smoke test on group: {:?}", dhe_group.name(),);
             let (_, y_pub) = create_ffdhe_key_pair(dhe_group);
-            let result = ffdhe_pub_key_check(&dhe_group.group, dhe_group.named_group, &y_pub);
+            let result = ffdhe_pub_key_check(&dhe_group.dhe_kx_group.group, dhe_group.name(), &y_pub);
             assert_eq!(
                 result,
                 Ok(()),
                 "ffdhe public key check smoke test failed with group {:?}, res: {:?}",
-                dhe_group.named_group,
+                dhe_group.name(),
                 result
             );
         }

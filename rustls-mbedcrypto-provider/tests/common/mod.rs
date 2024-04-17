@@ -8,7 +8,7 @@
 #![allow(dead_code)]
 
 use std::io;
-use std::ops::{Deref, DerefMut};
+use std::ops::DerefMut;
 use std::sync::Arc;
 
 use rustls::crypto::cipher::OutboundOpaqueMessage;
@@ -117,8 +117,8 @@ embed_files! {
 }
 
 pub fn transfer(
-    left: &mut (impl DerefMut + Deref<Target = ConnectionCommon<impl SideData>>),
-    right: &mut (impl DerefMut + Deref<Target = ConnectionCommon<impl SideData>>),
+    left: &mut impl DerefMut<Target = ConnectionCommon<impl SideData>>,
+    right: &mut impl DerefMut<Target = ConnectionCommon<impl SideData>>,
 ) -> usize {
     let mut buf = [0u8; 262144];
     let mut total = 0;
@@ -146,7 +146,7 @@ pub fn transfer(
     total
 }
 
-pub fn transfer_eof(conn: &mut (impl DerefMut + Deref<Target = ConnectionCommon<impl SideData>>)) {
+pub fn transfer_eof(conn: &mut impl DerefMut<Target = ConnectionCommon<impl SideData>>) {
     let empty_buf = [0u8; 0];
     let empty_cursor: &mut dyn io::Read = &mut &empty_buf[..];
     let sz = conn.read_tls(empty_cursor).unwrap();
@@ -398,8 +398,8 @@ pub fn make_server_config_with_client_verifier(kt: KeyType, verifier_builder: Cl
 
 pub fn finish_client_config(kt: KeyType, config: rustls::ConfigBuilder<ClientConfig, rustls::WantsVerifier>) -> ClientConfig {
     let mut root_store = RootCertStore::empty();
-    let mut rootbuf = io::BufReader::new(kt.bytes_for("ca.cert"));
-    root_store.add_parsable_certificates(rustls_pemfile::certs(&mut rootbuf).map(|result| result.unwrap()));
+    let mut root_buf = io::BufReader::new(kt.bytes_for("ca.cert"));
+    root_store.add_parsable_certificates(rustls_pemfile::certs(&mut root_buf).map(|result| result.unwrap()));
 
     config
         .with_root_certificates(root_store)
@@ -411,9 +411,9 @@ pub fn finish_client_config_with_creds(
     config: rustls::ConfigBuilder<ClientConfig, rustls::WantsVerifier>,
 ) -> ClientConfig {
     let mut root_store = RootCertStore::empty();
-    let mut rootbuf = io::BufReader::new(kt.bytes_for("ca.cert"));
+    let mut root_buf = io::BufReader::new(kt.bytes_for("ca.cert"));
     // Passing a reference here just for testing.
-    root_store.add_parsable_certificates(rustls_pemfile::certs(&mut rootbuf).map(|result| result.unwrap()));
+    root_store.add_parsable_certificates(rustls_pemfile::certs(&mut root_buf).map(|result| result.unwrap()));
 
     config
         .with_root_certificates(root_store)
@@ -563,8 +563,8 @@ pub fn make_pair_for_arc_configs(
 }
 
 pub fn do_handshake(
-    client: &mut (impl DerefMut + Deref<Target = ConnectionCommon<impl SideData>>),
-    server: &mut (impl DerefMut + Deref<Target = ConnectionCommon<impl SideData>>),
+    client: &mut impl DerefMut<Target = ConnectionCommon<impl SideData>>,
+    server: &mut impl DerefMut<Target = ConnectionCommon<impl SideData>>,
 ) -> (usize, usize) {
     let (mut to_client, mut to_server) = (0, 0);
     while server.is_handshaking() || client.is_handshaking() {
@@ -633,17 +633,17 @@ pub fn server_name(name: &'static str) -> ServerName {
 }
 
 pub struct FailsReads {
-    errkind: io::ErrorKind,
+    error_kind: io::ErrorKind,
 }
 
 impl FailsReads {
-    pub fn new(errkind: io::ErrorKind) -> Self {
-        Self { errkind }
+    pub fn new(error_kind: io::ErrorKind) -> Self {
+        Self { error_kind }
     }
 }
 
 impl io::Read for FailsReads {
     fn read(&mut self, _b: &mut [u8]) -> io::Result<usize> {
-        Err(io::Error::from(self.errkind))
+        Err(io::Error::from(self.error_kind))
     }
 }
