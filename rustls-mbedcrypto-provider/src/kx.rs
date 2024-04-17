@@ -150,7 +150,7 @@ pub static SECP521R1_KX_GROUP: &EcdhKxGroupWrapper<MbedRng> = &EcdhKxGroupWrappe
 /// DHE group [FFDHE2048](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.1)
 pub static FFDHE2048: &dyn SupportedKxGroup = FFDHE2048_KX_GROUP;
 /// DHE group [FFDHE2048](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.1)
-pub static FFDHE2048_KX_GROUP: &FFdheKxGroupWrapper<MbedRng> = &FFdheKxGroupWrapper {
+pub static FFDHE2048_KX_GROUP: &FfdheKxGroupWrapper<MbedRng> = &FfdheKxGroupWrapper {
     dhe_kx_group: FfdheKxGroup {
         named_group: NamedGroup::FFDHE2048,
         group: ffdhe_groups::FFDHE2048,
@@ -162,7 +162,7 @@ pub static FFDHE2048_KX_GROUP: &FFdheKxGroupWrapper<MbedRng> = &FFdheKxGroupWrap
 /// DHE group [FFDHE3072](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.2)
 pub static FFDHE3072: &dyn SupportedKxGroup = FFDHE3072_KX_GROUP;
 /// DHE group [FFDHE3072](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.2)
-pub static FFDHE3072_KX_GROUP: &FFdheKxGroupWrapper<MbedRng> = &FFdheKxGroupWrapper {
+pub static FFDHE3072_KX_GROUP: &FfdheKxGroupWrapper<MbedRng> = &FfdheKxGroupWrapper {
     dhe_kx_group: FfdheKxGroup {
         named_group: NamedGroup::FFDHE3072,
         group: ffdhe_groups::FFDHE3072,
@@ -174,7 +174,7 @@ pub static FFDHE3072_KX_GROUP: &FFdheKxGroupWrapper<MbedRng> = &FFdheKxGroupWrap
 /// DHE group [FFDHE4096](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.3)
 pub static FFDHE4096: &dyn SupportedKxGroup = FFDHE4096_KX_GROUP;
 /// DHE group [FFDHE3072](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.2)
-pub static FFDHE4096_KX_GROUP: &FFdheKxGroupWrapper<MbedRng> = &FFdheKxGroupWrapper {
+pub static FFDHE4096_KX_GROUP: &FfdheKxGroupWrapper<MbedRng> = &FfdheKxGroupWrapper {
     dhe_kx_group: FfdheKxGroup {
         named_group: NamedGroup::FFDHE4096,
         group: ffdhe_groups::FFDHE4096,
@@ -186,7 +186,7 @@ pub static FFDHE4096_KX_GROUP: &FFdheKxGroupWrapper<MbedRng> = &FFdheKxGroupWrap
 /// DHE group [FFDHE6144](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.4)
 pub static FFDHE6144: &dyn SupportedKxGroup = FFDHE6144_KX_GROUP;
 /// DHE group [FFDHE6144](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.4)
-pub static FFDHE6144_KX_GROUP: &FFdheKxGroupWrapper<MbedRng> = &FFdheKxGroupWrapper {
+pub static FFDHE6144_KX_GROUP: &FfdheKxGroupWrapper<MbedRng> = &FfdheKxGroupWrapper {
     dhe_kx_group: FfdheKxGroup {
         named_group: NamedGroup::FFDHE6144,
         group: ffdhe_groups::FFDHE6144,
@@ -198,7 +198,7 @@ pub static FFDHE6144_KX_GROUP: &FFdheKxGroupWrapper<MbedRng> = &FFdheKxGroupWrap
 /// DHE group [FFDHE8192](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.5)
 pub static FFDHE8192: &dyn SupportedKxGroup = FFDHE8192_KX_GROUP;
 /// DHE group [FFDHE8192](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.5)
-pub static FFDHE8192_KX_GROUP: &FFdheKxGroupWrapper<MbedRng> = &FFdheKxGroupWrapper {
+pub static FFDHE8192_KX_GROUP: &FfdheKxGroupWrapper<MbedRng> = &FfdheKxGroupWrapper {
     dhe_kx_group: FfdheKxGroup {
         named_group: NamedGroup::FFDHE8192,
         group: ffdhe_groups::FFDHE8192,
@@ -289,7 +289,7 @@ impl<T: RngCallback> ActiveKeyExchange for EcdhKeyExchangeImpl<T> {
 ///
 /// All possible instances of this type are provided by the library in the
 /// `ALL_KX_GROUPS` array.
-pub struct FFdheKxGroupWrapper<T: RngCallback> {
+pub struct FfdheKxGroupWrapper<T: RngCallback> {
     /// A FFDHE key-exchange group
     pub(crate) dhe_kx_group: FfdheKxGroup,
     /// Callback to produce RNGs when needed
@@ -307,22 +307,22 @@ pub(crate) struct FfdheKxGroup {
     pub(crate) priv_key_len: usize,
 }
 
-impl<T: RngCallback> FFdheKxGroupWrapper<T> {
-    /// Create a new [`FFdheKxGroupWrapper`] with given RNG provider callback.
-    pub const fn with_rng_provider<F: RngCallback>(&self, rng_provider: fn() -> Option<F>) -> FFdheKxGroupWrapper<F> {
-        FFdheKxGroupWrapper { dhe_kx_group: self.dhe_kx_group, rng_provider }
+impl<T: RngCallback> FfdheKxGroupWrapper<T> {
+    /// Create a new [`FfdheKxGroupWrapper`] with given RNG provider callback.
+    pub const fn with_rng_provider<F: RngCallback>(&self, rng_provider: fn() -> Option<F>) -> FfdheKxGroupWrapper<F> {
+        FfdheKxGroupWrapper { dhe_kx_group: self.dhe_kx_group, rng_provider }
     }
 }
 
-impl<T: RngCallback> fmt::Debug for FFdheKxGroupWrapper<T> {
+impl<T: RngCallback> fmt::Debug for FfdheKxGroupWrapper<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FFdheKxGroupWrapper")
+        f.debug_struct("FfdheKxGroupWrapper")
             .field("dhe_kx_group", &self.dhe_kx_group)
             .finish()
     }
 }
 
-impl<T: RngCallback> SupportedKxGroup for FFdheKxGroupWrapper<T> {
+impl<T: RngCallback> SupportedKxGroup for FfdheKxGroupWrapper<T> {
     fn start(&self) -> Result<Box<dyn ActiveKeyExchange>, Error> {
         let g = Mpi::from_binary(self.dhe_kx_group.group.g).map_err(mbedtls_err_to_rustls_error)?;
         let p = Mpi::from_binary(self.dhe_kx_group.group.p).map_err(mbedtls_err_to_rustls_error)?;

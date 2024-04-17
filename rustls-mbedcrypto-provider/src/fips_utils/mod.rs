@@ -24,7 +24,7 @@ mod constants;
 
 use crate::{
     fips_utils::constants::{get_ffdhe_q, get_known_ec_key, get_known_ffdhe_key_pair},
-    kx::{FFdheKxGroupWrapper, FfdheKxGroup},
+    kx::{FfdheKxGroup, FfdheKxGroupWrapper},
     log,
 };
 
@@ -199,7 +199,7 @@ fn fips_check_ec_pub_key_mbed<F: mbedtls::rng::Random>(ec_mbed_pk: &Pk, rng: &mu
 /// > standard does not require a PCT.
 ///
 /// [FIPS 140-3 IG]: https://csrc.nist.gov/projects/cryptographic-module-validation-program/fips-140-3-ig-announcements
-pub(super) fn ffdhe_pct<T: RngCallback>(dhe_group: &FFdheKxGroupWrapper<T>, y: &Mpi, y_pub: &Mpi) -> Result<(), rustls::Error> {
+pub(super) fn ffdhe_pct<T: RngCallback>(dhe_group: &FfdheKxGroupWrapper<T>, y: &Mpi, y_pub: &Mpi) -> Result<(), rustls::Error> {
     let p = Mpi::from_binary(dhe_group.dhe_kx_group.group.p).map_err(wrap_mbedtls_error_as_fips)?;
     let key_pair = get_known_ffdhe_key_pair(dhe_group.dhe_kx_group.named_group)
         .expect("validated")
@@ -322,7 +322,7 @@ mod tests {
         assert_eq!("Other(OtherError(Mbedtls(AesBadInputData)))", rustls_test_dbg);
     }
 
-    fn create_ffdhe_key_pair<T: RngCallback>(dhe_group: &FFdheKxGroupWrapper<T>) -> (Mpi, Mpi) {
+    fn create_ffdhe_key_pair<T: RngCallback>(dhe_group: &FfdheKxGroupWrapper<T>) -> (Mpi, Mpi) {
         let g = Mpi::from_binary(dhe_group.dhe_kx_group.group.g).unwrap();
         let p = Mpi::from_binary(dhe_group.dhe_kx_group.group.p).unwrap();
         let mut rng = crate::rng::rng_new().unwrap();
