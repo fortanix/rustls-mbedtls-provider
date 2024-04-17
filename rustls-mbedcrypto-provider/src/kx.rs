@@ -173,7 +173,7 @@ pub static FFDHE3072_KX_GROUP: &FfdheKxGroupWrapper<MbedRng> = &FfdheKxGroupWrap
 
 /// DHE group [FFDHE4096](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.3)
 pub static FFDHE4096: &dyn SupportedKxGroup = FFDHE4096_KX_GROUP;
-/// DHE group [FFDHE3072](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.2)
+/// DHE group [FFDHE3072](https://www.rfc-editor.org/rfc/rfc7919.html#appendix-A.3)
 pub static FFDHE4096_KX_GROUP: &FfdheKxGroupWrapper<MbedRng> = &FfdheKxGroupWrapper {
     dhe_kx_group: FfdheKxGroup {
         named_group: NamedGroup::FFDHE4096,
