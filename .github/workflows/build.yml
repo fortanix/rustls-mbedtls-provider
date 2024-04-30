@@ -59,7 +59,7 @@ jobs:
         shell: bash
 
       - name: cargo test (debug; all features)
-        # all features include `rdrand` which is not avaialbe on macos which using arm cpu
+        # all features include `rdrand` which is not available on macos which uses an arm cpu
         if: ${{ matrix.os != 'macos-latest' }}
         run: cargo test --locked --all-features
         shell: bash
@@ -67,7 +67,7 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: cargo test (debug; all features available on macos)
-        # all features include `rdrand` which is not avaialbe on macos which using arm cpu
+        # all features include `rdrand` which is not available on macos which uses an arm cpu
         if: ${{ matrix.os == 'macos-latest' }}
         run: cargo test --locked --features fips
         shell: bash
