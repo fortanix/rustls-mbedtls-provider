@@ -10,6 +10,10 @@ use rustls::crypto::{
 };
 use std::vec::Vec;
 
+extern {
+    static mut MBEDTLS_FAIL_MODE: u64;
+}
+
 // test copied from rustls repo
 /// TLS 1.2 SHA256 PRF test
 #[cfg(feature = "tls12")]
@@ -22,6 +26,13 @@ pub fn tls12_sha256_prf_test_1() {
 
     let prf = PrfUsingHmac(&super::hmac::HMAC_SHA256);
     prf.for_secret(&mut output, secret, label, seed);
+
+    unsafe{
+        if MBEDTLS_FAIL_MODE == 40 {
+            // Flip first byte of calculated output from PRF
+            output[0] ^= 0xFF;
+        }
+    }
 
     assert_eq!(expect.len(), output.len());
     assert_eq!(&expect[..], &output[..]);
@@ -46,6 +57,13 @@ pub fn tls12_sha256_prf_test_2() {
     let prf = PrfUsingHmac(&super::hmac::HMAC_SHA256);
     prf.for_secret(&mut output, secret, label, session_hash);
 
+    unsafe{
+        if MBEDTLS_FAIL_MODE == 41 {
+            // Flip first byte of calculated output from PRF (EMS)
+            output[0] ^= 0xFF;
+        }
+    }
+
     assert_eq!(expect.len(), output.len());
     assert_eq!(&expect[..], &output[..]);
 }
@@ -62,6 +80,13 @@ pub fn tls12_sha384_prf_test_1() {
 
     let prf = PrfUsingHmac(&super::hmac::HMAC_SHA384);
     prf.for_secret(&mut output, secret, label, seed);
+
+    unsafe{
+        if MBEDTLS_FAIL_MODE == 42 {
+            // Flip first byte of calculated output from PRF
+            output[0] ^= 0xFF;
+        }
+    }
 
     assert_eq!(expect.len(), output.len());
     assert_eq!(&expect[..], &output[..]);
@@ -90,6 +115,13 @@ pub fn tls12_sha384_prf_test_2() {
     let prf = PrfUsingHmac(&super::hmac::HMAC_SHA384);
     prf.for_secret(&mut output, secret, label, session_hash);
 
+    unsafe{
+        if MBEDTLS_FAIL_MODE == 43 {
+            // Flip first byte of calculated output from PRF (EMS)
+            output[0] ^= 0xFF;
+        }
+    }
+
     assert_eq!(expect.len(), output.len());
     assert_eq!(&expect[..], &output[..]);
 }
@@ -102,11 +134,18 @@ pub fn tls13_kdf_test_case_1() {
     let salt = &[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c];
     let info: &[&[u8]] = &[&[0xf0, 0xf1, 0xf2], &[0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9]];
 
-    let output: [u8; 42] = expand(
+    let mut output: [u8; 42] = expand(
         hkdf.extract_from_secret(Some(salt), ikm)
             .as_ref(),
         info,
     );
+
+    unsafe{
+        if MBEDTLS_FAIL_MODE == 44 {
+            // Flip first byte of calculated output from KDF (#1)
+            output[0] ^= 0xFF;
+        }
+    }
 
     assert_eq!(
         &output,
@@ -126,11 +165,18 @@ pub fn tls13_kdf_test_case_2() {
     let salt: Vec<u8> = (0x60u8..=0xaf).collect();
     let info: Vec<u8> = (0xb0u8..=0xff).collect();
 
-    let output: [u8; 82] = expand(
+    let mut output: [u8; 82] = expand(
         hkdf.extract_from_secret(Some(&salt), &ikm)
             .as_ref(),
         &[&info],
     );
+
+    unsafe{
+        if MBEDTLS_FAIL_MODE == 45 {
+            // Flip first byte of calculated output from KDF (#2)
+            output[0] ^= 0xFF;
+        }
+    }
 
     assert_eq!(
         &output,
@@ -152,11 +198,18 @@ pub fn tls13_kdf_test_case_3() {
     let salt = &[];
     let info = &[];
 
-    let output: [u8; 42] = expand(
+    let mut output: [u8; 42] = expand(
         hkdf.extract_from_secret(Some(salt), ikm)
             .as_ref(),
         info,
     );
+
+    unsafe{
+        if MBEDTLS_FAIL_MODE == 46 {
+            // Flip first byte of calculated output from KDF (#3)
+            output[0] ^= 0xFF;
+        }
+    }
 
     assert_eq!(
         &output,
@@ -190,7 +243,7 @@ pub fn ffdhe_crypto_algo_self_test() {
         0x95, 0xf1, 0x4c, 0xc3, 0x3a, 0x53, 0xf0, 0x02, 0xb3, 0xcc, 0x07, 0xd3, 0x35, 0xd4, 0x2c, 0x27, 0x2e, 0xb0, 0x4e, 0x30,
         0x4c, 0x64, 0xb8, 0x7d, 0x1c, 0xfc, 0x07, 0xf6,
     ];
-    let peer_public_key_vec = [
+    let mut peer_public_key_vec = [
         0x62, 0x56, 0x4a, 0x73, 0x21, 0x0d, 0x76, 0xa1, 0xcf, 0xef, 0x6c, 0x99, 0xf7, 0x58, 0xf9, 0x41, 0xb3, 0xcd, 0x69, 0xca,
         0x2f, 0xfd, 0x84, 0xdd, 0xc6, 0xf1, 0x30, 0xe2, 0x94, 0xb9, 0xe0, 0xa0, 0x9b, 0x45, 0xa5, 0xbd, 0xf0, 0x5a, 0x6c, 0xf3,
         0xd9, 0x8e, 0x73, 0x2e, 0x99, 0x15, 0x7a, 0xd5, 0x27, 0xba, 0x18, 0x18, 0x46, 0x47, 0xd7, 0x78, 0xa4, 0xb1, 0x94, 0xdd,
@@ -239,6 +292,14 @@ pub fn ffdhe_crypto_algo_self_test() {
         std::sync::Mutex::new(self_private_key),
         self_public_key_vec,
     ));
+
+    unsafe{
+        if MBEDTLS_FAIL_MODE == 47 {
+            // Flip first byte of peer public key to throw off shared secret computation
+            peer_public_key_vec[0] ^= 0xFF;
+        }
+    }
+
     // Compute share secret again a known peer public key
     let shared_secret = dhe_kx
         .complete(&peer_public_key_vec)

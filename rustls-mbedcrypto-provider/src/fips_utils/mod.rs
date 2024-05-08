@@ -20,6 +20,10 @@ use mbedtls::{
     rng::RngCallback,
 };
 
+extern {
+    static mut MBEDTLS_FAIL_MODE: u64;
+}
+
 mod constants;
 
 use crate::{
@@ -129,6 +133,14 @@ fn fips_ec_pct_mbed<F: mbedtls::rng::Random>(
     shared_1.truncate(len);
     let len = known_ec_key.agree(ec_mbed_pk, &mut shared_2, rng)?;
     shared_2.truncate(len);
+
+    unsafe{
+        if MBEDTLS_FAIL_MODE == 57 {
+            // Flip first byte of calculated output from PRF
+            shared_1[0] ^= 0xFF;
+        }
+    }
+
     if shared_1 != shared_2 {
         return Err(mbedtls::Error::EcpInvalidKey);
     }
@@ -180,7 +192,18 @@ fn fips_check_ec_pub_key_mbed<F: mbedtls::rng::Random>(ec_mbed_pk: &Pk, rng: &mu
     let n = ec_group.order()?;
     let n_sub_1 = n.sub(1)?;
     let n_sub_1_q = pub_point.mul_with_rng(&mut ec_group, &n_sub_1, rng)?;
-    let mpi_one = Mpi::new(1)?;
+
+    let mpi_one;
+    unsafe{
+        if MBEDTLS_FAIL_MODE == 58 {
+            // For failure testing, mess up this calculation by using 0 instead of 1 here
+            mpi_one = Mpi::new(0)?;
+        }
+        else {
+            mpi_one = Mpi::new(1)?;
+        }
+    }
+
     let nQ = EcPoint::muladd(&mut ec_group, &n_sub_1_q, &mpi_one, &pub_point, &mpi_one)?;
     if !nQ.is_zero()? {
         return Err(mbedtls::Error::EcpInvalidKey);
@@ -208,8 +231,19 @@ pub(super) fn ffdhe_pct<T: RngCallback>(dhe_group: &DheKxGroup<T>, y: &Mpi, y_pu
     let (x, x_pub) = (&key_pair.0, &key_pair.1);
     // compute shared secret with new pk and known sk
     let secret_1 = compute_shared_secret(y_pub, x, &p).map_err(wrap_mbedtls_error_as_fips)?;
+
     // compute shared secret with new sk and known pk
-    let secret_2 = compute_shared_secret(x_pub, y, &p).map_err(wrap_mbedtls_error_as_fips)?;
+    let secret_2;
+    unsafe{
+        if MBEDTLS_FAIL_MODE == 59 {
+            // For failure testing, mess up this comparison by using 0 for the second shared secret
+            secret_2 = Mpi::new(0).map_err(wrap_mbedtls_error_as_fips)?;
+        }
+        else {
+            secret_2 = compute_shared_secret(x_pub, y, &p).map_err(wrap_mbedtls_error_as_fips)?;
+        }
+    }
+
     // compare two secrets
     if secret_1 != secret_2 {
         const ERR_MSG: &str = "FFDHE Pairwise Consistency Test: failed";
@@ -244,7 +278,18 @@ pub(super) fn ffdhe_pub_key_check(
     // Note: When the FFC domain parameters correspond to a safe-prime group, 1 = y^q mod p if and only if y is a
     //       (nonzero) quadratic residue modulo p, which can be verified by computing the value of the Legendre symbol
     //       of y with respect to p
-    let one = Mpi::new(1).map_err(wrap_mbedtls_error_as_fips)?;
+    let one;
+    unsafe{
+        if MBEDTLS_FAIL_MODE == 60 {
+            // For failure testing, mess up this comparison by using 0 for comparison
+            one = Mpi::new(0).map_err(wrap_mbedtls_error_as_fips)?;
+        }
+        else {
+            one = Mpi::new(1).map_err(wrap_mbedtls_error_as_fips)?;
+        }
+    }
+
+
     let p = Mpi::from_binary(ffdhe_group.p).map_err(wrap_mbedtls_error_as_fips)?;
     let q = get_ffdhe_q(named_group)
         .expect("validated")
