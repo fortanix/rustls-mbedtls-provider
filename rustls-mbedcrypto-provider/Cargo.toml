@@ -15,7 +15,7 @@ resolver = "2"
 bit-vec = "0.6.3"
 log = { version = "0.4", optional = true }
 mbedtls = { version = "0.12.3", default-features = false, features = ["std"] }
-rustls = { version = "0.23.5", default-features = false, features = ["std"] }
+rustls = { version = "0.23.7", default-features = false, features = ["std"] }
 utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-provider-utils", version = "0.2.0" }
 webpki = { package = "rustls-webpki", version = "0.102.0", default-features = false, features = [
   "alloc",
@@ -27,12 +27,12 @@ yasna = { version = "0.3", default-features = false, features = ["bit-vec"] }
 bencher = "0.1.5"
 env_logger = "0.10"
 log = { version = "0.4" }
-rustls = { version = "0.23.5", default-features = false, features = [
+rustls = { version = "0.23.7", default-features = false, features = [
   "ring",
   "std",
 ] }
 rustls-pemfile = "2"
-webpki-roots = "0.26.1"
+webpki-roots = "0.26.2"
 
 [features]
 default = ["logging", "tls12"]
