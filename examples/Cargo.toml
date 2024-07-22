@@ -8,7 +8,7 @@ publish = false
 
 [dependencies]
 env_logger = "0.11"
-rustls = { version = "0.23.5", default-features = false, features = [
+rustls = { version = "0.23.7", default-features = false, features = [
   "logging",
   "std",
   "tls12",
@@ -18,6 +18,6 @@ rustls-mbedcrypto-provider = { path = "../rustls-mbedcrypto-provider", features 
   "tls12",
 ] }
 rustls-mbedpki-provider = { path = "../rustls-mbedpki-provider" }
-rustls-native-certs = "0.7.0"
+rustls-native-certs = "0.7.1"
 rustls-pemfile = "2"
 rustls-pki-types = "1"
