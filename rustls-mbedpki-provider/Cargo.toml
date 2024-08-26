@@ -12,7 +12,7 @@ resolver = "2"
 
 [dependencies]
 chrono = "0.4"
-mbedtls = { version = "0.12.3", path = "../../rust-mbedtls/mbedtls", default_features = false, features = [
+mbedtls = { version = "0.12.3", git = "https://github.com/fortanix/rust-mbedtls.git", branch = "mridul/yasna-0.5-crate-update", default_features = false, features = [
   "chrono",
   "std",
   "x509",
@@ -23,7 +23,7 @@ x509-parser = "0.16"
 time = "0.3.36"
 
 [dev-dependencies]
-mbedtls = { version = "0.12.2", path = "../../rust-mbedtls/mbedtls", default_features = false, features = [
+mbedtls = { version = "0.12.3", git = "https://github.com/fortanix/rust-mbedtls.git", branch = "mridul/yasna-0.5-crate-update", default_features = false, features = [
   "time",
 ] } # We enable the time feature for tests to make sure it does not mess up cert expiration checking
 rustls = { version = "0.23.5", default-features = false, features = [
