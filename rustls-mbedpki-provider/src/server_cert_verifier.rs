@@ -204,7 +204,7 @@ impl ServerCertVerifier for MbedTlsServerCertVerifier {
     }
 
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
-        crate::SUPPORTED_SIGNATURE_SCHEMA.to_vec()
+        crate::SUPPORTED_SIGNATURE_SCHEMES.to_vec()
     }
 }
 
@@ -350,21 +350,40 @@ mod tests {
         }
     }
 
-    #[test]
-    fn server_cert_verifier_valid_chain() {
-        let cert_chain = get_chain(include_bytes!("../test-data/rsa/end.fullchain"));
-        let trusted_cas = [CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec())];
+    fn test_server_cert_verifier_valid_chain(cert_chain_file_contents: &[u8], trusted_ca_der: &[u8]) {
+        let cert_chain = get_chain(cert_chain_file_contents);
+        let trusted_cas = [CertificateDer::from(trusted_ca_der)];
 
         let verifier = MbedTlsServerCertVerifier::new(trusted_cas.iter()).unwrap();
 
         let server_name = "testserver.com".try_into().unwrap();
-        let now = SystemTime::from(DateTime::parse_from_rfc3339("2023-11-26T12:00:00+00:00").unwrap());
+        let now = SystemTime::from(DateTime::parse_from_rfc3339("2024-01-01T12:00:00+00:00").unwrap());
         let now = UnixTime::since_unix_epoch(
             now.duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap(),
         );
         let verify_res = verifier.verify_server_cert(&cert_chain[0], &cert_chain[1..], &server_name, &[], now);
         assert!(verify_res.is_ok());
+    }
+
+    #[test]
+    fn server_cert_verifier_valid_chain() {
+        test_server_cert_verifier_valid_chain(
+            include_bytes!("../test-data/rsa/end.fullchain"),
+            include_bytes!("../test-data/rsa/ca.der"),
+        );
+    }
+
+    #[test]
+    fn server_cert_verifier_valid_chain_ecdsa() {
+        test_server_cert_verifier_valid_chain(
+            include_bytes!("../test-data/ecdsa-p256/end.fullchain"),
+            include_bytes!("../test-data/ecdsa-p256/ca.der"),
+        );
+        test_server_cert_verifier_valid_chain(
+            include_bytes!("../test-data/ecdsa-p521/end.fullchain"),
+            include_bytes!("../test-data/ecdsa-p521/ca.der"),
+        );
     }
 
     #[test]

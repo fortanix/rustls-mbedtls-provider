@@ -118,6 +118,6 @@ impl ServerCertVerifier for NoopServerCertVerifier {
     }
 
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
-        rustls_mbedpki_provider::SUPPORTED_SIGNATURE_SCHEMA.to_vec()
+        rustls_mbedpki_provider::SUPPORTED_SIGNATURE_SCHEMES.to_vec()
     }
 }
