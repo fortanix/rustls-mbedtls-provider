@@ -1,6 +1,6 @@
 [package]
 name = "rustls-mbedpki-provider"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Fortanix Inc."]
 categories = ["cryptography", "network-programming"]
 description = "Implements rustls PKI traits using mbedtls"
