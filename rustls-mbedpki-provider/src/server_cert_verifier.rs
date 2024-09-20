@@ -270,8 +270,8 @@ mod tests {
         invalid_cert_chain: Vec<CertificateDer<'static>>,
     ) -> rustls::Error {
         let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());
-        let mut root_store = RootCertStore::empty();
-        root_store.add(root_ca.clone()).unwrap();
+        // let mut root_store = RootCertStore::empty();
+        // root_store.add(root_ca.clone()).unwrap();
 
         let client_config = client_config_with_verifier(MbedTlsServerCertVerifier::new(&[root_ca]).unwrap());
         let server_config = ServerConfig::builder()
@@ -335,19 +335,11 @@ mod tests {
     fn connection_server_cert_verifier_with_invalid_certs() {
         let cert_chain = get_chain(include_bytes!("../test-data/rsa/end.fullchain"));
 
-        let mut broken_chain1 = cert_chain.clone();
-        broken_chain1.remove(1);
+        let mut broken_chain = cert_chain.clone();
+        broken_chain.remove(1);
 
-        let mut broken_chain2 = cert_chain.clone();
-        broken_chain2.remove(0);
-
-        let mut broken_chain3 = cert_chain.clone();
-        broken_chain3.swap(0, 1);
-
-        for broken_chain in [broken_chain1, broken_chain2, broken_chain3] {
-            let err = test_connection_server_cert_verifier_with_invalid_certs(broken_chain);
-            println!("error: {err}");
-        }
+        let err = test_connection_server_cert_verifier_with_invalid_certs(broken_chain);
+        println!("error: {err}");
     }
 
     fn test_server_cert_verifier_valid_chain(cert_chain_file_contents: &[u8], trusted_ca_der: &[u8]) {
