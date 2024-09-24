@@ -270,8 +270,6 @@ mod tests {
         invalid_cert_chain: Vec<CertificateDer<'static>>,
     ) -> rustls::Error {
         let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());
-        // let mut root_store = RootCertStore::empty();
-        // root_store.add(root_ca.clone()).unwrap();
 
         let client_config = client_config_with_verifier(MbedTlsServerCertVerifier::new(&[root_ca]).unwrap());
         let server_config = ServerConfig::builder()
