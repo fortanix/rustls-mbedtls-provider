@@ -74,8 +74,9 @@ pub struct CertActiveCheck {
     pub ignore_not_active_yet: bool,
 }
 
-/// All supported signature schemas
-pub const SUPPORTED_SIGNATURE_SCHEMA: [SignatureScheme; 9] = [
+/// All supported signature schemes
+pub const SUPPORTED_SIGNATURE_SCHEMES: &[SignatureScheme] = &[
+    // RSA schemes
     SignatureScheme::RSA_PSS_SHA512,
     SignatureScheme::RSA_PSS_SHA384,
     SignatureScheme::RSA_PSS_SHA256,
@@ -85,6 +86,10 @@ pub const SUPPORTED_SIGNATURE_SCHEMA: [SignatureScheme; 9] = [
     SignatureScheme::RSA_PSS_SHA512,
     SignatureScheme::RSA_PSS_SHA384,
     SignatureScheme::RSA_PSS_SHA256,
+    // ECDSA schemes
+    SignatureScheme::ECDSA_NISTP256_SHA256,
+    SignatureScheme::ECDSA_NISTP384_SHA384,
+    SignatureScheme::ECDSA_NISTP521_SHA512,
 ];
 
 /// Helper function to convert a [`mbedtls::x509::InvalidTimeError`] to a [`rustls::Error`]
@@ -201,6 +206,7 @@ impl Display for VerifyErrorWrapper {
     }
 }
 
+#[allow(clippy::std_instead_of_core)]
 impl std::error::Error for VerifyErrorWrapper {}
 
 #[cfg(test)]

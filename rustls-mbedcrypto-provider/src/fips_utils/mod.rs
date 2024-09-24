@@ -45,6 +45,7 @@ impl fmt::Display for FipsCheckError {
     }
 }
 
+#[allow(clippy::std_instead_of_core)]
 impl std::error::Error for FipsCheckError {}
 
 impl From<FipsCheckError> for rustls::Error {

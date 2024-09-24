@@ -203,7 +203,7 @@ impl ClientCertVerifier for MbedTlsClientCertVerifier {
     }
 
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
-        crate::SUPPORTED_SIGNATURE_SCHEMA.to_vec()
+        crate::SUPPORTED_SIGNATURE_SCHEMES.to_vec()
     }
 }
 
