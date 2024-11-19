@@ -98,7 +98,7 @@ mod tests {
             ),
             format!(
                 "{:?}",
-                rustls::Error::InvalidCertificate(CertificateError::Other(OtherError(Arc::new(codes::X509UnknownVersion.into()))))
+                rustls::Error::InvalidCertificate(CertificateError::Other(OtherError(Arc::new(ErrMbed::HighLevel(codes::X509UnknownVersion)))))
             )
         );
         assert_eq!(
@@ -108,7 +108,7 @@ mod tests {
             ),
             format!(
                 "{:?}",
-                rustls::Error::InvalidCertificate(CertificateError::Other(OtherError(Arc::new(codes::X509InvalidSerial.into()))))
+                rustls::Error::InvalidCertificate(CertificateError::Other(OtherError(Arc::new(ErrMbed::HighLevel(codes::X509InvalidSerial)))))
             )
         );
     }
