@@ -319,7 +319,10 @@ mod tests {
         let rustls_test: rustls::Error = wrap_mbedtls_error_as_fips(mbedtls::error::codes::AesBadInputData.into());
         let rustls_test_fmt = format!("{rustls_test}");
         let rustls_test_dbg = format!("{rustls_test:?}");
-        assert_eq!("other error: FipsCheckError::Mbedtls(LowLevel(AesBadInputData))", rustls_test_fmt);
+        assert_eq!(
+            "other error: FipsCheckError::Mbedtls(LowLevel(AesBadInputData))",
+            rustls_test_fmt
+        );
         assert_eq!("Other(OtherError(Mbedtls(LowLevel(AesBadInputData))))", rustls_test_dbg);
     }
 
