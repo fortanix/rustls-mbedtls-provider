@@ -275,11 +275,11 @@ mod tests {
     #[test]
     fn test_fips_check_error_display() {
         let error = FipsCheckError::Mbedtls(mbedtls::error::codes::EcpAllocFailed.into());
-        assert_eq!(format!("{}", error), "FipsCheckError::Mbedtls(EcpAllocFailed)");
+        assert_eq!(format!("{}", error), "FipsCheckError::Mbedtls(HighLevel(EcpAllocFailed))");
         let error = FipsCheckError::General(Cow::Borrowed("Some other error"));
         assert_eq!(format!("{}", error), "FipsCheckError::General(Some other error)");
         let error = FipsCheckError::Mbedtls(mbedtls::error::codes::EcpAllocFailed.into());
-        assert_eq!(format!("{:?}", error), "Mbedtls(EcpAllocFailed)");
+        assert_eq!(format!("{:?}", error), "Mbedtls(HighLevel(EcpAllocFailed))");
         let error_other = FipsCheckError::General(Cow::Borrowed("Some other error"));
         assert_eq!(format!("{:?}", error_other), "General(\"Some other error\")");
     }
@@ -319,8 +319,8 @@ mod tests {
         let rustls_test: rustls::Error = wrap_mbedtls_error_as_fips(mbedtls::error::codes::AesBadInputData.into());
         let rustls_test_fmt = format!("{rustls_test}");
         let rustls_test_dbg = format!("{rustls_test:?}");
-        assert_eq!("other error: FipsCheckError::Mbedtls(AesBadInputData)", rustls_test_fmt);
-        assert_eq!("Other(OtherError(Mbedtls(AesBadInputData)))", rustls_test_dbg);
+        assert_eq!("other error: FipsCheckError::Mbedtls(LowLevel(AesBadInputData))", rustls_test_fmt);
+        assert_eq!("Other(OtherError(Mbedtls(LowLevel(AesBadInputData))))", rustls_test_dbg);
     }
 
     fn create_ffdhe_key_pair<T: RngCallback>(dhe_group: &FfdheKxGroupWrapper<T>) -> (Mpi, Mpi) {
