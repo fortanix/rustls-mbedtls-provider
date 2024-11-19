@@ -131,7 +131,7 @@ fn fips_ec_pct_mbed<F: mbedtls::rng::Random>(
     let len = known_ec_key.agree(ec_mbed_pk, &mut shared_2, rng)?;
     shared_2.truncate(len);
     if shared_1 != shared_2 {
-        return Err(mbedtls::Error::EcpInvalidKey);
+        return Err(mbedtls::error::codes::EcpInvalidKey.into());
     }
     // According to section 5.6.2.1.4 of [SP 800-56Ar3]:
     //
@@ -151,7 +151,7 @@ fn fips_ec_pct_mbed<F: mbedtls::rng::Random>(
     // Use cloned `dG` to ensure it has same allocation length to `Q`.
     // "Same allocation length" is required by `eq_const_time`.
     if !dG.clone().eq_const_time(&Q)? {
-        return Err(mbedtls::Error::EcpInvalidKey);
+        return Err(mbedtls::error::codes::EcpInvalidKey.into());
     }
     Ok(())
 }
@@ -161,7 +161,7 @@ fn fips_check_ec_pub_key_mbed<F: mbedtls::rng::Random>(ec_mbed_pk: &Pk, rng: &mu
     let pub_point = ec_mbed_pk.ec_public()?;
     // 1. Verify that Q is not the identity element Ø.
     if pub_point.is_zero()? {
-        return Err(mbedtls::Error::EcpInvalidKey);
+        return Err(mbedtls::error::codes::EcpInvalidKey.into());
     };
     // 2. Verify that x_Q and y_Q are integers in the interval [0, p − 1] in the case that q is an odd prime p
     // 3. Verify that Q is on the curve. In particular, if q is an odd prime p, verify that y_Q^2 = (x_Q^3 + a*x_Q + b) mod p.
@@ -173,7 +173,7 @@ fn fips_check_ec_pub_key_mbed<F: mbedtls::rng::Random>(ec_mbed_pk: &Pk, rng: &mu
     // [`mbedtls_ecp_check_pubkey`]: https://github.com/fortanix/rust-mbedtls/blob/main/mbedtls-sys/vendor/library/ecp.c#L3090
     let mut ec_group = ec_mbed_pk.ec_group()?;
     if !ec_group.contains_point(&pub_point)? {
-        return Err(mbedtls::Error::EcpInvalidKey);
+        return Err(mbedtls::error::codes::EcpInvalidKey.into());
     }
     // 4. Compute n*Q (using elliptic curve arithmetic), and verify that n*Q = Ø.
     //    Here we compute n*Q = (n-1)*Q +Q, because `EcPoint::mul` always expects
@@ -184,7 +184,7 @@ fn fips_check_ec_pub_key_mbed<F: mbedtls::rng::Random>(ec_mbed_pk: &Pk, rng: &mu
     let mpi_one = Mpi::new(1)?;
     let nQ = EcPoint::muladd(&mut ec_group, &n_sub_1_q, &mpi_one, &pub_point, &mpi_one)?;
     if !nQ.is_zero()? {
-        return Err(mbedtls::Error::EcpInvalidKey);
+        return Err(mbedtls::error::codes::EcpInvalidKey.into());
     }
     Ok(())
 }
@@ -274,11 +274,11 @@ mod tests {
 
     #[test]
     fn test_fips_check_error_display() {
-        let error = FipsCheckError::Mbedtls(mbedtls::Error::EcpAllocFailed);
+        let error = FipsCheckError::Mbedtls(mbedtls::error::codes::EcpAllocFailed.into());
         assert_eq!(format!("{}", error), "FipsCheckError::Mbedtls(EcpAllocFailed)");
         let error = FipsCheckError::General(Cow::Borrowed("Some other error"));
         assert_eq!(format!("{}", error), "FipsCheckError::General(Some other error)");
-        let error = FipsCheckError::Mbedtls(mbedtls::Error::EcpAllocFailed);
+        let error = FipsCheckError::Mbedtls(mbedtls::error::codes::EcpAllocFailed.into());
         assert_eq!(format!("{:?}", error), "Mbedtls(EcpAllocFailed)");
         let error_other = FipsCheckError::General(Cow::Borrowed("Some other error"));
         assert_eq!(format!("{:?}", error_other), "General(\"Some other error\")");
@@ -316,7 +316,7 @@ mod tests {
 
     #[test]
     fn fips_check_error_debug_test() {
-        let rustls_test: rustls::Error = wrap_mbedtls_error_as_fips(mbedtls::Error::AesBadInputData);
+        let rustls_test: rustls::Error = wrap_mbedtls_error_as_fips(mbedtls::error::codes::AesBadInputData.into());
         let rustls_test_fmt = format!("{rustls_test}");
         let rustls_test_dbg = format!("{rustls_test:?}");
         assert_eq!("other error: FipsCheckError::Mbedtls(AesBadInputData)", rustls_test_fmt);
