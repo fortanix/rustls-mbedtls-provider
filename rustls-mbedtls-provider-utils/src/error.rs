@@ -81,7 +81,7 @@ mod tests {
         );
         assert_eq!(
             mbedtls_err_into_rustls_err_with_error_msg(codes::CipherAuthFailed.into(), ""),
-            rustls::Error::General(String::from("mbedTLS error CipherAuthFailed"))
+            rustls::Error::General(String::from("mbedTLS error HiError :: CipherAuthFailed"))
         );
         assert_eq!(
             mbedtls_err_into_rustls_err_with_error_msg(codes::RsaVerifyFailed.into(), ""),
