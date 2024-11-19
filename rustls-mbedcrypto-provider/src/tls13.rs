@@ -13,6 +13,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use mbedtls::cipher::raw::CipherType;
 use mbedtls::cipher::{Authenticated, Cipher, Decryption, Encryption, Fresh};
+use mbedtls::error::{codes, Error as ErrMbed};
 use rustls::crypto::cipher::{
     make_tls13_aad, AeadKey, InboundOpaqueMessage, InboundPlainMessage, Iv, MessageDecrypter, MessageEncrypter, Nonce,
     OutboundOpaqueMessage, OutboundPlainMessage, PlainMessage, PrefixedPayload, Tls13AeadAlgorithm, UnsupportedOperationError,
@@ -128,10 +129,10 @@ impl MessageEncrypter for Tls13MessageEncrypter {
         cipher
             .encrypt_auth_inplace(&aad, payload.as_mut(), &mut tag)
             .map_err(|err| match err {
-                mbedtls::Error::CcmAuthFailed
-                | mbedtls::Error::ChachapolyAuthFailed
-                | mbedtls::Error::CipherAuthFailed
-                | mbedtls::Error::GcmAuthFailed => Error::EncryptError,
+                ErrMbed::LowLevel(codes::CcmAuthFailed)
+                | ErrMbed::LowLevel(codes::ChachapolyAuthFailed)
+                | ErrMbed::HighLevel(codes::CipherAuthFailed)
+                | ErrMbed::LowLevel(codes::GcmAuthFailed) => Error::EncryptError,
                 _ => mbedtls_err_to_rustls_error(err),
             })?;
         payload.extend_from_slice(&tag);
@@ -180,10 +181,10 @@ impl MessageDecrypter for Tls13MessageDecrypter {
         let (plain_len, _) = cipher
             .decrypt_auth_inplace(&aad, ciphertext, tag)
             .map_err(|err| match err {
-                mbedtls::Error::CcmAuthFailed
-                | mbedtls::Error::ChachapolyAuthFailed
-                | mbedtls::Error::CipherAuthFailed
-                | mbedtls::Error::GcmAuthFailed => Error::DecryptError,
+                ErrMbed::LowLevel(codes::CcmAuthFailed)
+                | ErrMbed::LowLevel(codes::ChachapolyAuthFailed)
+                | ErrMbed::HighLevel(codes::CipherAuthFailed)
+                | ErrMbed::LowLevel(codes::GcmAuthFailed) => Error::DecryptError,
                 _ => mbedtls_err_to_rustls_error(err),
             })?;
         payload.truncate(plain_len);
@@ -328,7 +329,7 @@ mod tests {
     #[test]
     fn test_expander_error() {
         let hash_alg = &crate::hash::MBED_SHA_256;
-        let expander = MbedHkdfHmacExpander { hash_alg, prf_res: Err(mbedtls::Error::AesBadInputData) };
+        let expander = MbedHkdfHmacExpander { hash_alg, prf_res: Err(codes::AesBadInputData.into()) };
         assert!(expander
             .expand_slice(&[&[]], &mut [])
             .is_err());
