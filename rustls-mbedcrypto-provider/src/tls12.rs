@@ -10,6 +10,7 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use mbedtls::cipher::raw::{CipherId, CipherMode, CipherType};
 use mbedtls::cipher::{Authenticated, Cipher, Decryption, Encryption, Fresh};
+use mbedtls::error::{codes, Error as ErrMbed};
 use rustls::crypto::cipher::{
     make_tls12_aad, AeadKey, InboundOpaqueMessage, InboundPlainMessage, Iv, KeyBlockShape, MessageDecrypter, MessageEncrypter,
     Nonce, OutboundOpaqueMessage, OutboundPlainMessage, PlainMessage, PrefixedPayload, Tls12AeadAlgorithm,
@@ -266,10 +267,10 @@ impl MessageDecrypter for GcmMessageDecrypter {
         let (plain_len, _) = cipher
             .decrypt_auth_inplace(&aad, ciphertext, tag)
             .map_err(|err| match err {
-                mbedtls::Error::CcmAuthFailed
-                | mbedtls::Error::ChachapolyAuthFailed
-                | mbedtls::Error::CipherAuthFailed
-                | mbedtls::Error::GcmAuthFailed => Error::DecryptError,
+                ErrMbed::LowLevel(codes::CcmAuthFailed)
+                | ErrMbed::LowLevel(codes::ChachapolyAuthFailed)
+                | ErrMbed::HighLevel(codes::CipherAuthFailed)
+                | ErrMbed::LowLevel(codes::GcmAuthFailed) => Error::DecryptError,
                 _ => mbedtls_err_to_rustls_error(err),
             })?;
         if plain_len > MAX_FRAGMENT_LEN {
@@ -304,10 +305,10 @@ impl MessageEncrypter for GcmMessageEncrypter {
         cipher
             .encrypt_auth_inplace(&aad, &mut payload.as_mut()[GCM_EXPLICIT_NONCE_LEN..], &mut tag)
             .map_err(|err| match err {
-                mbedtls::Error::CcmAuthFailed
-                | mbedtls::Error::ChachapolyAuthFailed
-                | mbedtls::Error::CipherAuthFailed
-                | mbedtls::Error::GcmAuthFailed => Error::EncryptError,
+                ErrMbed::LowLevel(codes::CcmAuthFailed)
+                | ErrMbed::LowLevel(codes::ChachapolyAuthFailed)
+                | ErrMbed::HighLevel(codes::CipherAuthFailed)
+                | ErrMbed::LowLevel(codes::GcmAuthFailed) => Error::EncryptError,
                 _ => mbedtls_err_to_rustls_error(err),
             })?;
         payload.extend_from_slice(&tag);
@@ -371,10 +372,10 @@ impl MessageDecrypter for ChaCha20Poly1305MessageDecrypter {
         let (plain_len, _) = cipher
             .decrypt_auth_inplace(&aad, ciphertext, tag)
             .map_err(|err| match err {
-                mbedtls::Error::CcmAuthFailed
-                | mbedtls::Error::ChachapolyAuthFailed
-                | mbedtls::Error::CipherAuthFailed
-                | mbedtls::Error::GcmAuthFailed => Error::DecryptError,
+                ErrMbed::LowLevel(codes::CcmAuthFailed)
+                | ErrMbed::LowLevel(codes::ChachapolyAuthFailed)
+                | ErrMbed::HighLevel(codes::CipherAuthFailed)
+                | ErrMbed::LowLevel(codes::GcmAuthFailed) => Error::DecryptError,
                 _ => mbedtls_err_to_rustls_error(err),
             })?;
 
@@ -413,10 +414,10 @@ impl MessageEncrypter for ChaCha20Poly1305MessageEncrypter {
         cipher
             .encrypt_auth_inplace(&aad, payload.as_mut(), &mut tag)
             .map_err(|err| match err {
-                mbedtls::Error::CcmAuthFailed
-                | mbedtls::Error::ChachapolyAuthFailed
-                | mbedtls::Error::CipherAuthFailed
-                | mbedtls::Error::GcmAuthFailed => Error::EncryptError,
+                ErrMbed::LowLevel(codes::CcmAuthFailed)
+                | ErrMbed::LowLevel(codes::ChachapolyAuthFailed)
+                | ErrMbed::HighLevel(codes::CipherAuthFailed)
+                | ErrMbed::LowLevel(codes::GcmAuthFailed) => Error::EncryptError,
                 _ => mbedtls_err_to_rustls_error(err),
             })?;
         payload.extend_from_slice(&tag);
