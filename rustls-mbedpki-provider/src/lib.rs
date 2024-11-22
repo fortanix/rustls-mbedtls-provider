@@ -26,7 +26,7 @@
     unreachable_pub,
     unused_import_braces,
     unused_extern_crates,
-    unused_qualifications
+    // unused_qualifications
 )]
 // Enable documentation for all features on docs.rs
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
