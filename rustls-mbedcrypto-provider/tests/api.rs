@@ -1570,12 +1570,12 @@ where
     buffer: Vec<Vec<u8>>,
 }
 
-impl<'a, C, S> OtherSession<'a, C, S>
+impl<C, S> OtherSession<'_, C, S>
 where
     C: DerefMut + Deref<Target = ConnectionCommon<S>>,
     S: SideData,
 {
-    fn new(sess: &'a mut C) -> OtherSession<'a, C, S> {
+    fn new(sess: &mut C) -> OtherSession<C, S> {
         OtherSession {
             sess,
             reads: 0,
@@ -1588,7 +1588,7 @@ where
         }
     }
 
-    fn new_buffered(sess: &'a mut C) -> OtherSession<'a, C, S> {
+    fn new_buffered(sess: &mut C) -> OtherSession<C, S> {
         let mut os = OtherSession::new(sess);
         os.buffered = true;
         os
@@ -1630,7 +1630,7 @@ where
     }
 }
 
-impl<'a, C, S> io::Read for OtherSession<'a, C, S>
+impl<C, S> io::Read for OtherSession<'_, C, S>
 where
     C: DerefMut + Deref<Target = ConnectionCommon<S>>,
     S: SideData,
@@ -1641,7 +1641,7 @@ where
     }
 }
 
-impl<'a, C, S> io::Write for OtherSession<'a, C, S>
+impl<C, S> io::Write for OtherSession<'_, C, S>
 where
     C: DerefMut + Deref<Target = ConnectionCommon<S>>,
     S: SideData,
