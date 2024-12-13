@@ -628,7 +628,7 @@ pub fn do_handshake_until_both_error(
     }
 }
 
-pub fn server_name(name: &'static str) -> ServerName {
+pub fn server_name(name: &'static str) -> ServerName<'static> {
     name.try_into().unwrap()
 }
 

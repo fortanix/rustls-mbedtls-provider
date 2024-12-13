@@ -196,7 +196,7 @@ struct MbedHkdfUsingHmac<'a>(&'a super::hmac::Hmac);
 
 const ZERO_IKM: [u8; crate::hmac::Tag::MAX_LEN] = [0u8; crate::hmac::Tag::MAX_LEN];
 
-impl<'a> Hkdf for MbedHkdfUsingHmac<'a> {
+impl Hkdf for MbedHkdfUsingHmac<'_> {
     fn extract_from_zero_ikm(&self, salt: Option<&[u8]>) -> Box<dyn HkdfExpander> {
         let md = self.0.hash_algorithm().hash_type;
         let capacity = self.0.hash_algorithm().output_len;
