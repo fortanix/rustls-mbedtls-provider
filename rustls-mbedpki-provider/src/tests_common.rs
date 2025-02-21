@@ -16,7 +16,6 @@ use rustls::{client::danger::ServerCertVerifier, ClientConnection, ConnectionCom
 pub(crate) fn get_chain(bytes: &[u8]) -> Vec<CertificateDer> {
     rustls_pemfile::certs(&mut io::BufReader::new(bytes))
         .map(Result::unwrap)
-        .map(CertificateDer::from)
         .collect()
 }
 
