@@ -62,7 +62,7 @@ pub(crate) static X25519: Algorithm = Algorithm {
 ///      https://github.com/briansmith/ring/blob/main/doc/ecdh.pdf
 pub(crate) static ECDH_P256: Algorithm = Algorithm {
     group_id: EcGroupId::SecP256R1,
-    public_key_len: 1 + (2 * ((256 + 7) / 8)),
+    public_key_len: 1 + (2 * 256_usize.div_ceil(8)),
     max_signature_len: ECDSA_MAX_LEN,
 };
 
@@ -85,7 +85,7 @@ pub(crate) static ECDH_P256: Algorithm = Algorithm {
 ///      https://github.com/briansmith/ring/blob/main/doc/ecdh.pdf
 pub(crate) static ECDH_P384: Algorithm = Algorithm {
     group_id: EcGroupId::SecP384R1,
-    public_key_len: 1 + (2 * ((384 + 7) / 8)),
+    public_key_len: 1 + (2 * 384_usize.div_ceil(8)),
     max_signature_len: ECDSA_MAX_LEN,
 };
 
@@ -108,6 +108,6 @@ pub(crate) static ECDH_P384: Algorithm = Algorithm {
 ///      https://github.com/briansmith/ring/blob/main/doc/ecdh.pdf
 pub(crate) static ECDH_P521: Algorithm = Algorithm {
     group_id: EcGroupId::SecP521R1,
-    public_key_len: 1 + (2 * ((521 + 7) / 8)),
+    public_key_len: 1 + (2 * 521_usize.div_ceil(8)),
     max_signature_len: ECDSA_MAX_LEN,
 };
