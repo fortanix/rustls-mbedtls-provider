@@ -493,6 +493,8 @@ checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 [[package]]
 name = "mbedtls"
 version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fb35c8dbebb68daa60498d015c440b9c5f449c740357ba877129761d68fd435"
 dependencies = [
  "bitflags 1.3.2",
  "byteorder",
@@ -511,6 +513,8 @@ dependencies = [
 [[package]]
 name = "mbedtls-platform-support"
 version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be354d52c70402fbfb37bad9ae2aa99ab52af79f37423cb9d6c41c8fb863abc7"
 dependencies = [
  "cc",
  "cfg-if",
@@ -521,6 +525,8 @@ dependencies = [
 [[package]]
 name = "mbedtls-sys-auto"
 version = "2.28.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d12704ff5afaa855500ac08b955ff7bb0cef94eb10983da6a1b6c6ffe74a070"
 dependencies = [
  "bindgen",
  "cc",
