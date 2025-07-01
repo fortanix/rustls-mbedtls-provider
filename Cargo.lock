@@ -774,7 +774,7 @@ dependencies = [
 
 [[package]]
 name = "rustls-mbedcrypto-provider"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bencher",
  "bit-vec 0.6.3",
@@ -791,7 +791,7 @@ dependencies = [
 
 [[package]]
 name = "rustls-mbedpki-provider"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "chrono",
  "mbedtls",
@@ -816,7 +816,7 @@ dependencies = [
 
 [[package]]
 name = "rustls-mbedtls-provider-utils"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "mbedtls",
  "rustls",
