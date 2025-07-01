@@ -207,7 +207,7 @@ impl Display for VerifyErrorWrapper {
 }
 
 #[allow(clippy::std_instead_of_core)]
-impl std::error::Error for VerifyErrorWrapper {}
+impl core::error::Error for VerifyErrorWrapper {}
 
 #[cfg(test)]
 mod tests {

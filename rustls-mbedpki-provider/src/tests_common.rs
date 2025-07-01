@@ -13,14 +13,14 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime};
 use rustls::{client::danger::ServerCertVerifier, ClientConnection, ConnectionCommon, ServerConnection, SideData};
 
 /// Get a certificate chain from the contents of a pem file
-pub(crate) fn get_chain(bytes: &[u8]) -> Vec<CertificateDer> {
+pub(crate) fn get_chain(bytes: &[u8]) -> Vec<CertificateDer<'_>> {
     rustls_pemfile::certs(&mut io::BufReader::new(bytes))
         .map(Result::unwrap)
         .collect()
 }
 
 /// Get a private key from the contents of a pem file
-pub(crate) fn get_key(bytes: &[u8]) -> PrivateKeyDer {
+pub(crate) fn get_key(bytes: &[u8]) -> PrivateKeyDer<'_> {
     let value = rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(bytes))
         .next()
         .unwrap()

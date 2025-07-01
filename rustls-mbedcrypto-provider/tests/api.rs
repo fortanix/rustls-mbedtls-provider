@@ -1384,7 +1384,7 @@ fn client_flush_does_nothing() {
     assert!(matches!(client.writer().flush(), Ok(())));
 }
 
-#[allow(clippy::no_effect)]
+#[allow(clippy::no_effect, clippy::unnecessary_operation)]
 #[test]
 fn server_is_send_and_sync() {
     let (_, server) = make_pair(KeyType::Rsa);
@@ -1392,7 +1392,7 @@ fn server_is_send_and_sync() {
     &server as &dyn Sync;
 }
 
-#[allow(clippy::no_effect)]
+#[allow(clippy::no_effect, clippy::unnecessary_operation)]
 #[test]
 fn client_is_send_and_sync() {
     let (client, _) = make_pair(KeyType::Rsa);
@@ -1575,7 +1575,7 @@ where
     C: DerefMut + Deref<Target = ConnectionCommon<S>>,
     S: SideData,
 {
-    fn new(sess: &mut C) -> OtherSession<C, S> {
+    fn new(sess: &mut C) -> OtherSession<'_, C, S> {
         OtherSession {
             sess,
             reads: 0,
@@ -1588,7 +1588,7 @@ where
         }
     }
 
-    fn new_buffered(sess: &mut C) -> OtherSession<C, S> {
+    fn new_buffered(sess: &mut C) -> OtherSession<'_, C, S> {
         let mut os = OtherSession::new(sess);
         os.buffered = true;
         os
