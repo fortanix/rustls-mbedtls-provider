@@ -234,9 +234,7 @@ struct MbedHkdfHmacExpander {
 impl HkdfExpander for MbedHkdfHmacExpander {
     fn expand_slice(&self, info: &[&[u8]], output: &mut [u8]) -> Result<(), OutputLengthError> {
         let prf = self.prf_res.as_ref().map_err(|_err| {
-            error!(
-                "MbedHkdfExpander::expand_slice got mbedtls error from creation call in Hkdf trait: {_err:?}"
-            );
+            error!("MbedHkdfExpander::expand_slice got mbedtls error from creation call in Hkdf trait: {_err:?}");
             OutputLengthError
         })?;
         let info: Vec<u8> = info
@@ -252,9 +250,7 @@ impl HkdfExpander for MbedHkdfHmacExpander {
 
     fn expand_block(&self, info: &[&[u8]]) -> OkmBlock {
         if let Err(_err) = self.prf_res.as_ref() {
-            error!(
-                "MbedHkdfExpander::expand_block got mbedtls error from creation call in Hkdf trait: {_err:?}"
-            );
+            error!("MbedHkdfExpander::expand_block got mbedtls error from creation call in Hkdf trait: {_err:?}");
             return OkmBlock::new(&[]);
         }
         let prf = self
