@@ -12,7 +12,7 @@ resolver = "2"
 
 [dependencies]
 chrono = "0.4"
-mbedtls = { version = "0.13.2", default-features = false, features = [
+mbedtls = { version = "0.13.3", default-features = false, features = [
   "chrono",
   "std",
   "x509",
@@ -22,7 +22,7 @@ utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-p
 x509-parser = "0.17"
 
 [dev-dependencies]
-mbedtls = { version = "0.13.2", default-features = false, features = [
+mbedtls = { version = "0.13.3", default-features = false, features = [
   "time",
 ] } # We enable the time feature for tests to make sure it does not mess up cert expiration checking
 rustls = { version = "0.23.5", default-features = false, features = [
