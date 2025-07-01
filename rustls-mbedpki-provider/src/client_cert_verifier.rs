@@ -241,7 +241,7 @@ mod tests {
         let client_cert_verifier = MbedTlsClientCertVerifier::new([&root_ca]).unwrap();
         assert_eq!(
             r#"MbedTlsClientCertVerifier { trusted_cas: "..", root_subjects: [DistinguishedName(301a3118301606035504030c0f706f6e79746f776e20525341204341)], verify_callback: "..", cert_active_check: CertActiveCheck { ignore_expired: false, ignore_not_active_yet: false } }"#,
-            format!("{:?}", client_cert_verifier)
+            format!("{client_cert_verifier:?}")
         );
     }
 
@@ -471,6 +471,6 @@ mod tests {
         )));
         assert!(verifier.verify_callback().is_some());
         let verify_res = verifier.verify_client_cert(&cert_chain[0], &cert_chain[1..], now);
-        assert!(verify_res.is_ok(), "{:?}", verify_res);
+        assert!(verify_res.is_ok(), "{verify_res:?}");
     }
 }

@@ -139,6 +139,6 @@ mod tests {
             ],
         };
 
-        assert_eq!("VerifierWithSupportedVerifySchemes { verifier: \"..\", supported_verify_schemes: [RSA_PKCS1_SHA1, ECDSA_NISTP521_SHA512] }",format!("{:?}", verifier));
+        assert_eq!("VerifierWithSupportedVerifySchemes { verifier: \"..\", supported_verify_schemes: [RSA_PKCS1_SHA1, ECDSA_NISTP521_SHA512] }",format!("{verifier:?}"));
     }
 }
