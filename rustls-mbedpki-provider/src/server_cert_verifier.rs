@@ -244,7 +244,7 @@ mod tests {
         let server_cert_verifier = MbedTlsServerCertVerifier::new([&root_ca]).unwrap();
         assert_eq!(
             "MbedTlsServerCertVerifier { trusted_cas: \"..\", verify_callback: \"..\", cert_active_check: CertActiveCheck { ignore_expired: false, ignore_not_active_yet: false } }",
-            format!("{:?}", server_cert_verifier)
+            format!("{server_cert_verifier:?}")
         );
     }
 
@@ -474,7 +474,7 @@ mod tests {
                 .unwrap(),
         );
         let verify_res = verifier.verify_server_cert(&cert_chain[0], &cert_chain[1..], &server_name, &[], now);
-        println!("verify res: {:?}", verify_res);
+        println!("verify res: {verify_res:?}");
         assert!(matches!(verify_res, Err(rustls::Error::InvalidCertificate(_))));
     }
 
@@ -492,7 +492,7 @@ mod tests {
                 .unwrap(),
         );
         let verify_res = verifier.verify_server_cert(&cert_chain[0], &cert_chain[1..], &server_name, &[], now);
-        println!("verify res: {:?}", verify_res);
+        println!("verify res: {verify_res:?}");
         assert!(matches!(verify_res, Err(rustls::Error::InvalidCertificate(_))));
 
         verifier.set_verify_callback(Some(Arc::new(

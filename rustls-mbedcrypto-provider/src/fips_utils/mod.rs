@@ -39,14 +39,14 @@ pub enum FipsCheckError {
 impl fmt::Display for FipsCheckError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Mbedtls(_) => write!(f, "FipsCheckError::{:?}", self),
-            Self::General(err_str) => write!(f, "FipsCheckError::General({})", err_str),
+            Self::Mbedtls(_) => write!(f, "FipsCheckError::{self:?}"),
+            Self::General(err_str) => write!(f, "FipsCheckError::General({err_str})"),
         }
     }
 }
 
 #[allow(clippy::std_instead_of_core)]
-impl std::error::Error for FipsCheckError {}
+impl core::error::Error for FipsCheckError {}
 
 impl From<FipsCheckError> for rustls::Error {
     fn from(value: FipsCheckError) -> Self {
@@ -275,13 +275,13 @@ mod tests {
     #[test]
     fn test_fips_check_error_display() {
         let error = FipsCheckError::Mbedtls(mbedtls::error::codes::EcpAllocFailed.into());
-        assert_eq!(format!("{}", error), "FipsCheckError::Mbedtls(HighLevel(EcpAllocFailed))");
+        assert_eq!(format!("{error}"), "FipsCheckError::Mbedtls(HighLevel(EcpAllocFailed))");
         let error = FipsCheckError::General(Cow::Borrowed("Some other error"));
-        assert_eq!(format!("{}", error), "FipsCheckError::General(Some other error)");
+        assert_eq!(format!("{error}"), "FipsCheckError::General(Some other error)");
         let error = FipsCheckError::Mbedtls(mbedtls::error::codes::EcpAllocFailed.into());
-        assert_eq!(format!("{:?}", error), "Mbedtls(HighLevel(EcpAllocFailed))");
+        assert_eq!(format!("{error:?}"), "Mbedtls(HighLevel(EcpAllocFailed))");
         let error_other = FipsCheckError::General(Cow::Borrowed("Some other error"));
-        assert_eq!(format!("{:?}", error_other), "General(\"Some other error\")");
+        assert_eq!(format!("{error_other:?}"), "General(\"Some other error\")");
     }
 
     #[test]
@@ -345,14 +345,14 @@ mod tests {
     fn print_vec(name: &str, val: &[u8]) {
         let formatted_strings: Vec<String> = val
             .iter()
-            .map(|byte| format!("0x{:02x}", byte))
+            .map(|byte| format!("0x{byte:02x}"))
             .collect();
 
         // Join the formatted strings with commas
         let formatted_output = formatted_strings.join(",");
 
         // Print the output, enclosed in brackets
-        println!("{}:\n[{}]", name, formatted_output);
+        println!("{name}:\n[{formatted_output}]");
     }
 
     #[test]

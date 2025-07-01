@@ -112,7 +112,7 @@ impl<T: RngCallback + 'static> SupportedKxGroup for EcdhKxGroupWrapper<T> {
 #[inline]
 fn generate_ec_key<F: Random>(group_id: mbedtls::pk::EcGroupId, rng: &mut F) -> Result<PkMbed, Error> {
     PkMbed::generate_ec(rng, group_id)
-        .map_err(|err| Error::General(format!("Got error when generating ec key, mbedtls error: {}", err)))
+        .map_err(|err| Error::General(format!("Got error when generating ec key, mbedtls error: {err}")))
 }
 
 /// Ephemeral ECDH on curve25519 (see RFC7748)
@@ -331,7 +331,7 @@ impl<T: RngCallback> SupportedKxGroup for FfdheKxGroupWrapper<T> {
         let mut x = vec![0; self.dhe_kx_group.priv_key_len];
         rng.random(&mut x)
             .map_err(|_| crypto::GetRandomFailed)?;
-        let x = Mpi::from_binary(&x).map_err(|e| Error::General(format!("failed to make Bignum from random bytes: {}", e)))?;
+        let x = Mpi::from_binary(&x).map_err(|e| Error::General(format!("failed to make Bignum from random bytes: {e}")))?;
         let x_pub = g
             .mod_exp(&x, &p)
             .map_err(mbedtls_err_to_rustls_error)?;
@@ -443,7 +443,7 @@ mod tests {
 
     #[test]
     fn test_kx_group_fmt_debug() {
-        let debug_str = format!("{:?}", X25519_KX_GROUP);
+        let debug_str = format!("{X25519_KX_GROUP:?}");
         assert_eq!(
             debug_str,
             "EcdhKxGroupWrapper { kx_group: EcdhKxGroup { agreement_algorithm: Algorithm { group_id: Curve25519 }, name: X25519 } }",
@@ -452,7 +452,7 @@ mod tests {
 
     #[test]
     fn test_dhe_kx_group_fmt_debug() {
-        let debug_str = format!("{:?}", FFDHE2048_KX_GROUP);
+        let debug_str = format!("{FFDHE2048_KX_GROUP:?}");
         assert!(debug_str.contains("FfdheKxGroup"), "debug_str: {debug_str}");
         assert!(debug_str.contains("FFDHE2048"), "debug_str: {debug_str}");
         assert!(debug_str.contains("FfdheGroup"), "debug_str: {debug_str}");

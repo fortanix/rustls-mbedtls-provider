@@ -207,7 +207,7 @@ impl Display for VerifyErrorWrapper {
 }
 
 #[allow(clippy::std_instead_of_core)]
-impl std::error::Error for VerifyErrorWrapper {}
+impl core::error::Error for VerifyErrorWrapper {}
 
 #[cfg(test)]
 mod tests {
@@ -230,7 +230,7 @@ mod tests {
     fn verify_error_wrapper_display() {
         let verify_error = VerifyError::CERT_EXPIRED; // Replace with actual instantiation of VerifyError
         let wrapper = VerifyErrorWrapper(verify_error);
-        assert_eq!(format!("{}", wrapper), format!("{:?}", verify_error));
+        assert_eq!(format!("{wrapper}"), format!("{:?}", verify_error));
     }
 
     #[test]

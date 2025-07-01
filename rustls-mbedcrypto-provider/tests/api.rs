@@ -130,7 +130,7 @@ fn version_test(
     let client_config = make_client_config_with_versions(KeyType::Rsa, client_versions);
     let server_config = make_server_config_with_versions(KeyType::Rsa, server_versions);
 
-    println!("version {:?} {:?} -> {:?}", client_versions, server_versions, result);
+    println!("version {client_versions:?} {server_versions:?} -> {result:?}");
 
     let (mut client, mut server) = make_pair_for_configs(client_config, server_config);
 
@@ -1384,7 +1384,7 @@ fn client_flush_does_nothing() {
     assert!(matches!(client.writer().flush(), Ok(())));
 }
 
-#[allow(clippy::no_effect)]
+#[allow(clippy::no_effect, clippy::unnecessary_operation)]
 #[test]
 fn server_is_send_and_sync() {
     let (_, server) = make_pair(KeyType::Rsa);
@@ -1392,7 +1392,7 @@ fn server_is_send_and_sync() {
     &server as &dyn Sync;
 }
 
-#[allow(clippy::no_effect)]
+#[allow(clippy::no_effect, clippy::unnecessary_operation)]
 #[test]
 fn client_is_send_and_sync() {
     let (client, _) = make_pair(KeyType::Rsa);
@@ -1575,7 +1575,7 @@ where
     C: DerefMut + Deref<Target = ConnectionCommon<S>>,
     S: SideData,
 {
-    fn new(sess: &mut C) -> OtherSession<C, S> {
+    fn new(sess: &mut C) -> OtherSession<'_, C, S> {
         OtherSession {
             sess,
             reads: 0,
@@ -1588,7 +1588,7 @@ where
         }
     }
 
-    fn new_buffered(sess: &mut C) -> OtherSession<C, S> {
+    fn new_buffered(sess: &mut C) -> OtherSession<'_, C, S> {
         let mut os = OtherSession::new(sess);
         os.buffered = true;
         os
@@ -1690,7 +1690,7 @@ fn client_read_returns_wouldblock_when_no_data() {
 fn new_server_returns_initial_io_state() {
     let (_, mut server) = make_pair(KeyType::Rsa);
     let io_state = server.process_new_packets().unwrap();
-    println!("IoState is Debug {:?}", io_state);
+    println!("IoState is Debug {io_state:?}");
     assert_eq!(io_state.plaintext_bytes_to_read(), 0);
     assert!(!io_state.peer_has_closed());
     assert_eq!(io_state.tls_bytes_to_write(), 0);
@@ -1700,7 +1700,7 @@ fn new_server_returns_initial_io_state() {
 fn new_client_returns_initial_io_state() {
     let (mut client, _) = make_pair(KeyType::Rsa);
     let io_state = client.process_new_packets().unwrap();
-    println!("IoState is Debug {:?}", io_state);
+    println!("IoState is Debug {io_state:?}");
     assert_eq!(io_state.plaintext_bytes_to_read(), 0);
     assert!(!io_state.peer_has_closed());
     assert!(io_state.tls_bytes_to_write() > 200);
@@ -2078,7 +2078,7 @@ fn stream_write_swallows_underlying_io_error_after_plaintext_processed() {
         .unwrap();
     let mut client_stream = Stream::new(&mut client, &mut pipe);
     let rc = client_stream.write(b"world");
-    assert_eq!(format!("{:?}", rc), "Ok(5)");
+    assert_eq!(format!("{rc:?}"), "Ok(5)");
 }
 
 #[test]
@@ -3456,7 +3456,7 @@ fn test_client_attempts_to_use_unsupported_kx_group() {
     do_handshake_until_error(&mut client_1, &mut server).unwrap();
 
     let ops = shared_storage.ops();
-    println!("storage {:#?}", ops);
+    println!("storage {ops:#?}");
     assert_eq!(ops.len(), 9);
     assert!(matches!(ops[3], ClientStorageOp::SetKxHint(_, rustls::NamedGroup::X25519)));
 
@@ -3496,7 +3496,7 @@ fn test_tls13_client_resumption_does_not_reuse_tickets() {
     do_handshake_until_error(&mut client, &mut server).unwrap();
 
     let ops = shared_storage.ops_and_reset();
-    println!("storage {:#?}", ops);
+    println!("storage {ops:#?}");
     assert_eq!(ops.len(), 10);
     assert!(matches!(ops[5], ClientStorageOp::InsertTls13Ticket(_)));
     assert!(matches!(ops[6], ClientStorageOp::InsertTls13Ticket(_)));
@@ -3527,7 +3527,7 @@ fn test_tls13_client_resumption_does_not_reuse_tickets() {
     server.process_new_packets().unwrap();
 
     let ops = shared_storage.ops_and_reset();
-    println!("last {:?}", ops);
+    println!("last {ops:?}");
     assert!(matches!(ops[0], ClientStorageOp::TakeTls13Ticket(_, false)));
 }
 
@@ -3570,7 +3570,7 @@ fn test_client_mtu_reduction() {
         client_config.max_fragment_size = Some(64);
         let mut client = ClientConnection::new(Arc::new(client_config), server_name("localhost")).unwrap();
         let writes = collect_write_lengths(&mut client);
-        println!("writes at mtu=64: {:?}", writes);
+        println!("writes at mtu=64: {writes:?}");
         assert!(writes.iter().all(|x| *x <= 64));
         assert!(writes.len() > 1);
     }
@@ -3672,7 +3672,7 @@ fn handshakes_complete_and_data_flows_with_gratuitious_max_fragment_sizes() {
 
 fn assert_lt(left: usize, right: usize) {
     if left >= right {
-        panic!("expected {} < {}", left, right);
+        panic!("expected {left} < {right}");
     }
 }
 
@@ -3769,7 +3769,7 @@ fn test_server_rejects_clients_without_any_kx_group_overlap() {
 fn test_client_rejects_illegal_tls13_ccs() {
     fn corrupt_ccs(msg: &mut Message) -> Altered {
         if let MessagePayload::ChangeCipherSpec(_) = &mut msg.payload {
-            println!("seen CCS {:?}", msg);
+            println!("seen CCS {msg:?}");
             return Altered::Raw(vec![0x14, 0x03, 0x03, 0x00, 0x02, 0x01, 0x02]);
         }
         Altered::InPlace
@@ -4142,7 +4142,7 @@ fn test_ffdhe_bad_pub_key_is_rejected() {
         let handshake_res = do_handshake_until_error(&mut client, &mut server);
 
         let ErrorFromPeer::Client(client_err) = handshake_res.as_ref().unwrap_err() else {
-            panic!("Unexpected error from server: {:?}", handshake_res)
+            panic!("Unexpected error from server: {handshake_res:?}")
         };
         assert!(dbg!(client_err.to_string()).contains("pub key must be in range (1, p-1)"));
     }

@@ -89,7 +89,7 @@ impl MbedHmacContext {
         match self.ctx.finish(out.as_mut()) {
             Ok(_) => out,
             Err(_err) => {
-                error!("Failed to finish hmac, mbedtls error: {:?}", _err);
+                error!("Failed to finish hmac, mbedtls error: {_err:?}");
                 Tag::with_len(0)
             }
         }
@@ -99,7 +99,7 @@ impl MbedHmacContext {
         match self.ctx.update(data) {
             Ok(_) => {}
             Err(_err) => {
-                error!("Failed to update hmac, mbedtls error: {:?}", _err);
+                error!("Failed to update hmac, mbedtls error: {_err:?}");
             }
         }
     }

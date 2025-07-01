@@ -121,13 +121,13 @@ impl MbedHashContext {
                 match ctx.finish(&mut out) {
                     Ok(_) => out,
                     Err(_err) => {
-                        error!("Failed to finalize hash, mbedtls error: {:?}", _err);
+                        error!("Failed to finalize hash, mbedtls error: {_err:?}");
                         vec![]
                     }
                 }
             }
             Err(_err) => {
-                error!("Failed to get lock, error: {:?}", _err);
+                error!("Failed to get lock, error: {_err:?}");
                 vec![]
             }
         }
@@ -138,11 +138,11 @@ impl MbedHashContext {
             Ok(ctx) => match ctx.update(data) {
                 Ok(_) => {}
                 Err(_err) => {
-                    error!("Failed to update hash, mbedtls error: {:?}", _err);
+                    error!("Failed to update hash, mbedtls error: {_err:?}");
                 }
             },
             Err(_err) => {
-                error!("Failed to get lock, error: {:?}", _err);
+                error!("Failed to get lock, error: {_err:?}");
             }
         }
     }
@@ -153,7 +153,7 @@ pub(crate) fn hash(hash_algo: &'static Algorithm, data: &[u8]) -> Vec<u8> {
     match mbedtls::hash::Md::hash(hash_algo.hash_type, data, &mut out) {
         Ok(_) => out,
         Err(_err) => {
-            error!("Failed to do hash, mbedtls error: {:?}", _err);
+            error!("Failed to do hash, mbedtls error: {_err:?}");
             vec![]
         }
     }

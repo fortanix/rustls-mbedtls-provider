@@ -197,14 +197,14 @@ mod tests {
                 .unwrap()
                 .into();
         let key = MbedTlsPkSigningKeyWrapper::new(&der, crate::rng::rng_new).unwrap();
-        assert_eq!(format!("{:?}", key), "MbedTlsPkSigningKeyWrapper { signing_key: MbedTlsPkSigningKeyWrapper { pk: \"Arc<Mutex<mbedtls::pk::Pk>>\", pk_type: Eckey, signature_algorithm: ECDSA, ec_signature_scheme: Some(ECDSA_NISTP256_SHA256) } }");
+        assert_eq!(format!("{key:?}"), "MbedTlsPkSigningKeyWrapper { signing_key: MbedTlsPkSigningKeyWrapper { pk: \"Arc<Mutex<mbedtls::pk::Pk>>\", pk_type: Eckey, signature_algorithm: ECDSA, ec_signature_scheme: Some(ECDSA_NISTP256_SHA256) } }");
         assert!(key
             .choose_scheme(&[SignatureScheme::RSA_PKCS1_SHA1])
             .is_none());
         let res = key.choose_scheme(&[SignatureScheme::ECDSA_NISTP256_SHA256]);
         assert!(res.is_some());
         assert_eq!(
-            format!("{:?}", res),
+            format!("{res:?}"),
             "Some(MbedTlsSigner(\"Arc<Mutex<mbedtls::pk::Pk>>\", ECDSA_NISTP256_SHA256))",
         );
     }

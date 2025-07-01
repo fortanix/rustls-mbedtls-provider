@@ -52,8 +52,8 @@ where
         times.push(duration_nanos(Instant::now().duration_since(start)));
     }
 
-    println!("{}", name);
-    println!("{:?}", times);
+    println!("{name}");
+    println!("{times:?}");
 }
 
 fn time<F>(mut f: F) -> f64
@@ -105,7 +105,7 @@ where
                     offs += read;
                 }
                 Err(err) => {
-                    panic!("error on transfer {}..{}: {}", offs, sz, err);
+                    panic!("error on transfer {offs}..{sz}: {err}");
                 }
             }
 
@@ -114,7 +114,7 @@ where
                     let sz = match right.reader().read(&mut data_buf) {
                         Ok(sz) => sz,
                         Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
-                        Err(err) => panic!("failed to read data: {}", err),
+                        Err(err) => panic!("failed to read data: {err}"),
                     };
 
                     *left -= sz;
@@ -247,8 +247,8 @@ static ALL_BENCHMARKS: &[BenchmarkParam] = &[
 impl KeyType {
     fn path_for(&self, part: &str) -> String {
         match self {
-            Self::Rsa => format!("test-ca/rsa/{}", part),
-            Self::Ecdsa => format!("test-ca/ecdsa/{}", part),
+            Self::Rsa => format!("test-ca/rsa/{part}"),
+            Self::Ecdsa => format!("test-ca/ecdsa/{part}"),
             // Ed25519 is not supported by *mbedtls*
             // Self::Ed25519 => format!("test-ca/eddsa/{}", part),
         }
@@ -542,7 +542,7 @@ fn lookup_matching_benches(name: &str) -> Vec<&BenchmarkParam> {
         .collect();
 
     if r.is_empty() {
-        panic!("unknown suite {:?}", name);
+        panic!("unknown suite {name:?}");
     }
 
     r
@@ -614,7 +614,7 @@ fn selected_tests(mut args: env::Args) {
         },
 
         _ => {
-            panic!("unsupported mode {:?}", mode);
+            panic!("unsupported mode {mode:?}");
         }
     }
 }
