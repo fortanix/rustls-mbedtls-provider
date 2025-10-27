@@ -14,7 +14,7 @@ resolver = "2"
 [dependencies]
 bit-vec = "0.6.3"
 log = { version = "0.4", optional = true }
-mbedtls = { version = "0.13.3", default-features = false, features = ["std"] }
+mbedtls = { version = "0.13.4", default-features = false, features = ["std"] }
 rustls = { version = "0.23.5", default-features = false, features = ["std"] }
 utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-provider-utils", version = "0.2.1" }
 webpki = { package = "rustls-webpki", version = "0.102.0", default-features = false, features = [
