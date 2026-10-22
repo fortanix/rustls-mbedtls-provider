@@ -774,7 +774,7 @@ dependencies = [
 
 [[package]]
 name = "rustls-mbedcrypto-provider"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "bencher",
  "bit-vec 0.6.3",
