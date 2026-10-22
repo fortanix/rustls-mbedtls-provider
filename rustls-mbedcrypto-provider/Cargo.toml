@@ -17,7 +17,7 @@ log = { version = "0.4", optional = true }
 mbedtls = { version = "0.13.5", default-features = false, features = ["std"] }
 rustls = { version = "0.23.5", default-features = false, features = ["std"] }
 utils = { package = "rustls-mbedtls-provider-utils", path = "../rustls-mbedtls-provider-utils", version = "0.2.1" }
-webpki = { package = "rustls-webpki", version = "0.102.0", default-features = false, features = [
+webpki = { package = "rustls-webpki", version = "0.103.16", default-features = false, features = [
   "alloc",
   "std",
 ] }
