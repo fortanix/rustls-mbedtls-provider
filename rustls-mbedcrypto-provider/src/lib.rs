@@ -186,7 +186,7 @@ pub struct MbedtlsKeyProvider;
 impl KeyProvider for MbedtlsKeyProvider {
     fn load_private_key(
         &self,
-        key_der: webpki::types::PrivateKeyDer<'static>,
+        key_der: rustls::pki_types::PrivateKeyDer<'static>,
     ) -> Result<alloc::sync::Arc<dyn rustls::sign::SigningKey>, rustls::Error> {
         Ok(alloc::sync::Arc::new(sign::MbedTlsPkSigningKeyWrapper::new(
             &key_der,

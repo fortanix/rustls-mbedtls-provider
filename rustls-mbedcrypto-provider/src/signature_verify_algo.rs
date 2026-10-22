@@ -1,9 +1,8 @@
 use super::hash::Algorithm as HashAlgorithm;
 use alloc::vec;
 use mbedtls::pk::{EcGroupId, Pk};
-use rustls::pki_types::{AlgorithmIdentifier, InvalidSignature, SignatureVerificationAlgorithm};
+use rustls::pki_types::{alg_id, AlgorithmIdentifier, InvalidSignature, SignatureVerificationAlgorithm};
 use rustls::SignatureScheme;
-use webpki::alg_id;
 
 /// ECDSA signatures using the P-256 curve and SHA-256.
 pub static ECDSA_P256_SHA256: &Algorithm = &Algorithm {
