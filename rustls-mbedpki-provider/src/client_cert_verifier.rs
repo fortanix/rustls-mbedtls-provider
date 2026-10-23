@@ -263,18 +263,19 @@ mod tests {
         );
     }
 
-    #[test]
-    fn connection_client_cert_verifier() {
-        let client_config = ClientConfig::builder();
+    fn client_config_with_chain(cert_chain: Vec<CertificateDer<'static>>) -> Result<ClientConfig, rustls::Error> {
         let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());
         let mut root_store = RootCertStore::empty();
-        root_store.add(root_ca.clone()).unwrap();
-        let cert_chain = get_chain(include_bytes!("../test-data/rsa/client.fullchain"));
-
-        let client_config = client_config
+        root_store.add(root_ca).unwrap();
+        ClientConfig::builder()
             .with_root_certificates(root_store)
             .with_client_auth_cert(cert_chain, get_key(include_bytes!("../test-data/rsa/client.key")))
-            .unwrap();
+    }
+
+    #[test]
+    fn connection_client_cert_verifier() {
+        let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());
+        let client_config = client_config_with_chain(get_chain(include_bytes!("../test-data/rsa/client.fullchain"))).unwrap();
 
         let client_cert_verifier = MbedTlsClientCertVerifier::new([&root_ca]).unwrap();
 
@@ -286,20 +287,10 @@ mod tests {
         assert!(do_handshake_until_error(&mut client_conn, &mut server_conn).is_ok());
     }
 
-    fn test_connection_client_cert_verifier_with_invalid_certs(invalid_cert_chain: Vec<CertificateDer<'static>>) {
-        let client_config = ClientConfig::builder();
+    fn assert_handshake_rejects_client_chain(invalid_cert_chain: Vec<CertificateDer<'static>>) {
+        let client_config = client_config_with_chain(invalid_cert_chain).unwrap();
         let root_ca = CertificateDer::from(include_bytes!("../test-data/rsa/ca.der").to_vec());
-        let mut root_store = RootCertStore::empty();
-        root_store.add(root_ca.clone()).unwrap();
-
-        let client_config = client_config
-            .with_root_certificates(root_store)
-            .with_client_auth_cert(invalid_cert_chain, get_key(include_bytes!("../test-data/rsa/client.key")))
-            .unwrap();
-
-        let client_cert_verifier = MbedTlsClientCertVerifier::new([&root_ca]).unwrap();
-
-        let server_config = server_config_with_verifier(client_cert_verifier);
+        let server_config = server_config_with_verifier(MbedTlsClientCertVerifier::new([&root_ca]).unwrap());
 
         let mut client_conn = ClientConnection::new(Arc::new(client_config), "localhost".try_into().unwrap()).unwrap();
         let mut server_conn = ServerConnection::new(Arc::new(server_config)).unwrap();
@@ -312,17 +303,19 @@ mod tests {
     fn connection_client_cert_verifier_with_invalid_certs() {
         let cert_chain = get_chain(include_bytes!("../test-data/rsa/client.fullchain"));
 
-        let mut invalid_chain1 = cert_chain.clone();
-        invalid_chain1.remove(1);
+        // Intermediate removed: the chain is offered, then rejected during verification.
+        let mut missing_intermediate = cert_chain.clone();
+        missing_intermediate.remove(1);
+        assert_handshake_rejects_client_chain(missing_intermediate);
 
-        let mut invalid_chain2 = cert_chain.clone();
-        invalid_chain2.remove(0);
-
-        let mut invalid_chain3 = cert_chain.clone();
-        invalid_chain3.swap(0, 1);
-
-        for invalid_chain in [invalid_chain1, invalid_chain2, invalid_chain3] {
-            test_connection_client_cert_verifier_with_invalid_certs(invalid_chain);
+        // End-entity removed or reordered: rustls rejects the chain before the handshake.
+        let mut missing_end_entity = cert_chain.clone();
+        missing_end_entity.remove(0);
+        let mut swapped = cert_chain;
+        swapped.swap(0, 1);
+        for invalid_chain in [missing_end_entity, swapped] {
+            let err = client_config_with_chain(invalid_chain).unwrap_err();
+            assert!(matches!(err, rustls::Error::InconsistentKeys(_)));
         }
     }
 
